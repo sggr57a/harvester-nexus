@@ -2774,3 +2774,553 @@ select option {
     grid-template-columns: 1fr;
   }
 }
+
+/* Web-interface branch: black-glass animated cockpit and active work system */
+body, html, #root {
+  background:
+    radial-gradient(circle at 16% 8%, rgba(51, 247, 255, 0.08), transparent 24rem),
+    radial-gradient(circle at 88% 14%, rgba(117, 255, 106, 0.06), transparent 22rem),
+    linear-gradient(180deg, #000 0%, #02050a 42%, #000 100%) !important;
+}
+
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(51, 247, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(51, 247, 255, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at center, #000, transparent 78%);
+  animation: cockpit-grid-drift 18s linear infinite;
+}
+
+.sidebar,
+.hud-panel,
+.manifest-panel,
+.wizard-shell,
+.machine-wizard,
+.cluster-console,
+.active-work-page {
+  background: rgba(0, 0, 0, 0.52) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+.step-list button {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(51, 247, 255, 0.12);
+  background: rgba(0, 8, 14, 0.34);
+}
+
+.step-list button::before,
+.hud-drawn-menu button::before,
+.active-work-menu button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: linear-gradient(90deg, rgba(51, 247, 255, 0.18), transparent 70%);
+  animation: hud-line-draw 2.8s ease-in-out infinite;
+}
+
+.step-list button.active,
+.hud-drawn-menu button.is-selected,
+.active-work-menu button.is-selected {
+  border-color: rgba(117, 255, 106, 0.7);
+  background: rgba(3, 24, 18, 0.58) !important;
+  box-shadow: 0 0 24px rgba(117, 255, 106, 0.22), inset 0 0 22px rgba(117, 255, 106, 0.08);
+}
+
+.manifest-step-list {
+  opacity: 0.58;
+}
+
+.hud-dashboard {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(51, 247, 255, 0.08), transparent 20rem),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.96), rgba(0, 8, 15, 0.82)) !important;
+}
+
+.hud-drawn-menu {
+  gap: 0.6rem;
+}
+
+.hud-drawn-menu button,
+.active-work-menu button {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+  min-height: 3.4rem;
+  border: 1px solid rgba(51, 247, 255, 0.16);
+  background: rgba(0, 5, 10, 0.42);
+  color: var(--nexus-focus-white);
+  animation: panel-draw-in 780ms ease-out both;
+}
+
+.hud-drawn-menu button span,
+.active-work-menu button span {
+  color: var(--hud-cyan);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+}
+
+.hud-widget-drawer {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding: 0.9rem;
+}
+
+.hud-drawn-widget {
+  position: relative;
+  overflow: hidden;
+  min-height: 148px;
+  padding: 0.75rem;
+  border: 1px solid rgba(51, 247, 255, 0.16);
+  background: rgba(0, 0, 0, 0.38);
+  animation: panel-draw-in 900ms ease-out both;
+}
+
+.hud-drawn-widget::after,
+.active-graph-card::after,
+.security-audit-card::after,
+.active-work-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 0%, rgba(51, 247, 255, 0.16) 48%, transparent 58%);
+  transform: translateX(-120%);
+  animation: hud-scan-sheen 4.5s ease-in-out infinite;
+}
+
+.hud-widget-graph {
+  display: flex;
+  align-items: end;
+  gap: 0.28rem;
+  height: 82px;
+}
+
+.hud-widget-graph span {
+  flex: 1;
+  min-width: 4px;
+  height: var(--sample);
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(180deg, var(--hud-green), var(--hud-cyan));
+  box-shadow: 0 0 16px rgba(51, 247, 255, 0.28);
+  transform-origin: bottom;
+  animation: hud-bar-grow 1.4s ease-out both, hudPulse 3s ease-in-out infinite;
+}
+
+.widget-radial .hud-widget-graph {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+}
+
+.widget-radial .hud-widget-graph span {
+  aspect-ratio: 1;
+  height: auto;
+  border: 1px solid rgba(51, 247, 255, 0.45);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(117, 255, 106, 0.35), transparent 58%);
+  animation: hud-radial-pop 2.8s ease-in-out infinite;
+}
+
+.hud-widget-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.hud-widget-matrix i {
+  height: 1.1rem;
+  border: 1px solid rgba(51, 247, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hud-widget-matrix i.is-lit {
+  background: rgba(117, 255, 106, 0.72);
+  box-shadow: 0 0 18px rgba(117, 255, 106, 0.42);
+  animation: hud-matrix-blink 1.8s steps(2, end) infinite;
+}
+
+.active-work-page {
+  position: relative;
+  overflow: hidden;
+  padding: 1rem;
+  min-height: 780px;
+  border: 1px solid rgba(51, 247, 255, 0.22);
+}
+
+.active-work-bg-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(51, 247, 255, 0.08), transparent 18rem),
+    linear-gradient(90deg, transparent, rgba(51, 247, 255, 0.04), transparent);
+  animation: hud-scan-sheen 7s ease-in-out infinite;
+}
+
+.active-work-title,
+.active-work-menu,
+.active-work-layout {
+  position: relative;
+  z-index: 1;
+}
+
+.active-work-menu {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 1rem 0;
+}
+
+.active-work-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr) minmax(280px, 0.85fr);
+  gap: 1rem;
+}
+
+.active-work-stack,
+.active-resource-grid,
+.security-audit-stack {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.active-work-card,
+.active-graph-card,
+.security-audit-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(51, 247, 255, 0.16);
+  background: rgba(0, 0, 0, 0.38);
+  box-shadow: inset 0 0 28px rgba(51, 247, 255, 0.035);
+  animation: panel-draw-in 700ms ease-out both;
+}
+
+.active-work-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.8rem;
+  padding: 0.9rem;
+}
+
+.active-work-card span,
+.active-graph-head span,
+.security-audit-card span {
+  color: var(--hud-cyan);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.active-work-card strong,
+.active-graph-head strong,
+.security-audit-card strong {
+  color: var(--nexus-focus-white);
+}
+
+.active-work-card small,
+.security-audit-card small,
+.security-audit-card p {
+  color: var(--hud-muted);
+}
+
+.active-work-meter {
+  grid-column: 1 / -1;
+  height: 0.52rem;
+  border: 1px solid rgba(51, 247, 255, 0.18);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.active-work-meter i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--hud-cyan), var(--hud-green));
+  box-shadow: 0 0 20px rgba(117, 255, 106, 0.3);
+  animation: hud-line-draw 2.6s ease-in-out infinite;
+}
+
+.active-resource-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.active-graph-card {
+  min-height: 210px;
+  padding: 0.85rem;
+}
+
+.active-graph-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+}
+
+.active-graph-card svg {
+  width: 100%;
+  height: 138px;
+  overflow: visible;
+}
+
+.active-graph-card polyline {
+  fill: none;
+  stroke: var(--hud-cyan);
+  stroke-width: 2.4;
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  filter: drop-shadow(0 0 8px rgba(51, 247, 255, 0.65));
+  animation: graph-line-draw 2.7s ease-out infinite;
+}
+
+.active-graph-card circle {
+  fill: var(--hud-green);
+  animation: hud-radial-pop 2.2s ease-in-out infinite;
+}
+
+.security-sweep {
+  position: relative;
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(117, 255, 106, 0.24);
+  background: radial-gradient(circle, rgba(117, 255, 106, 0.12), transparent 62%);
+}
+
+.security-sweep span,
+.security-sweep i {
+  position: absolute;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(51, 247, 255, 0.3);
+  animation: security-sweep-rotate 6s linear infinite;
+}
+
+.security-sweep i {
+  width: 48%;
+  border-color: rgba(117, 255, 106, 0.35);
+  animation-direction: reverse;
+}
+
+.security-sweep b {
+  color: var(--hud-green);
+  font-size: 2.8rem;
+  letter-spacing: 0.2em;
+}
+
+.security-audit-card {
+  padding: 0.85rem;
+}
+
+.security-audit-card div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+@media (max-width: 1180px) {
+  .hud-widget-drawer,
+  .active-work-layout,
+  .active-work-menu {
+    grid-template-columns: 1fr;
+  }
+
+  .active-resource-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes cockpit-grid-drift {
+  to { transform: translate3d(44px, 44px, 0); }
+}
+
+@keyframes hud-line-draw {
+  0% { transform: scaleX(0); opacity: 0.35; }
+  45%, 70% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(0.25); opacity: 0.45; }
+}
+
+@keyframes panel-draw-in {
+  0% { clip-path: inset(0 100% 0 0); opacity: 0; transform: translateY(10px); }
+  70% { clip-path: inset(0 0 0 0); opacity: 1; }
+  100% { clip-path: inset(0 0 0 0); opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hud-bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes hud-radial-pop {
+  0%, 100% { transform: scale(0.82); opacity: 0.55; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes hud-matrix-blink {
+  0%, 48% { opacity: 0.52; }
+  49%, 100% { opacity: 1; }
+}
+
+@keyframes graph-line-draw {
+  0% { stroke-dashoffset: 240; opacity: 0.35; }
+  45%, 72% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -90; opacity: 0.55; }
+}
+
+@keyframes security-sweep-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* Second reference pass: blacker background, white strokes, highlighted controls */
+:root {
+  --nexus-white-stroke: rgba(255, 255, 255, 0.82);
+  --nexus-white-soft: rgba(255, 255, 255, 0.58);
+  --nexus-control-glass: rgba(255, 255, 255, 0.035);
+}
+
+button,
+input,
+select,
+textarea,
+.hud-toggle,
+.banner-radio,
+.storage-option,
+.machine-step,
+.active-work-card,
+.active-graph-card,
+.security-audit-card,
+.hud-drawn-widget {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+button,
+select,
+input {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(51, 247, 255, 0.025)),
+    rgba(0, 0, 0, 0.72) !important;
+  color: #fff !important;
+}
+
+button:hover,
+button:focus-visible,
+select:focus,
+input:focus,
+textarea:focus,
+.hud-toggle.is-on,
+.banner-radio.is-active,
+.storage-option.active {
+  outline: none;
+  border-color: rgba(117, 255, 106, 0.82) !important;
+  color: #fff !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    0 0 24px rgba(117, 255, 106, 0.26),
+    inset 0 0 18px rgba(117, 255, 106, 0.08) !important;
+}
+
+select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #fff 50%),
+    linear-gradient(135deg, #fff 50%, transparent 50%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(51, 247, 255, 0.025)) !important;
+  background-position:
+    calc(100% - 20px) calc(50% - 3px),
+    calc(100% - 14px) calc(50% - 3px),
+    0 0 !important;
+  background-size: 6px 6px, 6px 6px, 100% 100% !important;
+  background-repeat: no-repeat !important;
+}
+
+.hud-select-shell,
+.wizard-panel label,
+.machine-wizard-form label {
+  color: var(--nexus-white-soft) !important;
+}
+
+.hud-select-shell span,
+.wizard-panel label,
+.machine-wizard-form label,
+.yaml-header h3,
+.panel-header h2,
+.active-work-title strong,
+.hud-panel-title strong {
+  text-shadow: 0 0 16px rgba(255, 255, 255, 0.18);
+}
+
+.hud-panel,
+.cluster-step-card,
+.wizard-panel,
+.manifest-panel,
+.machine-wizard-form,
+.machine-plan,
+.machine-config-preview,
+.hud-drawn-widget,
+.active-work-card,
+.active-graph-card,
+.security-audit-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 42%),
+    rgba(0, 0, 0, 0.5) !important;
+}
+
+.hud-panel::before,
+.cluster-step-card::before,
+.active-work-card::before,
+.active-graph-card::before,
+.security-audit-card::before,
+.hud-drawn-widget::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  clip-path: polygon(0 0, 22% 0, 22% 1px, 0 1px, 0 100%, 1px 100%, 1px 0);
+}
+
+.hud-toggle i,
+.banner-radio input,
+.checkbox-label input[type='checkbox'] {
+  border: 1px solid var(--nexus-white-stroke) !important;
+  background: rgba(0, 0, 0, 0.72) !important;
+}
+
+.hud-toggle.is-on i,
+.checkbox-label input[type='checkbox']:checked {
+  background: var(--hud-green) !important;
+  box-shadow: 0 0 18px rgba(117, 255, 106, 0.52) !important;
+}
+
+.hud-status-pill,
+.csi-driver-pill,
+.cluster-command-ribbon span,
+.editor-capabilities span,
+.hud-data-ribbon span {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+}
+
+.hud-status-pill::after,
+.csi-driver-pill::after,
+.cluster-command-ribbon span::after,
+.editor-capabilities span::after,
+.hud-data-ribbon span::after {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-top: 0.25rem;
+  background: linear-gradient(90deg, var(--hud-green), transparent);
+  transform-origin: left;
+  animation: hud-line-draw 2.4s ease-in-out infinite;
+}
