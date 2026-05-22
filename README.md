@@ -1,6 +1,3 @@
-# Harvester (Nexus)
-New version of OpenSUSE Harvester HCI platform with updated features and visual elements
-
 # Nexus
 
 A React + TypeScript Harvester UI prototype for generating Kubernetes manifests, provisioning advanced storage backends, and exploring multi-cluster deployment workflows.
