@@ -1,4 +1,4 @@
-# harvester-nexus
+# Harvester (Nexus)
 New version of OpenSUSE Harvester HCI platform with updated features and visual elements
 
 # Nexus
