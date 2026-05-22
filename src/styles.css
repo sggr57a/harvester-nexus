@@ -3127,6 +3127,172 @@ body, html, #root {
   gap: 0.6rem;
 }
 
+.hud-control-surfaces {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.9rem;
+}
+
+.hud-fold-control {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.46);
+  animation: panel-draw-in 720ms ease-out both;
+}
+
+.hud-fold-control summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  color: #fff;
+  cursor: pointer;
+  list-style: none;
+}
+
+.hud-fold-control summary::-webkit-details-marker {
+  display: none;
+}
+
+.hud-fold-control summary span {
+  color: var(--hud-cyan);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.hud-fold-control summary::after {
+  content: '+';
+  color: var(--hud-green);
+  text-shadow: 0 0 12px rgba(117, 255, 106, 0.7);
+}
+
+.hud-fold-control[open] summary::after {
+  content: '-';
+}
+
+.hud-fold-control > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  max-height: 0;
+  padding: 0 0.85rem;
+  opacity: 0;
+  transform: translateY(-8px) scaleY(0.88);
+  transform-origin: top;
+}
+
+.hud-fold-control[open] > div {
+  max-height: 220px;
+  padding-bottom: 0.85rem;
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+  animation: hud-unfold-open 520ms ease-out both;
+}
+
+.hud-fold-control button {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  min-height: 3rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+.hud-fold-control button span {
+  color: var(--hud-cyan);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+}
+
+.hud-fold-control button.is-selected {
+  border-color: rgba(117, 255, 106, 0.78) !important;
+  box-shadow: inset 0 0 18px rgba(117, 255, 106, 0.08), 0 0 18px rgba(117, 255, 106, 0.16);
+}
+
+.resource-monitoring-list {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.42);
+  padding: 0.85rem;
+}
+
+.resource-monitoring-list > div:nth-child(2) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.resource-monitoring-list > div:nth-child(2) span {
+  border: 1px solid rgba(51, 247, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.memory-pressure-card,
+.migration-process-list article {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 221, 102, 0.36);
+  background: rgba(255, 221, 102, 0.055);
+  padding: 0.75rem;
+}
+
+.memory-pressure-card span,
+.migration-process-list span {
+  color: #ffdd66;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.memory-pressure-card strong,
+.migration-process-list strong {
+  color: #fff;
+}
+
+.memory-pressure-card small,
+.migration-process-list small {
+  color: var(--hud-muted);
+}
+
+.migration-process-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.migration-process-list article {
+  border-color: rgba(117, 255, 106, 0.24);
+  background: rgba(117, 255, 106, 0.04);
+}
+
+.migration-process-list i {
+  display: block;
+  height: 0.32rem;
+  background: linear-gradient(90deg, var(--hud-cyan), var(--hud-green));
+  box-shadow: 0 0 16px rgba(117, 255, 106, 0.28);
+  animation: hud-line-draw 2.6s ease-in-out infinite;
+}
+
+.machine-feature-grid {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.8rem;
+}
+
 @media (max-width: 1180px) {
   .hud-widget-drawer,
   .active-work-layout,
@@ -3178,6 +3344,12 @@ body, html, #root {
 
 @keyframes security-sweep-rotate {
   to { transform: rotate(360deg); }
+}
+
+@keyframes hud-unfold-open {
+  0% { clip-path: inset(0 0 100% 0); filter: blur(3px); }
+  70% { clip-path: inset(0 0 0 0); filter: blur(0); }
+  100% { clip-path: inset(0 0 0 0); filter: blur(0); }
 }
 
 /* Second reference pass: blacker background, white strokes, highlighted controls */

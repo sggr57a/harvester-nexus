@@ -84,6 +84,49 @@ export function NexusMachineWizard({ config, plan, onChange }: NexusMachineWizar
               <input value={config.ntpServers.join(', ')} onChange={(event) => onChange({ ...config, ntpServers: updateListValue(event.target.value) })} />
             </label>
           </div>
+          <div className="machine-feature-grid">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={config.liveMigration.enabled}
+                onChange={(event) => onChange({ ...config, liveMigration: { ...config.liveMigration, enabled: event.target.checked } })}
+              />
+              vMotion-style live migration for LXC, Docker, and VMs
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={config.nvmeOverRdma.enabled}
+                onChange={(event) => onChange({ ...config, nvmeOverRdma: { ...config.nvmeOverRdma, enabled: event.target.checked } })}
+              />
+              Built-in NVMe over RDMA storage fabric
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={config.memoryTiering.enabled}
+                onChange={(event) => onChange({ ...config, memoryTiering: { ...config.memoryTiering, enabled: event.target.checked } })}
+              />
+              Install-time memory tiering
+            </label>
+          </div>
+          <div className="grid-3">
+            <label>
+              RDMA fabric NIC
+              <input value={config.nvmeOverRdma.fabricInterface} onChange={(event) => onChange({ ...config, nvmeOverRdma: { ...config.nvmeOverRdma, fabricInterface: event.target.value } })} />
+            </label>
+            <label>
+              Memory tier mode
+              <select value={config.memoryTiering.mode} onChange={(event) => onChange({ ...config, memoryTiering: { ...config.memoryTiering, mode: event.target.value as HarvesterMachineConfig['memoryTiering']['mode'] } })}>
+                <option value="nvme">NVMe tier</option>
+                <option value="phase-change">Phase-change tier</option>
+              </select>
+            </label>
+            <label>
+              Tier device
+              <input value={config.memoryTiering.device} onChange={(event) => onChange({ ...config, memoryTiering: { ...config.memoryTiering, device: event.target.value } })} />
+            </label>
+          </div>
         </div>
 
         <div className="machine-plan">

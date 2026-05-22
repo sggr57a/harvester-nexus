@@ -3,6 +3,26 @@ import YAML from 'yaml';
 export type HarvesterInstallMode = 'create' | 'join' | 'binaries';
 export type HarvesterVipMode = 'static' | 'dhcp';
 
+export interface LiveMigrationConfig {
+  enabled: boolean;
+  processModel: 'vmotion-style';
+  preserveMemoryState: boolean;
+  allowShutdown: boolean;
+}
+
+export interface NvmeOverRdmaConfig {
+  enabled: boolean;
+  fabricInterface: string;
+  storageClass: string;
+}
+
+export interface MemoryTieringConfig {
+  enabled: boolean;
+  mode: 'phase-change' | 'nvme';
+  device: string;
+  ratio: number;
+}
+
 export interface HarvesterMachineConfig {
   installMode: HarvesterInstallMode;
   hostName: string;
@@ -15,13 +35,16 @@ export interface HarvesterMachineConfig {
   clusterToken: string;
   dnsServers: string[];
   ntpServers: string[];
+  liveMigration: LiveMigrationConfig;
+  nvmeOverRdma: NvmeOverRdmaConfig;
+  memoryTiering: MemoryTieringConfig;
   proxyUrl?: string;
   sshKeysUrl?: string;
   customConfigUrl?: string;
 }
 
 export interface MachineWizardStep {
-  id: 'mode' | 'hardware' | 'storage' | 'network' | 'cluster' | 'source' | 'review';
+  id: 'mode' | 'hardware' | 'storage' | 'network' | 'cluster' | 'migration' | 'acceleration' | 'source' | 'review';
   title: string;
   detail: string;
   status: 'ready' | 'required' | 'optional';
@@ -48,6 +71,23 @@ export function buildDefaultMachineConfig(): HarvesterMachineConfig {
     clusterToken: 'nexus-cluster-token',
     dnsServers: ['1.1.1.1'],
     ntpServers: ['0.suse.pool.ntp.org'],
+    liveMigration: {
+      enabled: true,
+      processModel: 'vmotion-style',
+      preserveMemoryState: true,
+      allowShutdown: false,
+    },
+    nvmeOverRdma: {
+      enabled: true,
+      fabricInterface: 'mlx5_0',
+      storageClass: 'nexus-rdma-nvme',
+    },
+    memoryTiering: {
+      enabled: true,
+      mode: 'nvme',
+      device: '/dev/nvme1n1',
+      ratio: 0.25,
+    },
   };
 }
 
@@ -111,6 +151,18 @@ function buildSteps(config: HarvesterMachineConfig, validationIssues: string[]):
       status: config.installMode === 'binaries' || config.clusterToken ? 'ready' : 'required',
     },
     {
+      id: 'migration',
+      title: 'Live migration',
+      detail: config.liveMigration.enabled ? 'vMotion-style memory-preserving workload migration enabled' : 'Live migration disabled',
+      status: config.liveMigration.enabled ? 'ready' : 'optional',
+    },
+    {
+      id: 'acceleration',
+      title: 'Storage acceleration',
+      detail: `${config.nvmeOverRdma.enabled ? 'NVMe/RDMA enabled' : 'NVMe/RDMA optional'} / ${config.memoryTiering.enabled ? `${config.memoryTiering.mode} tiering` : 'tiering optional'}`,
+      status: config.nvmeOverRdma.enabled || config.memoryTiering.enabled ? 'ready' : 'optional',
+    },
+    {
       id: 'source',
       title: 'Harvester source',
       detail: 'Imported platform source is owned in platform/harvester',
@@ -153,6 +205,24 @@ export function buildHarvesterMachineInstallPlan(config: HarvesterMachineConfig)
       product: 'Nexus',
       harvester_source_root: 'platform/harvester',
       ui_profile: 'cyberpunk-hud',
+      live_migration: {
+        enabled: config.liveMigration.enabled,
+        process_model: config.liveMigration.processModel,
+        preserve_memory_state: config.liveMigration.preserveMemoryState,
+        allow_shutdown: config.liveMigration.allowShutdown,
+        workload_types: ['lxc', 'docker', 'virtual-machine'],
+      },
+      nvme_over_rdma: {
+        enabled: config.nvmeOverRdma.enabled,
+        fabric_interface: config.nvmeOverRdma.fabricInterface,
+        storage_class: config.nvmeOverRdma.storageClass,
+      },
+      memory_tiering: {
+        enabled: config.memoryTiering.enabled,
+        mode: config.memoryTiering.mode,
+        device: config.memoryTiering.device,
+        ratio: config.memoryTiering.ratio,
+      },
     },
   };
 
@@ -166,6 +236,8 @@ export function buildHarvesterMachineInstallPlan(config: HarvesterMachineConfig)
       `harvester.install.mode=${config.installMode}`,
       `harvester.install.device=${config.installDisk || '<install-disk>'}`,
       `harvester.install.management_interface=${config.managementInterface || '<management-interface>'}`,
+      `nexus.features.nvme_over_rdma=${config.nvmeOverRdma.enabled}`,
+      config.memoryTiering.enabled ? `nexus.features.memory_tiering=${config.memoryTiering.mode}` : 'nexus.features.memory_tiering=false',
     ],
     validationIssues,
   };

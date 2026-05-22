@@ -27,6 +27,10 @@ describe('harvester machine wizard', () => {
     expect(plan.configYaml).toContain('device: /dev/sda');
     expect(plan.configYaml).toContain('data_disk: /dev/nvme0n1');
     expect(plan.configYaml).toContain('vip: 10.10.40.20');
+    expect(plan.configYaml).toContain('live_migration:');
+    expect(plan.configYaml).toContain('process_model: vmotion-style');
+    expect(plan.configYaml).toContain('nvme_over_rdma:');
+    expect(plan.configYaml).toContain('memory_tiering:');
     expect(plan.bootParameters).toContain('harvester.install.automatic=true');
     expect(plan.steps.map((step) => step.id)).toEqual([
       'mode',
@@ -34,6 +38,8 @@ describe('harvester machine wizard', () => {
       'storage',
       'network',
       'cluster',
+      'migration',
+      'acceleration',
       'source',
       'review',
     ]);
@@ -75,5 +81,29 @@ describe('harvester machine wizard', () => {
 
     expect(plan.validationIssues).toEqual([]);
     expect(plan.configYaml).toContain('server_url: https://10.10.40.20:443');
+  });
+
+  it('emits install-time NVMe over RDMA and memory tiering features when enabled', () => {
+    const plan = buildHarvesterMachineInstallPlan({
+      ...buildDefaultMachineConfig(),
+      nvmeOverRdma: {
+        enabled: true,
+        fabricInterface: 'mlx5_0',
+        storageClass: 'nexus-rdma-nvme',
+      },
+      memoryTiering: {
+        enabled: true,
+        mode: 'nvme',
+        device: '/dev/nvme1n1',
+        ratio: 0.25,
+      },
+    });
+
+    expect(plan.configYaml).toContain('fabric_interface: mlx5_0');
+    expect(plan.configYaml).toContain('storage_class: nexus-rdma-nvme');
+    expect(plan.configYaml).toContain('mode: nvme');
+    expect(plan.configYaml).toContain('device: /dev/nvme1n1');
+    expect(plan.bootParameters).toContain('nexus.features.nvme_over_rdma=true');
+    expect(plan.bootParameters).toContain('nexus.features.memory_tiering=nvme');
   });
 });

@@ -184,6 +184,13 @@ export interface MultiClusterConfig {
   federationType?: 'kubefed' | 'submariner' | 'cilium';
   serviceDiscovery?: boolean;
   loadBalancing?: 'round-robin' | 'least-connections' | 'ip-hash';
+  liveMigration?: {
+    enabled: boolean;
+    processModel: 'vmotion-style';
+    preserveMemoryState: boolean;
+    allowShutdown: boolean;
+    workloadTypes: ('LXC' | 'Docker' | 'VirtualMachine')[];
+  };
 }
 
 export interface ClusterConfig {
