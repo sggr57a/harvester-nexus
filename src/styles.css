@@ -3324,3 +3324,53 @@ select {
   transform-origin: left;
   animation: hud-line-draw 2.4s ease-in-out infinite;
 }
+
+/* Preserve the ELEVATE login page from dashboard-wide control styling. */
+.login-screen {
+  background: #000 !important;
+}
+
+.login-screen .elevate-field input {
+  width: 100%;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(239, 253, 255, 0.34) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  color: #fff !important;
+  padding: 0.85rem 0.2rem !important;
+  text-align: center;
+  font-size: 0.9rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  box-shadow: none !important;
+}
+
+.login-screen .elevate-field input::placeholder {
+  color: rgba(239, 253, 255, 0.38);
+}
+
+.login-screen .elevate-field input:focus {
+  border-bottom-color: rgba(51, 247, 255, 0.95) !important;
+  box-shadow: 0 12px 32px -24px rgba(51, 247, 255, 0.8) !important;
+}
+
+.login-screen .login-btn {
+  width: 100% !important;
+  border: 1px solid rgba(51, 247, 255, 0.32) !important;
+  border-radius: 0 !important;
+  background: rgba(0, 0, 0, 0.78) !important;
+  background-image: none !important;
+  color: #fff !important;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  box-shadow: 0 0 24px rgba(51, 247, 255, 0.08) !important;
+}
+
+.login-screen .login-btn:hover,
+.login-screen .login-btn:focus-visible {
+  border-color: rgba(117, 255, 106, 0.85) !important;
+  background: rgba(117, 255, 106, 0.08) !important;
+  background-image: none !important;
+  transform: none !important;
+}
