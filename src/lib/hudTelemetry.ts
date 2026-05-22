@@ -40,6 +40,20 @@ export interface HudScanPanel {
   bars: number[];
 }
 
+export interface HudNavigationTab {
+  id: 'dashboard' | 'active-work' | 'security' | 'storage';
+  label: string;
+  signal: string;
+  active: boolean;
+}
+
+export interface HudGraphWidget {
+  label: string;
+  renderMode: 'line' | 'bars' | 'radial' | 'matrix';
+  drawDelayMs: number;
+  samples: number[];
+}
+
 export interface HudTelemetry {
   metrics: HudMetric[];
   storageRings: HudRing[];
@@ -48,6 +62,8 @@ export interface HudTelemetry {
   lineSeries: number[];
   toggles: HudToggle[];
   menuModes: string[];
+  navigationTabs: HudNavigationTab[];
+  graphWidgets: HudGraphWidget[];
   statusRails: HudStatusRail[];
   radioGroups: HudRadioGroup[];
   scanPanels: HudScanPanel[];
@@ -85,6 +101,18 @@ export function buildHudTelemetry(): HudTelemetry {
       { label: 'Audit lock', enabled: true },
     ],
     menuModes: ['Overview', 'Validate', 'Deploy', 'Observe'],
+    navigationTabs: [
+      { id: 'dashboard', label: 'Command', signal: 'TX_001', active: true },
+      { id: 'active-work', label: 'Active Work', signal: 'OPS_284', active: false },
+      { id: 'security', label: 'Security', signal: 'PVE_SCAN', active: false },
+      { id: 'storage', label: 'Storage', signal: 'CSI_IO', active: false },
+    ],
+    graphWidgets: [
+      { label: 'CPU trace', renderMode: 'line', drawDelayMs: 0, samples: [18, 24, 28, 46, 39, 62, 55, 71, 64, 82, 76, 88] },
+      { label: 'Storage lanes', renderMode: 'bars', drawDelayMs: 140, samples: [32, 64, 45, 78, 52, 88, 61, 72, 91, 68, 84, 58] },
+      { label: 'Security sweep', renderMode: 'radial', drawDelayMs: 280, samples: [86, 72, 94, 61, 79, 88, 68, 97] },
+      { label: 'Menu matrix', renderMode: 'matrix', drawDelayMs: 420, samples: [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1] },
+    ],
     statusRails: [
       { label: 'RAD_CP', value: 82 },
       { label: 'API_TX', value: 74 },

@@ -11,6 +11,9 @@ describe('buildHudTelemetry', () => {
     expect(telemetry.lineSeries).toHaveLength(12);
     expect(telemetry.toggles.filter((toggle) => toggle.enabled).map((toggle) => toggle.label)).toContain('vCluster');
     expect(telemetry.menuModes).toEqual(['Overview', 'Validate', 'Deploy', 'Observe']);
+    expect(telemetry.navigationTabs.map((tab) => tab.id)).toEqual(['dashboard', 'active-work', 'security', 'storage']);
+    expect(telemetry.graphWidgets.every((widget) => widget.drawDelayMs >= 0)).toBe(true);
+    expect(telemetry.graphWidgets.some((widget) => widget.renderMode === 'radial')).toBe(true);
     expect(telemetry.statusRails).toHaveLength(6);
     expect(telemetry.radioGroups.flatMap((group) => group.options)).toHaveLength(12);
     expect(telemetry.scanPanels.map((panel) => panel.label)).toEqual(['Volume scan', 'Mesh scan']);

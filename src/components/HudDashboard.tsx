@@ -38,10 +38,11 @@ export function HudDashboard() {
       </div>
 
       <div className="hud-reference-controls hud-panel">
-        <nav className="hud-segment-menu" aria-label="HUD dashboard menu modes">
-          {telemetry.menuModes.map((mode, index) => (
-            <button className={index === 0 ? 'is-selected' : ''} key={mode} type="button">
-              {mode}
+        <nav className="hud-segment-menu hud-drawn-menu" aria-label="HUD dashboard menu modes">
+          {telemetry.navigationTabs.map((tab, index) => (
+            <button className={tab.active ? 'is-selected' : ''} key={tab.id} type="button" style={{ animationDelay: `${index * 120}ms` }}>
+              <span>{tab.signal}</span>
+              {tab.label}
             </button>
           ))}
         </nav>
@@ -53,6 +54,30 @@ export function HudDashboard() {
             <option value="control-plane">control-plane</option>
           </select>
         </label>
+      </div>
+
+      <div className="hud-widget-drawer hud-panel">
+        {telemetry.graphWidgets.map((widget, index) => (
+          <article className={`hud-drawn-widget widget-${widget.renderMode}`} key={widget.label} style={{ animationDelay: `${widget.drawDelayMs}ms` }}>
+            <div className="hud-panel-title">
+              <span>{widget.renderMode}</span>
+              <strong>{widget.label}</strong>
+            </div>
+            {widget.renderMode === 'matrix' ? (
+              <div className="hud-widget-matrix">
+                {widget.samples.map((sample, sampleIndex) => (
+                  <i className={sample ? 'is-lit' : ''} key={`${widget.label}-${sampleIndex}`} />
+                ))}
+              </div>
+            ) : (
+              <div className="hud-widget-graph">
+                {widget.samples.map((sample, sampleIndex) => (
+                  <span key={`${widget.label}-${sampleIndex}`} style={{ '--sample': `${sample}%`, animationDelay: `${(index + sampleIndex) * 45}ms` } as CSSProperties} />
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
       </div>
 
       <div className="banner-lab-strip hud-panel">

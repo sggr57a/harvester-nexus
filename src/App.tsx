@@ -5,6 +5,7 @@ import { buildApplyTestRun, buildCsiTemplatePreview, buildLivePreview, buildNexu
 import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
 import { isDemoLogin } from './lib/auth';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
+import { ActiveWorkPage } from './components/ActiveWorkPage';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
@@ -33,6 +34,7 @@ function App() {
   const [config, setConfig] = useState<ApplicationConfig>(defaultConfig);
   const [machineConfig, setMachineConfig] = useState(buildDefaultMachineConfig);
   const [step, setStep] = useState(1);
+  const [cockpitView, setCockpitView] = useState<'dashboard' | 'active-work' | 'cluster' | 'machine' | 'wizard'>('dashboard');
   const [editedYaml, setEditedYaml] = useState('');
 
   const manifest = useMemo(() => generateManifest(config), [config]);
@@ -78,6 +80,23 @@ function App() {
           </div>
         </div>
         <div className="step-list">
+          <button className={cockpitView === 'dashboard' ? 'active' : ''} onClick={() => setCockpitView('dashboard')}>
+            HUD Dashboard
+          </button>
+          <button className={cockpitView === 'active-work' ? 'active' : ''} onClick={() => setCockpitView('active-work')}>
+            Active Work
+          </button>
+          <button className={cockpitView === 'cluster' ? 'active' : ''} onClick={() => setCockpitView('cluster')}>
+            Cluster Console
+          </button>
+          <button className={cockpitView === 'machine' ? 'active' : ''} onClick={() => setCockpitView('machine')}>
+            Machine Wizard
+          </button>
+          <button className={cockpitView === 'wizard' ? 'active' : ''} onClick={() => setCockpitView('wizard')}>
+            Manifest Wizard
+          </button>
+        </div>
+        <div className="step-list manifest-step-list">
           <button className={step === 1 ? 'active' : ''} onClick={() => setStep(1)}>
             1. Workload
           </button>
@@ -106,18 +125,21 @@ function App() {
         </div>
       </aside>
       <main className="main-view">
-        <HudDashboard />
-        <ClusterIntegrationPanel
-          validation={validation}
-          livePreview={livePreview}
-          applyRun={applyRun}
-          vclusterPlan={vclusterPlan}
-          csiPreview={csiPreview}
-          operationBundle={operationBundle}
-          config={config}
-        />
-        <NexusMachineWizard config={machineConfig} plan={machinePlan} onChange={setMachineConfig} />
-        <Wizard currentStep={step} config={config} onChange={setConfig} onNext={() => setStep(Math.min(step + 1, 7))} onBack={() => setStep(Math.max(step - 1, 1))} />
+        {cockpitView === 'dashboard' && <HudDashboard />}
+        {cockpitView === 'active-work' && <ActiveWorkPage />}
+        {cockpitView === 'cluster' && (
+          <ClusterIntegrationPanel
+            validation={validation}
+            livePreview={livePreview}
+            applyRun={applyRun}
+            vclusterPlan={vclusterPlan}
+            csiPreview={csiPreview}
+            operationBundle={operationBundle}
+            config={config}
+          />
+        )}
+        {cockpitView === 'machine' && <NexusMachineWizard config={machineConfig} plan={machinePlan} onChange={setMachineConfig} />}
+        {cockpitView === 'wizard' && <Wizard currentStep={step} config={config} onChange={setConfig} onNext={() => setStep(Math.min(step + 1, 7))} onBack={() => setStep(Math.max(step - 1, 1))} />}
         <section className="manifest-panel">
           <div className="panel-header">
             <h2>Generated manifest</h2>
