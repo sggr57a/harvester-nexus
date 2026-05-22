@@ -69,7 +69,14 @@ export interface NexusClusterOperationBundle {
   applyRun: ApplyTestRun;
   kubectlCommands: string[];
   vclusterCommands: string[];
+  storageOperations: string[];
   csiSourceFiles: string[];
+  liveMigrationPlan?: {
+    processModel: 'vmotion-style';
+    preserveMemoryState: boolean;
+    requiresShutdown: boolean;
+    workloadTypes: ('LXC' | 'Docker' | 'VirtualMachine')[];
+  };
 }
 
 const SUPPORTED_KINDS = new Set([
@@ -296,6 +303,18 @@ function driverName(storageType: StorageConfig['storageType']): string {
 export function buildCsiTemplatePreview(storage: StorageConfig): CsiTemplatePreview {
   const provisioner = driverName(storage.storageType);
   const storageClassName = storage.storageClass || `${storage.storageType}-csi`;
+  const storageParameters: Record<string, string> = {
+    backend: storage.storageType,
+    fsType: storage.openebsFSType || storage.portworxFs || 'ext4',
+  };
+
+  if (storage.storageType === 'nvme') {
+    storageParameters.transport = storage.nvmeTransport || 'tcp';
+    if (storage.nvmeTargetIP) {
+      storageParameters.targetIP = storage.nvmeTargetIP;
+    }
+  }
+
   const storageClassYaml = YAML.stringify({
     apiVersion: 'storage.k8s.io/v1',
     kind: 'StorageClass',
@@ -304,10 +323,7 @@ export function buildCsiTemplatePreview(storage: StorageConfig): CsiTemplatePrev
     reclaimPolicy: 'Retain',
     allowVolumeExpansion: true,
     volumeBindingMode: 'WaitForFirstConsumer',
-    parameters: {
-      backend: storage.storageType,
-      fsType: storage.openebsFSType || storage.portworxFs || 'ext4',
-    },
+    parameters: storageParameters,
   });
   const snapshotClassYaml = YAML.stringify({
     apiVersion: 'snapshot.storage.k8s.io/v1',
@@ -351,6 +367,15 @@ export function buildNexusClusterOperationBundle(manifest: string, config: Appli
   const namespace = config.namespace || 'default';
   const workloadResource = config.workloadType.toLowerCase();
   const completionCommand = buildWorkloadCompletionCommand(config, namespace);
+  const storageOperations = buildStorageOperations(config.storage);
+  const liveMigrationPlan = config.multiCluster.liveMigration?.enabled
+    ? {
+        processModel: config.multiCluster.liveMigration.processModel,
+        preserveMemoryState: config.multiCluster.liveMigration.preserveMemoryState,
+        requiresShutdown: config.multiCluster.liveMigration.allowShutdown,
+        workloadTypes: config.multiCluster.liveMigration.workloadTypes,
+      }
+    : undefined;
 
   return {
     mode: 'live-adapter',
@@ -372,10 +397,27 @@ export function buildNexusClusterOperationBundle(manifest: string, config: Appli
       completionCommand,
     ],
     vclusterCommands: vclusterPlan.commands,
+    storageOperations,
     csiSourceFiles: [
       'platform/harvester/deploy/charts/harvester/templates/harvester-storageclass.yaml',
       'platform/harvester/deploy/charts/harvester/templates/longhorn-volumesnapshotclass.yaml',
       'platform/harvester/deploy/charts/harvester/dependency_charts/csi-snapshotter/templates/snapshotclass.yaml',
     ],
+    liveMigrationPlan,
   };
+}
+
+function buildStorageOperations(storage: StorageConfig): string[] {
+  if (storage.storageType !== 'nvme') {
+    return [`kubectl get storageclass ${storage.storageClass || `${storage.storageType}-csi`} -o yaml`];
+  }
+
+  const transport = storage.nvmeTransport || 'tcp';
+  const targetAddress = storage.nvmeTargetIP || '<nvme-target-ip>';
+
+  return [
+    `nvme discover --transport=${transport} --traddr=${targetAddress} --trsvcid=${storage.nvmeTargetPort || 4420}`,
+    `nvme connect-all --transport=${transport} --traddr=${targetAddress}`,
+    `kubectl annotate storageclass ${storage.storageClass || 'nvme-csi'} nexus.io/nvme-transport=${transport} --overwrite`,
+  ];
 }

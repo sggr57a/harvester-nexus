@@ -1,21 +1,21 @@
-import { buildActiveOperations } from '../lib/activeOperations';
+import { buildResourceMonitoring } from '../lib/activeOperations';
 
-const operations = buildActiveOperations();
+const operations = buildResourceMonitoring();
 
 function points(samples: number[]): string {
   return samples.map((value, index) => `${(index / (samples.length - 1)) * 100},${100 - value}`).join(' ');
 }
 
-export function ActiveWorkPage() {
+export function ResourceMonitoringPage() {
   return (
-    <section className="active-work-page hud-panel" aria-label="Active work and live security audit cockpit">
+    <section className="active-work-page hud-panel" aria-label="Resource monitoring and live security audit cockpit">
       <div className="active-work-bg-grid" />
       <div className="hud-panel-title active-work-title">
-        <span>Active work // live systems</span>
+        <span>{operations.pageTitle} // important active systems</span>
         <strong>{operations.summary.activeWorkCount} operations / risk {operations.summary.highestSecurityScore}</strong>
       </div>
 
-      <nav className="active-work-menu" aria-label="Active work cockpit menu">
+      <nav className="active-work-menu" aria-label="Resource monitoring cockpit menu">
         {operations.menuItems.map((item, index) => (
           <button className={index === 0 ? 'is-selected' : ''} key={item.id} type="button" style={{ animationDelay: `${index * 110}ms` }}>
             <span>{item.signal}</span>
@@ -56,6 +56,35 @@ export function ActiveWorkPage() {
               </svg>
             </article>
           ))}
+        </div>
+
+        <div className="resource-monitoring-list">
+          <div className="hud-panel-title">
+            <span>Always monitored</span>
+            <strong>{operations.monitoredResourceClasses.length} classes</strong>
+          </div>
+          <div>
+            {operations.monitoredResourceClasses.map((resourceClass) => (
+              <span key={resourceClass}>{resourceClass}</span>
+            ))}
+          </div>
+          {operations.memoryPressure.visible && (
+            <article className={`memory-pressure-card ${operations.memoryPressure.severity}`}>
+              <span>Memory pressure</span>
+              <strong>{operations.memoryPressure.node} / {operations.memoryPressure.pressurePercent}%</strong>
+              <small>Shown only because pressure crossed the issue threshold.</small>
+            </article>
+          )}
+          <div className="migration-process-list">
+            {operations.migrationProcesses.map((migration) => (
+              <article key={migration.id}>
+                <span>{migration.workloadType}</span>
+                <strong>{migration.sourceNode} {'->'} {migration.targetNode}</strong>
+                <small>{migration.processModel}; memory state preserved; no shutdown required</small>
+                <i style={{ width: `${migration.progress}%` }} />
+              </article>
+            ))}
+          </div>
         </div>
 
         <aside className="security-audit-stack">

@@ -80,6 +80,25 @@ export function HudDashboard() {
         ))}
       </div>
 
+      <div className="hud-control-surfaces hud-panel" aria-label="Animated expandable dashboard controls">
+        {telemetry.controlSurfaces.map((surface, index) => (
+          <details className={`hud-fold-control fold-${surface.animation}`} key={surface.label} open={index < 2}>
+            <summary>
+              <span>{surface.animation}</span>
+              <strong>{surface.label}</strong>
+            </summary>
+            <div>
+              {surface.options.map((option, optionIndex) => (
+                <button className={option.active ? 'is-selected' : ''} key={option.label} type="button" style={{ animationDelay: `${(index + optionIndex) * 80}ms` }}>
+                  <span>{option.signal}</span>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+
       <div className="banner-lab-strip hud-panel">
         <div className="banner-status-rails">
           {telemetry.statusRails.map((rail) => (

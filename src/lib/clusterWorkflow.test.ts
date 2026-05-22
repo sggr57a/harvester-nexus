@@ -132,4 +132,34 @@ spec: {}
     expect(cronJobBundle.kubectlCommands).toContain('kubectl get cronjob/nightly-demo -n default -o yaml');
     expect(cronJobBundle.kubectlCommands.some((command) => command.includes('rollout status cronjob'))).toBe(false);
   });
+
+  it('includes NVMe over RDMA and live migration operations in the cluster bundle', () => {
+    const bundle = buildNexusClusterOperationBundle(manifest, {
+      ...defaultConfig,
+      storage: {
+        ...defaultConfig.storage,
+        storageType: 'nvme',
+        storageClass: 'nexus-rdma-nvme',
+        nvmeTransport: 'rdma',
+        nvmeTargetIP: '10.30.0.20',
+      },
+      multiCluster: {
+        ...defaultConfig.multiCluster,
+        enableMultiCluster: true,
+        liveMigration: {
+          enabled: true,
+          processModel: 'vmotion-style',
+          preserveMemoryState: true,
+          allowShutdown: false,
+          workloadTypes: ['LXC', 'Docker', 'VirtualMachine'],
+        },
+      },
+    });
+
+    expect(bundle.storageOperations).toContain('nvme connect-all --transport=rdma --traddr=10.30.0.20');
+    expect(bundle.liveMigrationPlan?.processModel).toBe('vmotion-style');
+    expect(bundle.liveMigrationPlan?.preserveMemoryState).toBe(true);
+    expect(bundle.liveMigrationPlan?.requiresShutdown).toBe(false);
+    expect(bundle.liveMigrationPlan?.workloadTypes).toEqual(['LXC', 'Docker', 'VirtualMachine']);
+  });
 });

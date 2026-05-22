@@ -54,6 +54,12 @@ export interface HudGraphWidget {
   samples: number[];
 }
 
+export interface HudControlSurface {
+  label: string;
+  animation: 'unfold' | 'expand' | 'collapse';
+  options: { label: string; active: boolean; signal: string }[];
+}
+
 export interface HudTelemetry {
   metrics: HudMetric[];
   storageRings: HudRing[];
@@ -64,6 +70,7 @@ export interface HudTelemetry {
   menuModes: string[];
   navigationTabs: HudNavigationTab[];
   graphWidgets: HudGraphWidget[];
+  controlSurfaces: HudControlSurface[];
   statusRails: HudStatusRail[];
   radioGroups: HudRadioGroup[];
   scanPanels: HudScanPanel[];
@@ -78,6 +85,10 @@ export function buildHudTelemetry(): HudTelemetry {
       { label: 'Workload sync', value: 87, unit: '%', trend: '+12 ops/min', status: 'active' },
       { label: 'Manifest validity', value: 94, unit: '%', trend: 'schema clean', status: 'stable' },
       { label: 'Network mesh', value: 76, unit: '%', trend: '3 routes hot', status: 'surging' },
+      { label: 'Pod activity', value: 91, unit: '%', trend: '38 pods', status: 'active' },
+      { label: 'Ceph usage', value: 63, unit: '%', trend: 'rbd hot', status: 'active' },
+      { label: 'RAM pressure', value: 81, unit: '%', trend: 'watch edge-a', status: 'surging' },
+      { label: 'Live migration', value: 57, unit: '%', trend: '3 streams', status: 'active' },
     ],
     storageRings: [
       { label: 'Ceph', value: 82 },
@@ -112,6 +123,38 @@ export function buildHudTelemetry(): HudTelemetry {
       { label: 'Storage lanes', renderMode: 'bars', drawDelayMs: 140, samples: [32, 64, 45, 78, 52, 88, 61, 72, 91, 68, 84, 58] },
       { label: 'Security sweep', renderMode: 'radial', drawDelayMs: 280, samples: [86, 72, 94, 61, 79, 88, 68, 97] },
       { label: 'Menu matrix', renderMode: 'matrix', drawDelayMs: 420, samples: [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1] },
+    ],
+    controlSurfaces: [
+      {
+        label: 'Resource scope',
+        animation: 'unfold',
+        options: [
+          { label: 'Pods', active: true, signal: 'POD' },
+          { label: 'Containers', active: true, signal: 'CTR' },
+          { label: 'VMs', active: true, signal: 'VM' },
+          { label: 'LXC', active: true, signal: 'LXC' },
+        ],
+      },
+      {
+        label: 'Storage fabric',
+        animation: 'expand',
+        options: [
+          { label: 'Ceph', active: true, signal: 'CEPH' },
+          { label: 'Longhorn', active: true, signal: 'LH' },
+          { label: 'NFS/SMB', active: true, signal: 'SHR' },
+          { label: 'NVMe RDMA', active: true, signal: 'RDMA' },
+        ],
+      },
+      {
+        label: 'Compute watch',
+        animation: 'collapse',
+        options: [
+          { label: 'CPU', active: true, signal: 'CPU' },
+          { label: 'RAM', active: true, signal: 'RAM' },
+          { label: 'Swap', active: true, signal: 'SWP' },
+          { label: 'Pressure', active: false, signal: 'PRS' },
+        ],
+      },
     ],
     statusRails: [
       { label: 'RAD_CP', value: 82 },

@@ -5,7 +5,7 @@ import { buildApplyTestRun, buildCsiTemplatePreview, buildLivePreview, buildNexu
 import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
 import { isDemoLogin } from './lib/auth';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
-import { ActiveWorkPage } from './components/ActiveWorkPage';
+import { ResourceMonitoringPage } from './components/ActiveWorkPage';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
@@ -34,7 +34,7 @@ function App() {
   const [config, setConfig] = useState<ApplicationConfig>(defaultConfig);
   const [machineConfig, setMachineConfig] = useState(buildDefaultMachineConfig);
   const [step, setStep] = useState(1);
-  const [cockpitView, setCockpitView] = useState<'dashboard' | 'active-work' | 'cluster' | 'machine' | 'wizard'>('dashboard');
+  const [cockpitView, setCockpitView] = useState<'dashboard' | 'resource-monitoring' | 'cluster' | 'machine' | 'wizard'>('dashboard');
   const [editedYaml, setEditedYaml] = useState('');
 
   const manifest = useMemo(() => generateManifest(config), [config]);
@@ -83,8 +83,8 @@ function App() {
           <button className={cockpitView === 'dashboard' ? 'active' : ''} onClick={() => setCockpitView('dashboard')}>
             HUD Dashboard
           </button>
-          <button className={cockpitView === 'active-work' ? 'active' : ''} onClick={() => setCockpitView('active-work')}>
-            Active Work
+          <button className={cockpitView === 'resource-monitoring' ? 'active' : ''} onClick={() => setCockpitView('resource-monitoring')}>
+            Resource Monitoring
           </button>
           <button className={cockpitView === 'cluster' ? 'active' : ''} onClick={() => setCockpitView('cluster')}>
             Cluster Console
@@ -126,7 +126,7 @@ function App() {
       </aside>
       <main className="main-view">
         {cockpitView === 'dashboard' && <HudDashboard />}
-        {cockpitView === 'active-work' && <ActiveWorkPage />}
+        {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (
           <ClusterIntegrationPanel
             validation={validation}
