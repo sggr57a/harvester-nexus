@@ -6,7 +6,7 @@ By unifying the bare-metal agility of **Proxmox** and **Incus (LXC)** with the m
 
 ---
 
-## Key Architectural Pillars
+## New Features
 
 ### 1. Unified Poly-Compute Engine
 Run heterogeneous compute topologies on a single bare-metal node loop without performance penances:
