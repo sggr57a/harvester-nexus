@@ -2,7 +2,7 @@
 
 A Nexus-branded Harvester-derived system with imported Harvester platform source, a React + TypeScript cyberpunk/HUD interface, wizard-driven machine provisioning, Kubernetes manifest generation, storage backend provisioning, and multi-cluster deployment workflows.
 
-## Nexus release overview
+## Overview
 
 Nexus is the updated Harvester fork with:
 
