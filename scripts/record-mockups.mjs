@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { mkdir, rename, readdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -12,7 +12,22 @@ const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const VIEWPORT = { width: 1440, height: 900 };
 const VIDEO_SIZE = { width: 1440, height: 900 };
 
-async function pause(ms) {
+const THEMES = [
+  { id: 'route-grid', name: 'Route Grid' },
+  { id: 'emerald-console', name: 'Emerald Console' },
+  { id: 'solar-flare', name: 'Solar Flare' },
+];
+
+const DASHBOARDS = [
+  { label: 'HUD Dashboard', dwellMs: 1300, scroll: 0 },
+  { label: 'Networking', dwellMs: 2400, scroll: 600 },
+  { label: 'Storage', dwellMs: 2400, scroll: 700 },
+  { label: 'Machines & Containers', dwellMs: 2400, scroll: 600 },
+  { label: 'Processor & Memory', dwellMs: 2200, scroll: 500 },
+  { label: 'Operations & Compliance', dwellMs: 2600, scroll: 800 },
+];
+
+function pause(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -45,28 +60,62 @@ async function finalize(name, ctx) {
 }
 
 async function loginAndLaunch(page) {
-  await page.getByPlaceholder('USER').fill('admin', { delay: 90 });
-  await pause(400);
-  await page.getByPlaceholder('PASSWORD').fill('demo', { delay: 90 });
-  await pause(400);
+  await page.getByPlaceholder('USER').fill('admin', { delay: 70 });
+  await pause(300);
+  await page.getByPlaceholder('PASSWORD').fill('demo', { delay: 70 });
+  await pause(300);
   await page.getByRole('button', { name: /enter|elevating/i }).click();
   await page.waitForSelector('.app-shell', { timeout: 15000 });
   await pause(900);
+}
+
+async function selectTheme(page, themeId) {
+  const theme = page.locator('.theme-picker .theme-option', { hasText: themeId === 'route-grid' ? 'Route Grid' : themeId === 'emerald-console' ? 'Emerald Console' : 'Solar Flare' });
+  await theme.click();
+  await pause(700);
+}
+
+async function tourDashboards(page) {
+  for (const dash of DASHBOARDS) {
+    await page.getByRole('button', { name: dash.label, exact: true }).click();
+    await pause(900);
+    if (dash.scroll > 0) {
+      await page.mouse.wheel(0, dash.scroll);
+      await pause(dash.dwellMs);
+      await page.mouse.wheel(0, -dash.scroll);
+      await pause(700);
+    } else {
+      await pause(dash.dwellMs);
+    }
+  }
+}
+
+async function recordThemeTour(themeId) {
+  const name = `theme-${themeId}`;
+  const ctx = await newSession(name);
+  try {
+    await pause(900);
+    await loginAndLaunch(ctx.page);
+    await selectTheme(ctx.page, themeId);
+    await tourDashboards(ctx.page);
+  } finally {
+    await finalize(name, ctx);
+  }
 }
 
 async function recordLoginDashboardMenu() {
   const name = '01-login-dashboard-menu';
   const ctx = await newSession(name);
   try {
-    await pause(1200);
+    await pause(1100);
     await loginAndLaunch(ctx.page);
-    const menuButtons = ['HUD Dashboard', 'Resource Monitoring', 'Cluster Console', 'Machine Wizard', 'Manifest Wizard'];
+    const menuButtons = ['HUD Dashboard', 'Networking', 'Storage', 'Machines & Containers', 'Processor & Memory', 'Operations & Compliance', 'Resource Monitoring'];
     for (const label of menuButtons) {
       await ctx.page.getByRole('button', { name: label, exact: true }).click();
-      await pause(1300);
+      await pause(1100);
     }
     await ctx.page.getByRole('button', { name: 'HUD Dashboard', exact: true }).click();
-    await pause(1500);
+    await pause(1400);
   } finally {
     await finalize(name, ctx);
   }
@@ -80,25 +129,12 @@ async function recordResourceMonitoringSecurity() {
     await loginAndLaunch(ctx.page);
     await ctx.page.getByRole('button', { name: 'Resource Monitoring', exact: true }).click();
     await pause(1200);
-    const monitoringMenu = ctx.page.locator('.active-work-menu button');
-    const monitoringCount = await monitoringMenu.count();
-    for (let i = 0; i < Math.min(monitoringCount, 6); i++) {
-      await monitoringMenu.nth(i).hover();
-      await pause(450);
-    }
-    await ctx.page.mouse.wheel(0, 350);
+    await ctx.page.mouse.wheel(0, 400);
     await pause(900);
     await ctx.page.mouse.wheel(0, 500);
     await pause(900);
     await ctx.page.mouse.wheel(0, -1200);
     await pause(800);
-    const audits = ctx.page.locator('.security-audit-card');
-    const auditsCount = await audits.count();
-    for (let i = 0; i < Math.min(auditsCount, 4); i++) {
-      await audits.nth(i).hover();
-      await pause(500);
-    }
-    await pause(1200);
   } finally {
     await finalize(name, ctx);
   }
@@ -111,39 +147,21 @@ async function recordClusterMachineWizard() {
     await pause(800);
     await loginAndLaunch(ctx.page);
     await ctx.page.getByRole('button', { name: 'Cluster Console', exact: true }).click();
-    await pause(1500);
-    await ctx.page.mouse.wheel(0, 600);
-    await pause(900);
-    await ctx.page.mouse.wheel(0, -600);
-    await pause(600);
-
-    await ctx.page.getByRole('button', { name: 'Machine Wizard', exact: true }).click();
     await pause(1300);
-    const hostNameInput = ctx.page.locator('.machine-wizard-form input').first();
-    await hostNameInput.click();
-    await hostNameInput.fill('');
-    await hostNameInput.type('nexus-edge-04', { delay: 60 });
-    await pause(700);
-
-    const installSelect = ctx.page.locator('.machine-wizard-form select').first();
-    await installSelect.selectOption('join');
+    await ctx.page.mouse.wheel(0, 600);
     await pause(800);
-    await installSelect.selectOption('create');
-    await pause(700);
-
-    await ctx.page.mouse.wheel(0, 500);
-    await pause(900);
-    await ctx.page.mouse.wheel(0, 500);
-    await pause(900);
-
+    await ctx.page.mouse.wheel(0, -600);
+    await pause(500);
+    await ctx.page.getByRole('button', { name: 'Machine Wizard', exact: true }).click();
+    await pause(1200);
     await ctx.page.getByRole('button', { name: 'Manifest Wizard', exact: true }).click();
-    await pause(1400);
+    await pause(1200);
     const steps = ['2. Storage', '3. Networking', '4. Security', '5. Monitoring', '6. GitOps', '7. Review'];
     for (const step of steps) {
       await ctx.page.getByRole('button', { name: step, exact: true }).click();
-      await pause(900);
+      await pause(800);
     }
-    await pause(1200);
+    await pause(900);
   } finally {
     await finalize(name, ctx);
   }
@@ -151,10 +169,19 @@ async function recordClusterMachineWizard() {
 
 async function main() {
   await mkdir(OUT, { recursive: true });
-  await recordLoginDashboardMenu();
-  await recordResourceMonitoringSecurity();
-  await recordClusterMachineWizard();
-  console.log('All mockup videos written to', OUT);
+  const args = process.argv.slice(2);
+  const subset = args.length > 0 ? new Set(args) : null;
+  const all = [
+    { id: 'login-tour', run: recordLoginDashboardMenu },
+    { id: 'resource-monitoring', run: recordResourceMonitoringSecurity },
+    { id: 'cluster-wizards', run: recordClusterMachineWizard },
+    ...THEMES.map((theme) => ({ id: theme.id, run: () => recordThemeTour(theme.id) })),
+  ];
+  for (const entry of all) {
+    if (subset && !subset.has(entry.id)) continue;
+    await entry.run();
+  }
+  console.log('Mockup videos written to', OUT);
 }
 
 main().catch((error) => {
