@@ -40,9 +40,37 @@ describe('harvester machine wizard', () => {
       'cluster',
       'migration',
       'acceleration',
+      'poly-compute',
       'source',
       'review',
     ]);
+    expect(plan.configYaml).toContain('poly_compute:');
+    expect(plan.configYaml).toContain('hardware_acceleration:');
+    expect(plan.bootParameters).toContain('nexus.acceleration.spdk=true');
+  });
+
+  it('rejects a poly-compute config with every runtime disabled', () => {
+    const issues = validateHarvesterMachineConfig({
+      ...buildDefaultMachineConfig(),
+      polyCompute: { kubevirt: false, incusLxc: false, k8sPods: false },
+    });
+    expect(issues).toContain('Select at least one runtime (KubeVirt, Incus/LXC, or K8s pods) for the poly-compute engine.');
+  });
+
+  it('requires NUMA pinning whenever GPU pass-through is enabled', () => {
+    const issues = validateHarvesterMachineConfig({
+      ...buildDefaultMachineConfig(),
+      hardwareAcceleration: {
+        spdk: true,
+        dpdk: true,
+        vhostUser: true,
+        numaPinning: false,
+        hugepages1G: 64,
+        gpuPassthrough: true,
+        nestedVirt: false,
+      },
+    });
+    expect(issues).toContain('GPU pass-through requires NUMA pinning to keep PCI-e devices local to the workload.');
   });
 
   it('requires the fields Harvester needs before rendering an automatic install config', () => {

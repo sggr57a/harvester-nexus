@@ -127,6 +127,101 @@ export function NexusMachineWizard({ config, plan, onChange }: NexusMachineWizar
               <input value={config.memoryTiering.device} onChange={(event) => onChange({ ...config, memoryTiering: { ...config.memoryTiering, device: event.target.value } })} />
             </label>
           </div>
+
+          <fieldset className="wizard-fieldset">
+            <legend>Poly-compute engine</legend>
+            <div className="machine-feature-grid">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.polyCompute.kubevirt}
+                  onChange={(event) => onChange({ ...config, polyCompute: { ...config.polyCompute, kubevirt: event.target.checked } })}
+                />
+                KubeVirt VMs (full kernel independence, live migration)
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.polyCompute.incusLxc}
+                  onChange={(event) => onChange({ ...config, polyCompute: { ...config.polyCompute, incusLxc: event.target.checked } })}
+                />
+                Incus / LXC system containers (bare-metal speed)
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.polyCompute.k8sPods}
+                  onChange={(event) => onChange({ ...config, polyCompute: { ...config.polyCompute, k8sPods: event.target.checked } })}
+                />
+                Native K8s pods (cgroups v2 + Cilium eBPF)
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="wizard-fieldset">
+            <legend>Hardware acceleration</legend>
+            <div className="machine-feature-grid">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.hardwareAcceleration.spdk}
+                  onChange={(event) => onChange({ ...config, hardwareAcceleration: { ...config.hardwareAcceleration, spdk: event.target.checked } })}
+                />
+                SPDK userspace NVMe-oF queues
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.hardwareAcceleration.dpdk}
+                  onChange={(event) => onChange({ ...config, hardwareAcceleration: { ...config.hardwareAcceleration, dpdk: event.target.checked } })}
+                />
+                DPDK ring buffers
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.hardwareAcceleration.vhostUser}
+                  onChange={(event) => onChange({ ...config, hardwareAcceleration: { ...config.hardwareAcceleration, vhostUser: event.target.checked } })}
+                />
+                vhost-user network fast path
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.hardwareAcceleration.numaPinning}
+                  onChange={(event) => onChange({ ...config, hardwareAcceleration: { ...config.hardwareAcceleration, numaPinning: event.target.checked } })}
+                />
+                Topology-aware NUMA pinning
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.hardwareAcceleration.gpuPassthrough}
+                  onChange={(event) => onChange({ ...config, hardwareAcceleration: { ...config.hardwareAcceleration, gpuPassthrough: event.target.checked } })}
+                />
+                GPU / FPGA pass-through (vfio-pci)
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.hardwareAcceleration.nestedVirt}
+                  onChange={(event) => onChange({ ...config, hardwareAcceleration: { ...config.hardwareAcceleration, nestedVirt: event.target.checked } })}
+                />
+                Nested virtualization (AI / ML training)
+              </label>
+            </div>
+            <label>
+              1 GiB hugepages reserved per node
+              <input
+                type="number"
+                min={0}
+                max={512}
+                step={1}
+                value={config.hardwareAcceleration.hugepages1G}
+                onChange={(event) => onChange({ ...config, hardwareAcceleration: { ...config.hardwareAcceleration, hugepages1G: Number(event.target.value) || 0 } })}
+              />
+            </label>
+          </fieldset>
         </div>
 
         <div className="machine-plan">
