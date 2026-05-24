@@ -25,6 +25,39 @@ function svgPathBetween(ax: number, ay: number, bx: number, by: number): string 
   return `M${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
 }
 
+function RouteDecoration() {
+  return (
+    <svg className="route-decoration" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="route-grad-h" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0" />
+          <stop offset="30%" stopColor="var(--theme-accent)" stopOpacity="0.7" />
+          <stop offset="70%" stopColor="var(--theme-accent-2)" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="var(--theme-accent)" stopOpacity="0" />
+        </linearGradient>
+        <filter id="route-bloom">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+        </filter>
+      </defs>
+      <path d="M0 30 Q 60 10, 120 30 T 240 30 T 360 25 L 400 28" fill="none" stroke="url(#route-grad-h)" strokeWidth="1.5" opacity="0.6" />
+      <path d="M0 30 Q 60 10, 120 30 T 240 30 T 360 25 L 400 28" fill="none" stroke="url(#route-grad-h)" strokeWidth="3" opacity="0.25" filter="url(#route-bloom)" />
+      <path d="M0 45 Q 80 55, 160 40 T 320 42 L 400 38" fill="none" stroke="var(--theme-accent-2)" strokeWidth="0.8" opacity="0.3" strokeDasharray="6 12" />
+      <circle cx="120" cy="30" r="2.5" fill="var(--theme-accent)" opacity="0.8">
+        <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="240" cy="30" r="2" fill="var(--theme-accent-2)" opacity="0.7">
+        <animate attributeName="opacity" values="0.3;0.9;0.3" dur="4s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="360" cy="25" r="1.8" fill="var(--theme-accent)" opacity="0.6">
+        <animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite" />
+      </circle>
+      <circle r="2" fill="var(--theme-accent)" opacity="0.9">
+        <animateMotion dur="6s" repeatCount="indefinite" path="M0 30 Q 60 10, 120 30 T 240 30 T 360 25 L 400 28" />
+      </circle>
+    </svg>
+  );
+}
+
 export function NetworkingDashboardView() {
   const { topology, vlans, ingressRoutes, policyMatrix, nicBonds, vip } = networking;
   const nodeMap = new Map(topology.nodes.map((node) => [node.id, node]));
@@ -33,6 +66,7 @@ export function NetworkingDashboardView() {
 
   return (
     <section className="dash dash-networking" aria-label="Networking dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CHANNEL // NETWORK</span>
@@ -211,6 +245,7 @@ export function StorageDashboardView() {
   const { backends, pvcs, snapshots, replicationLinks } = storage;
   return (
     <section className="dash dash-storage" aria-label="Storage dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FABRIC // STORAGE</span>
@@ -306,6 +341,7 @@ export function MachinesDashboardView() {
   const { fleet, migrations, affinityRules, ha, consoleChips } = machines;
   return (
     <section className="dash dash-machines" aria-label="Machines and containers dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FLEET // COMPUTE</span>
@@ -421,6 +457,7 @@ export function ProcessorMemoryDashboardView() {
   );
   return (
     <section className="dash dash-procmem" aria-label="Processor and memory dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CORE // MEMORY</span>
@@ -523,6 +560,7 @@ export function OperationsDashboardView() {
   const maxBar = Math.max(...cost.map((row) => row.monthlyEuro));
   return (
     <section className="dash dash-operations" aria-label="Operations and compliance dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">OPS // COMPLIANCE</span>
@@ -670,6 +708,7 @@ export function PolyComputeDashboardView() {
   const maxDensity = Math.max(...nodeBlend.map((node) => node.densityScore));
   return (
     <section className="dash dash-poly-compute" aria-label="Poly-compute engine dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">RUNTIME // POLY-COMPUTE</span>
@@ -769,6 +808,7 @@ export function AccelerationDashboardView() {
   const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = accel;
   return (
     <section className="dash dash-acceleration" aria-label="Acceleration and pass-through dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">SILICON // ACCEL</span>

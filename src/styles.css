@@ -4731,3 +4731,473 @@ select {
 .nested-role-sandbox strong { color: var(--theme-warn); }
 .nested-role-ci strong { color: var(--theme-good); }
 
+/* ============================================================
+   FUTURISTIC ROUTE DASHBOARD — Enhanced vector graphics styling
+   Inspired by technology route dashboard / futuristic HCI visuals.
+   Adds flowing route animations, intensified glow effects,
+   circuit-trace patterns, and dramatic depth layering.
+   ============================================================ */
+
+:root,
+:root[data-theme='route-grid'] {
+  --route-line-1: rgba(51, 247, 255, 0.6);
+  --route-line-2: rgba(91, 139, 255, 0.5);
+  --route-line-3: rgba(176, 107, 255, 0.4);
+  --route-particle: rgba(51, 247, 255, 0.9);
+  --route-trace-width: 1.5px;
+  --route-glow-intense: 0 0 24px rgba(51, 247, 255, 0.7), 0 0 60px rgba(51, 247, 255, 0.25);
+  --route-node-glow: 0 0 8px rgba(51, 247, 255, 0.9), 0 0 20px rgba(51, 247, 255, 0.4);
+  --dash-depth-shadow: 0 32px 80px rgba(0, 0, 0, 0.7), 0 0 1px rgba(51, 247, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --scan-line-color: rgba(51, 247, 255, 0.03);
+  --circuit-dot: rgba(51, 247, 255, 0.35);
+}
+:root[data-theme='emerald-console'] {
+  --route-line-1: rgba(54, 211, 153, 0.6);
+  --route-line-2: rgba(31, 122, 82, 0.5);
+  --route-line-3: rgba(123, 140, 255, 0.3);
+  --route-particle: rgba(54, 211, 153, 0.9);
+  --route-glow-intense: 0 0 24px rgba(54, 211, 153, 0.65), 0 0 60px rgba(54, 211, 153, 0.2);
+  --route-node-glow: 0 0 8px rgba(54, 211, 153, 0.9), 0 0 20px rgba(54, 211, 153, 0.4);
+  --dash-depth-shadow: 0 32px 80px rgba(0, 0, 0, 0.75), 0 0 1px rgba(54, 211, 153, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --scan-line-color: rgba(54, 211, 153, 0.025);
+  --circuit-dot: rgba(54, 211, 153, 0.3);
+}
+:root[data-theme='solar-flare'] {
+  --route-line-1: rgba(255, 140, 42, 0.6);
+  --route-line-2: rgba(255, 209, 102, 0.45);
+  --route-line-3: rgba(255, 93, 93, 0.35);
+  --route-particle: rgba(255, 140, 42, 0.9);
+  --route-glow-intense: 0 0 24px rgba(255, 140, 42, 0.65), 0 0 60px rgba(255, 140, 42, 0.2);
+  --route-node-glow: 0 0 8px rgba(255, 140, 42, 0.9), 0 0 20px rgba(255, 140, 42, 0.4);
+  --dash-depth-shadow: 0 32px 80px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 140, 42, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --scan-line-color: rgba(255, 140, 42, 0.025);
+  --circuit-dot: rgba(255, 140, 42, 0.3);
+}
+
+/* Enhanced dashboard container with deeper layered backgrounds */
+.dash {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, var(--route-line-1), transparent 40%),
+    radial-gradient(ellipse 60% 60% at 85% 100%, var(--route-line-2), transparent 35%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(0, 0, 0, 0.3), transparent 60%),
+    linear-gradient(160deg, var(--theme-bg-0) 0%, var(--theme-bg-1) 50%, var(--theme-bg-0) 100%);
+  box-shadow: var(--dash-depth-shadow);
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 8px;
+}
+
+/* Animated grid with circuit dots at intersections */
+.dash::before {
+  background:
+    radial-gradient(circle 1.5px at 44px 44px, var(--circuit-dot), transparent 2px),
+    radial-gradient(circle 1px at 22px 22px, var(--circuit-dot), transparent 1.5px),
+    linear-gradient(var(--theme-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--theme-grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.55;
+  animation: route-grid-drift 24s linear infinite;
+}
+
+/* Scanline overlay for CRT/holographic feel */
+.dash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--scan-line-color) 0px,
+    var(--scan-line-color) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: screen;
+}
+
+/* Animated flowing route decoration on dashboard */
+@keyframes route-flow-horizontal {
+  0% { transform: translateX(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(100vw); opacity: 0; }
+}
+@keyframes route-flow-vertical {
+  0% { transform: translateY(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+@keyframes route-pulse-glow {
+  0%, 100% { opacity: 0.4; filter: blur(0px); }
+  50% { opacity: 1; filter: blur(1px); }
+}
+
+/* Enhanced panel styling with route-trace corners and stronger glow */
+.dash-panel {
+  background:
+    linear-gradient(135deg, rgba(0, 0, 0, 0.15), transparent 40%),
+    var(--theme-panel);
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 8px;
+  box-shadow: var(--dash-depth-shadow);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.dash-panel:hover {
+  box-shadow: var(--route-glow-intense);
+  border-color: var(--theme-accent);
+}
+
+/* Circuit-trace corner brackets — larger and glowing */
+.dash-panel::before,
+.dash-panel::after {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+  border-color: var(--theme-corner);
+  filter: drop-shadow(0 0 4px var(--theme-accent));
+}
+.dash-panel::before { top: 5px; left: 5px; }
+.dash-panel::after  { bottom: 5px; right: 5px; }
+
+/* Header kicker with stronger glow */
+.dash-kicker {
+  text-shadow: var(--route-glow-intense);
+  font-size: 0.72rem;
+  letter-spacing: 0.5em;
+}
+
+/* Enhanced dash header title */
+.dash-header h2 {
+  text-shadow: 0 0 12px rgba(51, 247, 255, 0.35);
+}
+
+/* Stats totals — stronger accent glow */
+.dash-totals > div {
+  border-radius: 4px;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.25s ease;
+}
+.dash-totals > div:hover {
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.5), var(--route-node-glow);
+}
+.dash-totals strong {
+  text-shadow: 0 0 10px currentColor;
+}
+
+/* Panel title separator — glowing dashed route line */
+.panel-title {
+  border-bottom: 1px dashed var(--route-line-1);
+  padding-bottom: 0.6rem;
+}
+.panel-title strong {
+  text-shadow: 0 0 8px currentColor;
+}
+
+/* Topology SVG — deeper radial background and stronger edge rendering */
+.topology-svg {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(51, 247, 255, 0.08), transparent 55%),
+    radial-gradient(circle at 20% 30%, rgba(91, 139, 255, 0.06), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(176, 107, 255, 0.04), transparent 40%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.2), transparent);
+  border: 1px solid var(--route-line-1);
+  border-radius: 8px;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(51, 247, 255, 0.1);
+}
+
+/* Route edges — thicker, more vivid with bloom */
+.topology-svg .topology-edge-bg {
+  stroke: rgba(255, 255, 255, 0.04);
+  stroke-width: 1;
+}
+.topology-svg .topology-edge-pulse {
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 8px currentColor);
+  animation: topo-pulse 4s linear infinite;
+}
+
+/* Route nodes — stronger glow halos */
+.topology-node .node-core {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.topology-node .node-ring {
+  stroke-width: 0.6;
+  filter: drop-shadow(0 0 2px currentColor);
+}
+.topology-node .node-halo {
+  stroke-width: 0.5;
+  animation: node-halo-enhanced 3s ease-in-out infinite;
+}
+@keyframes node-halo-enhanced {
+  0%, 100% { r: 6.4; stroke-opacity: 0.25; }
+  50% { r: 9.5; stroke-opacity: 0.55; }
+}
+
+/* Migration arcs — more dramatic glow */
+.migration-arc .arc-fill {
+  stroke-width: 1;
+  filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 6px currentColor);
+}
+.migration-arc .arc-source,
+.migration-arc .arc-target {
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+/* Backend storage radial gauges — intensified glow */
+.backend-radial .radial-fill {
+  stroke-width: 6;
+  filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor);
+}
+.backend-radial .radial-track {
+  stroke: rgba(255, 255, 255, 0.05);
+  stroke-width: 6;
+}
+.backend-card {
+  border-radius: 8px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.backend-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--route-glow-intense);
+}
+
+/* Progress bars / meters — glowing with animated shimmer */
+.meter-row > i,
+.nic-bars i,
+.tier-bar i,
+.cost-bar i,
+.mini-bar i,
+.accel-util-bar i,
+.poly-blend-bar i {
+  box-shadow: var(--route-glow-intense);
+  position: relative;
+}
+.meter-row > i::after,
+.tier-bar i::after,
+.cost-bar i::after,
+.mini-bar i::after,
+.accel-util-bar i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: bar-shimmer 3s ease-in-out infinite;
+}
+@keyframes bar-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* Core heatmap cells — glow on high utilization */
+.core-cell {
+  border-radius: 2px;
+  transition: box-shadow 0.2s ease;
+}
+.core-cell:hover {
+  box-shadow: var(--route-node-glow);
+  z-index: 2;
+}
+
+/* NUMA zones — enhanced border glow */
+.numa-zone {
+  border-radius: 6px;
+  transition: box-shadow 0.25s ease;
+}
+.numa-zone:hover {
+  box-shadow: 0 0 20px rgba(51, 247, 255, 0.15);
+}
+
+/* Pressure waterfall bars — pulsing glow */
+.pressure-bar {
+  border-radius: 2px;
+  animation: route-pulse-glow 4s ease-in-out infinite;
+}
+.pressure-cpu { animation-delay: 0s; }
+.pressure-mem { animation-delay: 1.3s; }
+.pressure-io  { animation-delay: 2.6s; }
+
+/* CVE buckets — glowing count numbers */
+.cve-bucket strong {
+  text-shadow: 0 0 14px currentColor, 0 0 28px currentColor;
+}
+.cve-bucket {
+  border-radius: 6px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.cve-bucket:hover {
+  transform: scale(1.03);
+  box-shadow: var(--route-node-glow);
+}
+
+/* Poly-compute runtime cards — hover glow */
+.poly-runtime {
+  border-radius: 8px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.poly-runtime:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--route-glow-intense);
+}
+
+/* Acceleration feature cards — stronger glow for enabled */
+.accel-feature {
+  border-radius: 8px;
+  transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.accel-feature.on:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--route-glow-intense);
+}
+
+/* List items — subtle hover route glow */
+.vlan-list li,
+.nic-list li,
+.snapshot-shelf li,
+.affinity-list li,
+.ha-list li,
+.cost-list li,
+.hint-list li,
+.compliance-lanes li,
+.gitops-list li,
+.backup-sla li,
+.passthrough-list li,
+.spdk-lanes li,
+.dpdk-ports li,
+.nested-cluster-list li,
+.poly-blend-row,
+.topology-policy-list li,
+.scheduler-stat-list li {
+  border-radius: 4px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+.vlan-list li:hover,
+.nic-list li:hover,
+.snapshot-shelf li:hover,
+.affinity-list li:hover,
+.ha-list li:hover,
+.cost-list li:hover,
+.hint-list li:hover,
+.compliance-lanes li:hover,
+.gitops-list li:hover,
+.backup-sla li:hover,
+.passthrough-list li:hover,
+.spdk-lanes li:hover,
+.dpdk-ports li:hover,
+.nested-cluster-list li:hover,
+.poly-blend-row:hover,
+.topology-policy-list li:hover,
+.scheduler-stat-list li:hover {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 12px rgba(51, 247, 255, 0.15);
+  transform: translateX(2px);
+}
+
+/* Console chips — intensified active state */
+.console-chip.state-active {
+  box-shadow: var(--route-glow-intense);
+  animation: route-pulse-glow 3s ease-in-out infinite;
+}
+
+/* Legend chips — subtle glow */
+.legend-chip {
+  border-radius: 3px;
+  text-shadow: 0 0 6px currentColor;
+  transition: box-shadow 0.2s ease;
+}
+.legend-chip:hover {
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* Mesh/status/kind chips — glowing borders */
+.mesh-chip, .tls-chip, .kind-chip, .status-chip, .access-chip, .affinity-chip, .provider-chip, .sync-chip {
+  border-radius: 3px;
+  text-shadow: 0 0 4px currentColor;
+}
+
+/* Table enhancements — subtle row hover */
+.dash-table tbody tr {
+  transition: background 0.15s ease;
+}
+.dash-table tbody tr:hover {
+  background: rgba(51, 247, 255, 0.04);
+}
+
+/* Replication links — animated flow arrows */
+.replication-links i {
+  animation: repl-pulse 2.5s ease-in-out infinite;
+}
+@keyframes repl-pulse {
+  0%, 100% { box-shadow: var(--theme-route-glow); }
+  50% { box-shadow: var(--route-glow-intense); }
+}
+
+/* Density score number — monospace glow */
+.density-score {
+  text-shadow: 0 0 10px var(--theme-accent);
+}
+
+/* Policy matrix cells — more vivid glow */
+.policy-cell.policy-allow {
+  box-shadow: inset 0 0 12px rgba(54, 211, 153, 0.15);
+}
+.policy-cell.policy-deny {
+  box-shadow: inset 0 0 12px rgba(255, 93, 143, 0.15);
+}
+
+/* VIP badge — strong highlight */
+.dash-vip {
+  border-radius: 4px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.25s ease;
+}
+.dash-vip:hover {
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5), var(--route-node-glow);
+}
+
+/* Blend bar segments — glowing */
+.poly-blend-bar i.blend-vm  { box-shadow: 0 0 8px var(--theme-channel-vm); }
+.poly-blend-bar i.blend-sys { box-shadow: var(--route-glow-intense); }
+.poly-blend-bar i.blend-pod { box-shadow: 0 0 8px var(--theme-channel-gitops); }
+
+/* Policy dot — pulsing for enabled items */
+.topology-policy-list li.policy-on .policy-dot {
+  animation: policy-dot-pulse 2.5s ease-in-out infinite;
+}
+@keyframes policy-dot-pulse {
+  0%, 100% { box-shadow: var(--theme-route-glow); transform: scale(1); }
+  50% { box-shadow: var(--route-glow-intense); transform: scale(1.3); }
+}
+
+/* Snap driver badge glow */
+.snap-driver {
+  text-shadow: 0 0 4px var(--theme-accent);
+}
+
+/* Enhanced scroll gutter for audit feed */
+.audit-feed::-webkit-scrollbar { width: 4px; }
+.audit-feed::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }
+.audit-feed::-webkit-scrollbar-thumb { background: var(--theme-accent); border-radius: 4px; box-shadow: var(--route-node-glow); }
+
+/* Wizard fieldset — route theme */
+.wizard-fieldset {
+  border-radius: 6px;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.4);
+}
+.wizard-fieldset legend {
+  text-shadow: 0 0 8px var(--theme-accent);
+}
+
+/* Route decoration SVG — flowing vector line across dashboard header */
+.route-decoration {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  opacity: 0.75;
+  z-index: 2;
+  pointer-events: none;
+  margin-bottom: -0.5rem;
+}
+
