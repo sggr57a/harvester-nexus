@@ -1,4 +1,4 @@
-# Harvester - Nexus
+# Nexus
 
 Nexus is a next-generation, high-performance, open-source hyperconverged infrastructure (HCI) platform. Branching from the `harvester-nexus` architecture and built on a rock-solid **SLE Micro** base, nexus breaks down the structural silos between traditional virtual machines, Kubernetes guest clusters, and high-efficiency system containers. 
 
