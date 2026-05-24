@@ -23,6 +23,22 @@ export interface MemoryTieringConfig {
   ratio: number;
 }
 
+export interface PolyComputeConfig {
+  kubevirt: boolean;
+  incusLxc: boolean;
+  k8sPods: boolean;
+}
+
+export interface HardwareAccelerationConfig {
+  spdk: boolean;
+  dpdk: boolean;
+  vhostUser: boolean;
+  numaPinning: boolean;
+  hugepages1G: number;
+  gpuPassthrough: boolean;
+  nestedVirt: boolean;
+}
+
 export interface HarvesterMachineConfig {
   installMode: HarvesterInstallMode;
   hostName: string;
@@ -38,13 +54,15 @@ export interface HarvesterMachineConfig {
   liveMigration: LiveMigrationConfig;
   nvmeOverRdma: NvmeOverRdmaConfig;
   memoryTiering: MemoryTieringConfig;
+  polyCompute: PolyComputeConfig;
+  hardwareAcceleration: HardwareAccelerationConfig;
   proxyUrl?: string;
   sshKeysUrl?: string;
   customConfigUrl?: string;
 }
 
 export interface MachineWizardStep {
-  id: 'mode' | 'hardware' | 'storage' | 'network' | 'cluster' | 'migration' | 'acceleration' | 'source' | 'review';
+  id: 'mode' | 'hardware' | 'storage' | 'network' | 'cluster' | 'migration' | 'acceleration' | 'poly-compute' | 'source' | 'review';
   title: string;
   detail: string;
   status: 'ready' | 'required' | 'optional';
@@ -88,6 +106,20 @@ export function buildDefaultMachineConfig(): HarvesterMachineConfig {
       device: '/dev/nvme1n1',
       ratio: 0.25,
     },
+    polyCompute: {
+      kubevirt: true,
+      incusLxc: true,
+      k8sPods: true,
+    },
+    hardwareAcceleration: {
+      spdk: true,
+      dpdk: true,
+      vhostUser: true,
+      numaPinning: true,
+      hugepages1G: 64,
+      gpuPassthrough: true,
+      nestedVirt: false,
+    },
   };
 }
 
@@ -111,6 +143,15 @@ export function validateHarvesterMachineConfig(config: HarvesterMachineConfig): 
   }
   if (config.installMode === 'join' && !config.serverUrl?.trim()) {
     issues.push('Server URL is required when joining an existing Nexus cluster.');
+  }
+  if (!config.polyCompute.kubevirt && !config.polyCompute.incusLxc && !config.polyCompute.k8sPods) {
+    issues.push('Select at least one runtime (KubeVirt, Incus/LXC, or K8s pods) for the poly-compute engine.');
+  }
+  if (config.hardwareAcceleration.hugepages1G < 0) {
+    issues.push('1 GiB hugepage count must be zero or greater.');
+  }
+  if (config.hardwareAcceleration.gpuPassthrough && !config.hardwareAcceleration.numaPinning) {
+    issues.push('GPU pass-through requires NUMA pinning to keep PCI-e devices local to the workload.');
   }
 
   return issues;
@@ -161,6 +202,16 @@ function buildSteps(config: HarvesterMachineConfig, validationIssues: string[]):
       title: 'Storage acceleration',
       detail: `${config.nvmeOverRdma.enabled ? 'NVMe/RDMA enabled' : 'NVMe/RDMA optional'} / ${config.memoryTiering.enabled ? `${config.memoryTiering.mode} tiering` : 'tiering optional'}`,
       status: config.nvmeOverRdma.enabled || config.memoryTiering.enabled ? 'ready' : 'optional',
+    },
+    {
+      id: 'poly-compute',
+      title: 'Poly-compute engine',
+      detail: [
+        config.polyCompute.kubevirt ? 'KubeVirt VMs' : null,
+        config.polyCompute.incusLxc ? 'Incus / LXC system containers' : null,
+        config.polyCompute.k8sPods ? 'K8s pods' : null,
+      ].filter(Boolean).join(' · ') || 'no runtimes selected',
+      status: (config.polyCompute.kubevirt || config.polyCompute.incusLxc || config.polyCompute.k8sPods) ? 'ready' : 'required',
     },
     {
       id: 'source',
@@ -223,6 +274,20 @@ export function buildHarvesterMachineInstallPlan(config: HarvesterMachineConfig)
         device: config.memoryTiering.device,
         ratio: config.memoryTiering.ratio,
       },
+      poly_compute: {
+        kubevirt: config.polyCompute.kubevirt,
+        incus_lxc: config.polyCompute.incusLxc,
+        k8s_pods: config.polyCompute.k8sPods,
+      },
+      hardware_acceleration: {
+        spdk: config.hardwareAcceleration.spdk,
+        dpdk: config.hardwareAcceleration.dpdk,
+        vhost_user: config.hardwareAcceleration.vhostUser,
+        numa_pinning: config.hardwareAcceleration.numaPinning,
+        hugepages_1g: config.hardwareAcceleration.hugepages1G,
+        gpu_passthrough: config.hardwareAcceleration.gpuPassthrough,
+        nested_virtualization: config.hardwareAcceleration.nestedVirt,
+      },
     },
   };
 
@@ -238,6 +303,17 @@ export function buildHarvesterMachineInstallPlan(config: HarvesterMachineConfig)
       `harvester.install.management_interface=${config.managementInterface || '<management-interface>'}`,
       `nexus.features.nvme_over_rdma=${config.nvmeOverRdma.enabled}`,
       config.memoryTiering.enabled ? `nexus.features.memory_tiering=${config.memoryTiering.mode}` : 'nexus.features.memory_tiering=false',
+      `nexus.poly_compute=${[
+        config.polyCompute.kubevirt ? 'kubevirt' : null,
+        config.polyCompute.incusLxc ? 'incus' : null,
+        config.polyCompute.k8sPods ? 'pods' : null,
+      ].filter(Boolean).join(',') || 'none'}`,
+      `nexus.acceleration.spdk=${config.hardwareAcceleration.spdk}`,
+      `nexus.acceleration.dpdk=${config.hardwareAcceleration.dpdk}`,
+      `nexus.acceleration.numa_pinning=${config.hardwareAcceleration.numaPinning}`,
+      `nexus.acceleration.hugepages_1g=${config.hardwareAcceleration.hugepages1G}`,
+      `nexus.acceleration.gpu_passthrough=${config.hardwareAcceleration.gpuPassthrough}`,
+      `nexus.acceleration.nested_virt=${config.hardwareAcceleration.nestedVirt}`,
     ],
     validationIssues,
   };

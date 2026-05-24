@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = join(__dirname, '..', 'artifacts', 'smoke');
 
-const dashboards = ['Networking', 'Storage', 'Machines & Containers', 'Processor & Memory', 'Operations & Compliance'];
+const dashboards = ['Networking', 'Storage', 'Machines & Containers', 'Processor & Memory', 'Poly-Compute Engine', 'Acceleration', 'Operations & Compliance'];
 
 async function main() {
   await mkdir(OUT, { recursive: true });

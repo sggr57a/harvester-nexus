@@ -19,12 +19,14 @@ const THEMES = [
 ];
 
 const DASHBOARDS = [
-  { label: 'HUD Dashboard', dwellMs: 1300, scroll: 0 },
-  { label: 'Networking', dwellMs: 2400, scroll: 600 },
-  { label: 'Storage', dwellMs: 2400, scroll: 700 },
-  { label: 'Machines & Containers', dwellMs: 2400, scroll: 600 },
-  { label: 'Processor & Memory', dwellMs: 2200, scroll: 500 },
-  { label: 'Operations & Compliance', dwellMs: 2600, scroll: 800 },
+  { label: 'HUD Dashboard', dwellMs: 1200, scroll: 0 },
+  { label: 'Networking', dwellMs: 2000, scroll: 600 },
+  { label: 'Storage', dwellMs: 2000, scroll: 700 },
+  { label: 'Machines & Containers', dwellMs: 2000, scroll: 600 },
+  { label: 'Processor & Memory', dwellMs: 1800, scroll: 500 },
+  { label: 'Poly-Compute Engine', dwellMs: 2200, scroll: 600 },
+  { label: 'Acceleration', dwellMs: 2400, scroll: 700 },
+  { label: 'Operations & Compliance', dwellMs: 2200, scroll: 800 },
 ];
 
 function pause(ms) {
@@ -109,7 +111,7 @@ async function recordLoginDashboardMenu() {
   try {
     await pause(1100);
     await loginAndLaunch(ctx.page);
-    const menuButtons = ['HUD Dashboard', 'Networking', 'Storage', 'Machines & Containers', 'Processor & Memory', 'Operations & Compliance', 'Resource Monitoring'];
+    const menuButtons = ['HUD Dashboard', 'Networking', 'Storage', 'Machines & Containers', 'Processor & Memory', 'Poly-Compute Engine', 'Acceleration', 'Operations & Compliance', 'Resource Monitoring'];
     for (const label of menuButtons) {
       await ctx.page.getByRole('button', { name: label, exact: true }).click();
       await pause(1100);

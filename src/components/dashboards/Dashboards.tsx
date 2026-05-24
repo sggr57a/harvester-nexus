@@ -1,7 +1,9 @@
 import {
+  buildAccelerationDashboard,
   buildMachinesDashboard,
   buildNetworkingDashboard,
   buildOperationsDashboard,
+  buildPolyComputeDashboard,
   buildProcessorMemoryDashboard,
   buildStorageDashboard,
   type CpuCore,
@@ -12,6 +14,8 @@ const storage = buildStorageDashboard();
 const machines = buildMachinesDashboard();
 const procmem = buildProcessorMemoryDashboard();
 const ops = buildOperationsDashboard();
+const poly = buildPolyComputeDashboard();
+const accel = buildAccelerationDashboard();
 
 function svgPathBetween(ax: number, ay: number, bx: number, by: number): string {
   const dx = bx - ax;
@@ -657,6 +661,233 @@ export function OperationsDashboardView() {
           </ul>
         </article>
       </div>
+    </section>
+  );
+}
+
+export function PolyComputeDashboardView() {
+  const { runtimes, nodeBlend, topologyAwareScheduling, unifiedScheduler } = poly;
+  const maxDensity = Math.max(...nodeBlend.map((node) => node.densityScore));
+  return (
+    <section className="dash dash-poly-compute" aria-label="Poly-compute engine dashboard">
+      <header className="dash-header">
+        <div>
+          <span className="dash-kicker">RUNTIME // POLY-COMPUTE</span>
+          <h2>{poly.title}</h2>
+          <p>Unified engine running KubeVirt VMs, Incus/LXC system containers, and native K8s pods on the same bare-metal loop.</p>
+        </div>
+        <div className="dash-totals">
+          <div><span>Workloads</span><strong>{runtimes.reduce((sum, r) => sum + r.workloadCount, 0)}</strong></div>
+          <div><span>Runtimes</span><strong>{runtimes.length}</strong></div>
+        </div>
+      </header>
+
+      <div className="poly-runtime-grid">
+        {runtimes.map((runtime) => (
+          <article key={runtime.id} className={`poly-runtime poly-${runtime.id}`}>
+            <div className="poly-runtime-head">
+              <span className={`kind-chip kind-${runtime.id === 'kubevirt' ? 'vm' : runtime.id === 'incus-lxc' ? 'lxc' : 'pod'}`}>{runtime.id}</span>
+              <strong>{runtime.label}</strong>
+            </div>
+            <p className="poly-runtime-desc">{runtime.description}</p>
+            <dl className="poly-runtime-stats">
+              <div><dt>Workloads</dt><dd>{runtime.workloadCount}</dd></div>
+              <div><dt>CPU share</dt><dd>{runtime.cpuShare}%</dd></div>
+              <div><dt>RAM share</dt><dd>{runtime.ramShare}%</dd></div>
+              <div><dt>Kernel</dt><dd>{runtime.kernelMode}</dd></div>
+              <div><dt>Live migrate</dt><dd>{runtime.liveMigration ? 'yes' : 'no'}</dd></div>
+            </dl>
+            <div className="poly-runtime-features">
+              {runtime.features.map((feat) => <span key={feat}>{feat}</span>)}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <article className="dash-panel">
+        <div className="panel-title"><span>Mixed-mode node density</span><strong>VM · system container · pod</strong></div>
+        <div className="poly-blend-list">
+          {nodeBlend.map((blend) => {
+            const total = blend.vms + blend.systemContainers + blend.pods;
+            const vmShare = (blend.vms / total) * 100;
+            const sysShare = (blend.systemContainers / total) * 100;
+            const podShare = (blend.pods / total) * 100;
+            return (
+              <div key={blend.node} className="poly-blend-row">
+                <strong>{blend.node}</strong>
+                <div className="poly-blend-bar" title={`${blend.vms} VMs · ${blend.systemContainers} sys containers · ${blend.pods} pods`}>
+                  <i className="blend-vm"  style={{ width: `${vmShare}%` }} />
+                  <i className="blend-sys" style={{ width: `${sysShare}%` }} />
+                  <i className="blend-pod" style={{ width: `${podShare}%` }} />
+                </div>
+                <small>
+                  {blend.vms} vm · {blend.systemContainers} sys · {blend.pods} pod
+                </small>
+                <b className="density-score" style={{ opacity: 0.4 + (blend.densityScore / maxDensity) * 0.6 }}>{blend.densityScore}</b>
+              </div>
+            );
+          })}
+        </div>
+        <div className="poly-blend-legend">
+          <span className="blend-vm">KubeVirt VMs</span>
+          <span className="blend-sys">Incus / LXC system containers</span>
+          <span className="blend-pod">Native K8s pods</span>
+        </div>
+      </article>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <div className="panel-title"><span>Topology-aware scheduling policies</span><strong>{topologyAwareScheduling.filter((p) => p.enabled).length} active</strong></div>
+          <ul className="topology-policy-list">
+            {topologyAwareScheduling.map((policy) => (
+              <li key={policy.policy} className={policy.enabled ? 'policy-on' : 'policy-off'}>
+                <span className="policy-dot" aria-hidden="true" />
+                <strong>{policy.policy}</strong>
+                <small>{policy.description}</small>
+              </li>
+            ))}
+          </ul>
+        </article>
+        <article className="dash-panel">
+          <div className="panel-title"><span>Unified scheduler signals</span><strong>poly-compute</strong></div>
+          <ul className="scheduler-stat-list">
+            {unifiedScheduler.map((stat) => (
+              <li key={stat.metric}>
+                <span>{stat.metric}</span>
+                <strong>{stat.value}</strong>
+                <small>{stat.trend}</small>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+export function AccelerationDashboardView() {
+  const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = accel;
+  return (
+    <section className="dash dash-acceleration" aria-label="Acceleration and pass-through dashboard">
+      <header className="dash-header">
+        <div>
+          <span className="dash-kicker">SILICON // ACCEL</span>
+          <h2>{accel.title}</h2>
+          <p>SPDK, DPDK, vhost-user fast paths · NUMA pinning + 1 GiB hugepages · GPU / FPGA / smart-NIC pass-through · nested virtualization for AI/ML.</p>
+        </div>
+        <div className="dash-totals">
+          <div><span>Features</span><strong>{features.filter((f) => f.enabled).length}/{features.length}</strong></div>
+          <div><span>Pass-through</span><strong>{passThrough.length}</strong></div>
+          <div><span>Nested</span><strong>{nestedClusters.length}</strong></div>
+        </div>
+      </header>
+
+      <article className="dash-panel">
+        <div className="panel-title"><span>Acceleration feature mesh</span><strong>data-path · scheduling · pass-through · nested-virt</strong></div>
+        <div className="accel-feature-grid">
+          {features.map((feature) => (
+            <article key={feature.id} className={`accel-feature accel-${feature.kind} ${feature.enabled ? 'on' : 'off'}`}>
+              <div className="accel-feature-head">
+                <span className="accel-feature-kind">{feature.kind.replace('-', ' ')}</span>
+                <strong>{feature.label}</strong>
+              </div>
+              <p>{feature.detail}</p>
+              <div className="accel-util-bar" aria-label={`utilization ${feature.utilizationPercent}%`}>
+                <i style={{ width: `${feature.utilizationPercent}%` }} />
+                <b>{feature.utilizationPercent}%</b>
+              </div>
+            </article>
+          ))}
+        </div>
+      </article>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <div className="panel-title"><span>NUMA pinning + hugepages</span><strong>{numaPinning.length} workloads pinned</strong></div>
+          <table className="dash-table">
+            <thead><tr><th>workload</th><th>numa</th><th>cores</th><th>hugepages</th><th>pci</th></tr></thead>
+            <tbody>
+              {numaPinning.map((entry) => (
+                <tr key={entry.workload}>
+                  <td><strong>{entry.workload}</strong></td>
+                  <td>{entry.numaZone}</td>
+                  <td>
+                    <span title={`cores ${entry.cores.join(', ')}`}>
+                      {entry.cores.length} cores
+                    </span>
+                  </td>
+                  <td>{entry.hugepageCount} × {entry.hugepageSizeMiB >= 1024 ? `${entry.hugepageSizeMiB / 1024} GiB` : `${entry.hugepageSizeMiB} MiB`}</td>
+                  <td>
+                    {entry.pciDevices.map((dev) => (
+                      <code key={dev}>{dev}</code>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+
+        <article className="dash-panel">
+          <div className="panel-title"><span>Pass-through devices</span><strong>vfio-pci · SR-IOV · mdev</strong></div>
+          <ul className="passthrough-list">
+            {passThrough.map((dev) => (
+              <li key={dev.id} className={`pt-${dev.kind}`}>
+                <span className={`kind-chip kind-${dev.kind === 'gpu' ? 'block' : dev.kind === 'fpga' ? 'object' : 'file'}`}>{dev.kind}</span>
+                <strong>{dev.model}</strong>
+                <small>→ {dev.boundTo} · driver {dev.driver}</small>
+                <div className="cost-bar"><i style={{ width: `${dev.utilizationPercent}%` }} /></div>
+                <b>{dev.utilizationPercent}%</b>
+                <em>{dev.memoryGiB} GiB</em>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <div className="panel-title"><span>SPDK userspace lanes</span><strong>NVMe-oF · Vitastor · Ceph</strong></div>
+          <ul className="spdk-lanes">
+            {spdkLanes.map((lane) => (
+              <li key={lane.lane}>
+                <strong>{lane.lane}</strong>
+                <dl>
+                  <div><dt>Queue depth</dt><dd>{lane.queueDepth}</dd></div>
+                  <div><dt>Latency</dt><dd>{lane.latencyMicros} µs</dd></div>
+                  <div><dt>Throughput</dt><dd>{lane.throughputGiBs} GiB/s</dd></div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </article>
+        <article className="dash-panel">
+          <div className="panel-title"><span>DPDK ring buffers</span><strong>polled-mode userspace ports</strong></div>
+          <ul className="dpdk-ports">
+            {dpdkPorts.map((port) => (
+              <li key={port.port}>
+                <strong>{port.port}</strong>
+                <small>{port.queues} queues · burst {port.burstSize} · {(port.packetsPerSecond / 1_000_000).toFixed(1)} Mpps</small>
+                <div className="cost-bar"><i style={{ width: `${port.loadPercent}%` }} /></div>
+                <b>{port.loadPercent}%</b>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
+      <article className="dash-panel">
+        <div className="panel-title"><span>Nested virtualization clusters</span><strong>training · inference · sandbox · ci</strong></div>
+        <ul className="nested-cluster-list">
+          {nestedClusters.map((cluster) => (
+            <li key={cluster.id} className={`nested-role-${cluster.guestRole} nested-status-${cluster.status}`}>
+              <strong>{cluster.name}</strong>
+              <span className="kind-chip">{cluster.guestRole}</span>
+              <small>parent {cluster.parentHost} · {cluster.cpuPinning === 'l1' ? 'L1 nested guest' : 'L2 GPU passthrough'} · {cluster.status}</small>
+            </li>
+          ))}
+        </ul>
+      </article>
     </section>
   );
 }

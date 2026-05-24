@@ -4,6 +4,18 @@ Nexus is a next-generation, high-performance, open-source hyperconverged infrast
 
 By unifying the bare-metal agility of Proxmox and Incus (LXC) with the massive cloud-native orchestration of Kubernetes (KubeVirt) and VMware vSphere class enterprise storage/scheduling, nexus represents the ultimate consolidation of computing, storage, and specialized hardware accelerators, including a HUD interface, wizard-driven machine provisioning, Kubernetes manifest generation, storage backend provisioning, and multi-cluster deployment workflows.
 
+> **Version 2.0** lands the features described in [`UPDATED.md`](./UPDATED.md): the Poly-Compute Engine, the Universal Storage Fabric (now including Vitastor with SPDK bypass), hyper-efficient data path acceleration (SPDK / DPDK / vhost-user / NUMA pinning / 1 GiB hugepages), and advanced acceleration (GPU + FPGA + smart-NIC pass-through, nested virtualization for AI / ML). See the [Nexus 2.0 release](#nexus-20-release) section.
+
+## Nexus 2.0 release
+
+Highlights:
+
+- **Poly-Compute Engine dashboard** — runs KubeVirt VMs, Incus / LXC system containers, and native Kubernetes pods on the same bare-metal loop. Includes mixed-mode density per node and topology-aware scheduling policies (NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, cross-socket cost penalty).
+- **Universal Storage Fabric** — every storage backend in the catalog is wired to Nexus's CSI / direct-host integration paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath volume driver for RWX shares.
+- **Acceleration & Hardware Pass-Through dashboard** — SPDK userspace NVMe-oF queues, DPDK polled-mode ring buffers, vhost-user fast paths, topology-aware NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
+- **Machine Wizard 2.0** — extends the install YAML with `poly_compute` and `hardware_acceleration` blocks and adds boot-parameter switches such as `nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, and `nexus.acceleration.gpu_passthrough=true`. Validation refuses a config that turns off every runtime or enables GPU pass-through without NUMA pinning.
+- **Themable cockpit** — three switchable themes (Route Grid, Emerald Console, Solar Flare) so all 2.0 dashboards adapt to operator preference. Theme selection persists in `localStorage`.
+
 ## Overview
 
 Nexus is the updated Harvester fork with:

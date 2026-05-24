@@ -267,12 +267,99 @@ export interface OperationsDashboard {
   drPlans: DrPlan[];
 }
 
+export interface PolyComputeRuntime {
+  id: 'kubevirt' | 'incus-lxc' | 'k8s-pods';
+  label: string;
+  description: string;
+  workloadCount: number;
+  cpuShare: number;
+  ramShare: number;
+  kernelMode: 'independent' | 'shared-host' | 'shared-host-cgroup';
+  liveMigration: boolean;
+  features: string[];
+}
+
+export interface PolyComputeBlend {
+  node: string;
+  vms: number;
+  systemContainers: number;
+  pods: number;
+  densityScore: number;
+}
+
+export interface PolyComputeDashboard {
+  id: 'poly-compute';
+  title: 'Poly-Compute Engine';
+  runtimes: PolyComputeRuntime[];
+  nodeBlend: PolyComputeBlend[];
+  topologyAwareScheduling: { policy: string; description: string; enabled: boolean }[];
+  unifiedScheduler: { metric: string; value: string; trend: string }[];
+}
+
+export interface AccelerationFeature {
+  id: string;
+  label: string;
+  kind: 'data-path' | 'scheduling' | 'pass-through' | 'nested-virt';
+  enabled: boolean;
+  detail: string;
+  utilizationPercent: number;
+}
+
+export interface NumaPinningEntry {
+  workload: string;
+  numaZone: string;
+  cores: number[];
+  hugepageSizeMiB: 2 | 1024;
+  hugepageCount: number;
+  pciDevices: string[];
+}
+
+export interface PassThroughDevice {
+  id: string;
+  kind: 'gpu' | 'fpga' | 'smart-nic' | 'tpu';
+  model: string;
+  boundTo: string;
+  driver: 'vfio-pci' | 'mdev' | 'sr-iov';
+  utilizationPercent: number;
+  memoryGiB: number;
+}
+
+export interface NestedVirtCluster {
+  id: string;
+  name: string;
+  parentHost: string;
+  guestRole: 'training' | 'inference' | 'sandbox' | 'ci';
+  cpuPinning: 'l1' | 'l2-passthrough';
+  status: 'running' | 'paused' | 'building';
+}
+
+export interface DpdkRingBuffer {
+  port: string;
+  queues: number;
+  burstSize: number;
+  packetsPerSecond: number;
+  loadPercent: number;
+}
+
+export interface AccelerationDashboard {
+  id: 'acceleration';
+  title: 'Acceleration & Hardware Pass-Through';
+  features: AccelerationFeature[];
+  numaPinning: NumaPinningEntry[];
+  passThrough: PassThroughDevice[];
+  nestedClusters: NestedVirtCluster[];
+  dpdkPorts: DpdkRingBuffer[];
+  spdkLanes: { lane: string; queueDepth: number; latencyMicros: number; throughputGiBs: number }[];
+}
+
 export type DashboardAny =
   | NetworkingDashboard
   | StorageDashboard
   | MachinesDashboard
   | ProcessorMemoryDashboard
-  | OperationsDashboard;
+  | OperationsDashboard
+  | PolyComputeDashboard
+  | AccelerationDashboard;
 
 export function buildNetworkingDashboard(): NetworkingDashboard {
   const nodes: RouteNode[] = [
@@ -333,17 +420,18 @@ export function buildNetworkingDashboard(): NetworkingDashboard {
 
 export function buildStorageDashboard(): StorageDashboard {
   const backends: StorageBackendCard[] = [
-    { id: 'ceph', label: 'Ceph RBD/CephFS', kind: 'block', usagePercent: 72, capacityTiB: 480, iops: 142000, readMiBs: 4820, writeMiBs: 3920, driverHealth: 'healthy', csiTemplate: 'rook-ceph', features: ['snapshots', 'rwx', 'mirror'] },
-    { id: 'longhorn', label: 'Longhorn', kind: 'block', usagePercent: 58, capacityTiB: 96, iops: 64200, readMiBs: 1840, writeMiBs: 1620, driverHealth: 'healthy', csiTemplate: 'longhorn.io', features: ['replicas', 'backup', 'restore'] },
-    { id: 'nvme-of', label: 'NVMe-oF / TCP', kind: 'block', usagePercent: 41, capacityTiB: 64, iops: 318000, readMiBs: 12420, writeMiBs: 9810, driverHealth: 'healthy', csiTemplate: 'nvmeof.csi', features: ['ultra-low-latency'] },
-    { id: 'rdma', label: 'NVMe over RDMA', kind: 'block', usagePercent: 36, capacityTiB: 32, iops: 412000, readMiBs: 18220, writeMiBs: 14820, driverHealth: 'degraded', csiTemplate: 'nvmeof.rdma', features: ['rdma', 'memory-tier'] },
-    { id: 'zfs', label: 'ZFS over iSCSI', kind: 'block', usagePercent: 68, capacityTiB: 240, iops: 38400, readMiBs: 1240, writeMiBs: 980, driverHealth: 'healthy', csiTemplate: 'zfs.csi', features: ['snapshots', 'send-recv'] },
-    { id: 'iscsi', label: 'iSCSI block', kind: 'block', usagePercent: 51, capacityTiB: 120, iops: 22400, readMiBs: 720, writeMiBs: 540, driverHealth: 'healthy', csiTemplate: 'iscsi.csi', features: ['shared-block'] },
-    { id: 'nfs', label: 'NFS', kind: 'file', usagePercent: 64, capacityTiB: 180, iops: 14200, readMiBs: 480, writeMiBs: 320, driverHealth: 'healthy', csiTemplate: 'nfs.csi', features: ['rwx', 'export-shares'] },
-    { id: 'smb', label: 'SMB/CIFS', kind: 'file', usagePercent: 47, capacityTiB: 60, iops: 8400, readMiBs: 240, writeMiBs: 180, driverHealth: 'healthy', csiTemplate: 'smb.csi', features: ['windows-share'] },
+    { id: 'ceph', label: 'Ceph RBD/CephFS', kind: 'block', usagePercent: 72, capacityTiB: 480, iops: 142000, readMiBs: 4820, writeMiBs: 3920, driverHealth: 'healthy', csiTemplate: 'rook-ceph', features: ['snapshots', 'rwx', 'mirror', 'spdk-userspace'] },
+    { id: 'longhorn', label: 'Longhorn', kind: 'block', usagePercent: 58, capacityTiB: 96, iops: 64200, readMiBs: 1840, writeMiBs: 1620, driverHealth: 'healthy', csiTemplate: 'longhorn.io', features: ['replicas', 'backup', 'restore', 'native-csi'] },
+    { id: 'nvme-of', label: 'NVMe-oF / TCP', kind: 'block', usagePercent: 41, capacityTiB: 64, iops: 318000, readMiBs: 12420, writeMiBs: 9810, driverHealth: 'healthy', csiTemplate: 'nvmeof.csi', features: ['ultra-low-latency', 'spdk-userspace'] },
+    { id: 'rdma', label: 'NVMe over RDMA', kind: 'block', usagePercent: 36, capacityTiB: 32, iops: 412000, readMiBs: 18220, writeMiBs: 14820, driverHealth: 'degraded', csiTemplate: 'nvmeof.rdma', features: ['rdma', 'memory-tier', 'spdk-userspace'] },
+    { id: 'zfs', label: 'ZFS over iSCSI', kind: 'block', usagePercent: 68, capacityTiB: 240, iops: 38400, readMiBs: 1240, writeMiBs: 980, driverHealth: 'healthy', csiTemplate: 'zfs.csi', features: ['copy-on-write', 'zstd-inline', 'arc-cache', 'send-recv'] },
+    { id: 'iscsi', label: 'iSCSI block', kind: 'block', usagePercent: 51, capacityTiB: 120, iops: 22400, readMiBs: 720, writeMiBs: 540, driverHealth: 'healthy', csiTemplate: 'iscsi.csi', features: ['shared-block', 'vfio-pci-multipath'] },
+    { id: 'nfs', label: 'NFS', kind: 'file', usagePercent: 64, capacityTiB: 180, iops: 14200, readMiBs: 480, writeMiBs: 320, driverHealth: 'healthy', csiTemplate: 'nfs.csi', features: ['rwx', 'subpath-driver'] },
+    { id: 'smb', label: 'SMB/CIFS', kind: 'file', usagePercent: 47, capacityTiB: 60, iops: 8400, readMiBs: 240, writeMiBs: 180, driverHealth: 'healthy', csiTemplate: 'smb.csi', features: ['windows-share', 'subpath-driver'] },
     { id: 'glusterfs', label: 'GlusterFS', kind: 'file', usagePercent: 39, capacityTiB: 96, iops: 11200, readMiBs: 320, writeMiBs: 240, driverHealth: 'healthy', csiTemplate: 'gluster.csi', features: ['distributed'] },
     { id: 'openebs', label: 'OpenEBS', kind: 'block', usagePercent: 33, capacityTiB: 24, iops: 18400, readMiBs: 520, writeMiBs: 380, driverHealth: 'healthy', csiTemplate: 'openebs.io', features: ['mayastor', 'jiva', 'cstor'] },
     { id: 'portworx', label: 'Portworx', kind: 'block', usagePercent: 44, capacityTiB: 80, iops: 84200, readMiBs: 2820, writeMiBs: 2340, driverHealth: 'healthy', csiTemplate: 'pxd.portworx.com', features: ['sync-dr', 'encryption'] },
+    { id: 'vitastor', label: 'Vitastor', kind: 'block', usagePercent: 38, capacityTiB: 192, iops: 268000, readMiBs: 10240, writeMiBs: 8820, driverHealth: 'healthy', csiTemplate: 'vitastor.io', features: ['spdk-userspace', 'rbd-compat', 'low-latency'] },
     { id: 'local', label: 'Local path', kind: 'block', usagePercent: 22, capacityTiB: 16, iops: 6800, readMiBs: 180, writeMiBs: 140, driverHealth: 'healthy', csiTemplate: 'local-path', features: ['hostpath'] },
   ];
   return {
@@ -510,6 +598,119 @@ export function buildOperationsDashboard(): OperationsDashboard {
     drPlans: [
       { id: 'dr-1', name: 'payments failover', primary: 'edge-a', secondary: 'edge-b', bootOrder: ['ledger', 'fraud', 'payments-api'], lastDrill: 'passed 9d ago' },
       { id: 'dr-2', name: 'analytics failover', primary: 'compute-01', secondary: 'compute-03', bootOrder: ['feature-store', 'analytics-vm'], lastDrill: 'passed 24d ago' },
+    ],
+  };
+}
+
+export function buildPolyComputeDashboard(): PolyComputeDashboard {
+  return {
+    id: 'poly-compute',
+    title: 'Poly-Compute Engine',
+    runtimes: [
+      {
+        id: 'kubevirt',
+        label: 'Virtual Machines (KubeVirt)',
+        description: 'Heavyweight enterprise VMs with full kernel independence and live migration.',
+        workloadCount: 46,
+        cpuShare: 42,
+        ramShare: 58,
+        kernelMode: 'independent',
+        liveMigration: true,
+        features: ['full-os-stacks', 'vmotion-style', 'cpu-pinning', 'gpu-passthrough'],
+      },
+      {
+        id: 'incus-lxc',
+        label: 'System Containers (Incus / LXC)',
+        description: 'Dense, bare-metal-speed containers sharing the host kernel with separate userspaces.',
+        workloadCount: 184,
+        cpuShare: 31,
+        ramShare: 22,
+        kernelMode: 'shared-host',
+        liveMigration: true,
+        features: ['bare-metal-speed', 'high-density', 'native-io', 'incus-engine'],
+      },
+      {
+        id: 'k8s-pods',
+        label: 'Native K8s Pods',
+        description: 'Standard containerized apps on the unified orchestration backplane.',
+        workloadCount: 412,
+        cpuShare: 27,
+        ramShare: 20,
+        kernelMode: 'shared-host-cgroup',
+        liveMigration: false,
+        features: ['cri-o', 'cgroups-v2', 'cilium-mesh', 'ebpf'],
+      },
+    ],
+    nodeBlend: [
+      { node: 'compute-01', vms: 18, systemContainers: 64, pods: 132, densityScore: 78 },
+      { node: 'compute-02', vms: 14, systemContainers: 58, pods: 118, densityScore: 72 },
+      { node: 'compute-03', vms: 14, systemContainers: 42, pods: 104, densityScore: 68 },
+      { node: 'edge-a', vms: 0, systemContainers: 12, pods: 36, densityScore: 41 },
+      { node: 'edge-b', vms: 0, systemContainers: 8, pods: 22, densityScore: 32 },
+    ],
+    topologyAwareScheduling: [
+      { policy: 'NUMA local DRAM affinity', description: 'Bind workload threads to the same NUMA node as their DRAM and PCI-e devices.', enabled: true },
+      { policy: '1 GiB hugepages required for KubeVirt', description: 'Reject VM scheduling without 1 GiB hugepages reserved.', enabled: true },
+      { policy: 'L1 nested virtualization opt-in', description: 'Only sandbox / training pools may request nested virt.', enabled: true },
+      { policy: 'Cross-socket cost penalty', description: 'Add 0.7 NUMA-distance penalty during bin-packing.', enabled: true },
+      { policy: 'Idle workload eviction', description: 'Evict idle Incus / LXC system containers after 14 days to free density.', enabled: false },
+    ],
+    unifiedScheduler: [
+      { metric: 'Mixed-mode density', value: '642 / node-pool', trend: '+18% vs baseline' },
+      { metric: 'Live migration success rate', value: '99.94%', trend: '+0.4% this quarter' },
+      { metric: 'NUMA-local hit rate', value: '93%', trend: '+6% after pinning' },
+      { metric: 'Cross-socket latency', value: '0.42 µs', trend: '-38% with topology-aware scheduling' },
+    ],
+  };
+}
+
+export function buildAccelerationDashboard(): AccelerationDashboard {
+  return {
+    id: 'acceleration',
+    title: 'Acceleration & Hardware Pass-Through',
+    features: [
+      { id: 'spdk', label: 'SPDK storage bypass', kind: 'data-path', enabled: true, detail: 'NVMe-oF userspace queues bypass the host block layer for Ceph/Vitastor/NVMe-oF.', utilizationPercent: 82 },
+      { id: 'dpdk', label: 'DPDK ring buffers', kind: 'data-path', enabled: true, detail: 'Userspace polled-mode drivers for 100 GbE and 200 GbE workload bonds.', utilizationPercent: 71 },
+      { id: 'vhost-user', label: 'vhost-user fast path', kind: 'data-path', enabled: true, detail: 'Bypasses veth for KubeVirt + Incus L2 / L3 traffic.', utilizationPercent: 64 },
+      { id: 'numa', label: 'Topology-aware NUMA pinning', kind: 'scheduling', enabled: true, detail: 'Aligns vCPUs, hugepages, and PCI-e fabrics to the same physical NUMA node.', utilizationPercent: 93 },
+      { id: 'hugepage-1g', label: '1 GiB hugepages reserved', kind: 'scheduling', enabled: true, detail: '64 × 1 GiB pages reserved per node for KubeVirt + DPDK rings.', utilizationPercent: 81 },
+      { id: 'gpu-pt', label: 'GPU pass-through (vfio-pci)', kind: 'pass-through', enabled: true, detail: 'Eight GPUs bound directly to KubeVirt or Incus AI workloads.', utilizationPercent: 88 },
+      { id: 'sriov', label: 'SR-IOV smart-NIC virtual functions', kind: 'pass-through', enabled: true, detail: 'Smart NIC VFs presented as L2 NICs to high-throughput VMs.', utilizationPercent: 69 },
+      { id: 'nested-virt', label: 'Nested virtualization (L1)', kind: 'nested-virt', enabled: true, detail: 'Sandbox + training clusters can boot inner hypervisors.', utilizationPercent: 41 },
+    ],
+    numaPinning: [
+      { workload: 'payments-vm-01', numaZone: 'numa-0', cores: [0, 1, 2, 3, 4, 5, 6, 7], hugepageSizeMiB: 1024, hugepageCount: 8, pciDevices: ['mlx5_0', 'nvme0n1'] },
+      { workload: 'analytics-vm', numaZone: 'numa-1', cores: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43], hugepageSizeMiB: 1024, hugepageCount: 12, pciDevices: ['mlx5_1', 'nvme2n1', 'gpu-a100-1'] },
+      { workload: 'training-sandbox', numaZone: 'numa-1', cores: [44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59], hugepageSizeMiB: 1024, hugepageCount: 16, pciDevices: ['gpu-a100-2', 'gpu-a100-3', 'smart-nic-0'] },
+      { workload: 'fraud-lxc-01', numaZone: 'numa-0', cores: [8, 9, 10, 11], hugepageSizeMiB: 2, hugepageCount: 2048, pciDevices: ['nvme1n1'] },
+    ],
+    passThrough: [
+      { id: 'gpu-a100-1', kind: 'gpu', model: 'NVIDIA A100 80GB', boundTo: 'analytics-vm', driver: 'vfio-pci', utilizationPercent: 88, memoryGiB: 80 },
+      { id: 'gpu-a100-2', kind: 'gpu', model: 'NVIDIA A100 80GB', boundTo: 'training-sandbox', driver: 'vfio-pci', utilizationPercent: 92, memoryGiB: 80 },
+      { id: 'gpu-a100-3', kind: 'gpu', model: 'NVIDIA A100 80GB', boundTo: 'training-sandbox', driver: 'vfio-pci', utilizationPercent: 94, memoryGiB: 80 },
+      { id: 'gpu-h100-1', kind: 'gpu', model: 'NVIDIA H100 SXM', boundTo: 'inference-pool', driver: 'mdev', utilizationPercent: 76, memoryGiB: 80 },
+      { id: 'fpga-u200', kind: 'fpga', model: 'Xilinx Alveo U200', boundTo: 'payments-fraud-accelerator', driver: 'vfio-pci', utilizationPercent: 58, memoryGiB: 16 },
+      { id: 'smart-nic-0', kind: 'smart-nic', model: 'NVIDIA BlueField-3', boundTo: 'storage-bo (NVMe-oF)', driver: 'sr-iov', utilizationPercent: 67, memoryGiB: 32 },
+      { id: 'tpu-edge-1', kind: 'tpu', model: 'Google Coral Edge TPU', boundTo: 'edge-a inference', driver: 'vfio-pci', utilizationPercent: 41, memoryGiB: 4 },
+    ],
+    nestedClusters: [
+      { id: 'nest-1', name: 'training-pool-a', parentHost: 'compute-01', guestRole: 'training', cpuPinning: 'l1', status: 'running' },
+      { id: 'nest-2', name: 'training-pool-b', parentHost: 'compute-03', guestRole: 'training', cpuPinning: 'l1', status: 'running' },
+      { id: 'nest-3', name: 'inference-canary', parentHost: 'compute-02', guestRole: 'inference', cpuPinning: 'l2-passthrough', status: 'running' },
+      { id: 'nest-4', name: 'security-sandbox', parentHost: 'compute-02', guestRole: 'sandbox', cpuPinning: 'l1', status: 'paused' },
+      { id: 'nest-5', name: 'ci-runner-build', parentHost: 'compute-03', guestRole: 'ci', cpuPinning: 'l1', status: 'building' },
+    ],
+    dpdkPorts: [
+      { port: 'workload-bo (100G)', queues: 16, burstSize: 32, packetsPerSecond: 14_200_000, loadPercent: 71 },
+      { port: 'storage-bo (200G)', queues: 24, burstSize: 64, packetsPerSecond: 28_800_000, loadPercent: 84 },
+      { port: 'rdma-bo (200G)', queues: 24, burstSize: 64, packetsPerSecond: 22_400_000, loadPercent: 68 },
+      { port: 'mgmt-bo (25G)', queues: 4, burstSize: 16, packetsPerSecond: 1_200_000, loadPercent: 32 },
+    ],
+    spdkLanes: [
+      { lane: 'NVMe-oF TCP // userspace queue', queueDepth: 128, latencyMicros: 18, throughputGiBs: 12.4 },
+      { lane: 'NVMe-oF RDMA // userspace queue', queueDepth: 256, latencyMicros: 7, throughputGiBs: 18.2 },
+      { lane: 'Vitastor RBD bridge', queueDepth: 64, latencyMicros: 12, throughputGiBs: 9.8 },
+      { lane: 'Ceph SPDK accel', queueDepth: 128, latencyMicros: 22, throughputGiBs: 6.2 },
     ],
   };
 }

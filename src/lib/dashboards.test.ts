@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAccelerationDashboard,
   buildMachinesDashboard,
   buildNetworkingDashboard,
   buildOperationsDashboard,
+  buildPolyComputeDashboard,
   buildProcessorMemoryDashboard,
   buildStorageDashboard,
 } from './dashboards';
@@ -34,11 +36,25 @@ describe('networking dashboard data', () => {
 });
 
 describe('storage dashboard data', () => {
-  it('covers every backend named in the README', () => {
+  it('covers every backend named in the README plus the v2.0 Vitastor addition', () => {
     const ids = buildStorageDashboard().backends.map((backend) => backend.id);
-    for (const required of ['ceph', 'longhorn', 'nvme-of', 'rdma', 'zfs', 'iscsi', 'nfs', 'smb', 'glusterfs', 'openebs', 'portworx', 'local']) {
+    for (const required of ['ceph', 'longhorn', 'nvme-of', 'rdma', 'zfs', 'iscsi', 'nfs', 'smb', 'glusterfs', 'openebs', 'portworx', 'vitastor', 'local']) {
       expect(ids).toContain(required);
     }
+  });
+
+  it('tags the v2.0 hardware acceleration features onto the relevant backends', () => {
+    const backends = buildStorageDashboard().backends;
+    const byId = new Map(backends.map((backend) => [backend.id, backend]));
+    expect(byId.get('ceph')?.features).toContain('spdk-userspace');
+    expect(byId.get('nvme-of')?.features).toContain('spdk-userspace');
+    expect(byId.get('rdma')?.features).toContain('spdk-userspace');
+    expect(byId.get('vitastor')?.features).toContain('spdk-userspace');
+    expect(byId.get('zfs')?.features).toContain('copy-on-write');
+    expect(byId.get('zfs')?.features).toContain('arc-cache');
+    expect(byId.get('iscsi')?.features).toContain('vfio-pci-multipath');
+    expect(byId.get('nfs')?.features).toContain('subpath-driver');
+    expect(byId.get('smb')?.features).toContain('subpath-driver');
   });
 
   it('keeps usage and IOPS within sane ranges', () => {
@@ -104,5 +120,55 @@ describe('operations dashboard data', () => {
   it('contains at least one backup that breached its RPO so the SLA panel exercises the alert state', () => {
     const dash = buildOperationsDashboard();
     expect(dash.backupSla.some((row) => row.lastBackupMinutesAgo > row.rpoMinutes)).toBe(true);
+  });
+});
+
+describe('poly-compute dashboard data (v2.0)', () => {
+  it('exposes all three runtimes named in UPDATED.md', () => {
+    const ids = buildPolyComputeDashboard().runtimes.map((r) => r.id);
+    expect(ids).toEqual(expect.arrayContaining(['kubevirt', 'incus-lxc', 'k8s-pods']));
+  });
+
+  it('reports node density blends with at least one all-modes mixed node', () => {
+    const blend = buildPolyComputeDashboard().nodeBlend;
+    expect(blend.length).toBeGreaterThan(0);
+    expect(blend.some((node) => node.vms > 0 && node.systemContainers > 0 && node.pods > 0)).toBe(true);
+  });
+
+  it('keeps topology-aware scheduling policies non-empty and majority enabled', () => {
+    const policies = buildPolyComputeDashboard().topologyAwareScheduling;
+    expect(policies.length).toBeGreaterThanOrEqual(4);
+    const enabled = policies.filter((p) => p.enabled).length;
+    expect(enabled / policies.length).toBeGreaterThanOrEqual(0.6);
+  });
+});
+
+describe('acceleration dashboard data (v2.0)', () => {
+  it('lists SPDK, DPDK, vhost-user, NUMA pinning, 1 GiB hugepages, and GPU pass-through', () => {
+    const ids = buildAccelerationDashboard().features.map((f) => f.id);
+    for (const expected of ['spdk', 'dpdk', 'vhost-user', 'numa', 'hugepage-1g', 'gpu-pt']) {
+      expect(ids).toContain(expected);
+    }
+  });
+
+  it('produces NUMA pinning entries with non-empty cores and PCI devices', () => {
+    for (const entry of buildAccelerationDashboard().numaPinning) {
+      expect(entry.cores.length).toBeGreaterThan(0);
+      expect(entry.pciDevices.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('exposes at least one GPU pass-through device bound via vfio-pci or mdev', () => {
+    const gpus = buildAccelerationDashboard().passThrough.filter((d) => d.kind === 'gpu');
+    expect(gpus.length).toBeGreaterThan(0);
+    expect(gpus.every((g) => g.driver === 'vfio-pci' || g.driver === 'mdev' || g.driver === 'sr-iov')).toBe(true);
+  });
+
+  it('lists nested virtualization clusters that cover training, inference, sandbox, and CI roles', () => {
+    const roles = new Set(buildAccelerationDashboard().nestedClusters.map((c) => c.guestRole));
+    expect(roles.has('training')).toBe(true);
+    expect(roles.has('inference')).toBe(true);
+    expect(roles.has('sandbox')).toBe(true);
+    expect(roles.has('ci')).toBe(true);
   });
 });

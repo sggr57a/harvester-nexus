@@ -15,9 +15,11 @@ import { ThemePicker } from './components/ThemePicker';
 import { Wizard } from './components/Wizard';
 import { YamlEditor } from './components/YamlEditor';
 import {
+  AccelerationDashboardView,
   MachinesDashboardView,
   NetworkingDashboardView,
   OperationsDashboardView,
+  PolyComputeDashboardView,
   ProcessorMemoryDashboardView,
   StorageDashboardView,
 } from './components/dashboards/Dashboards';
@@ -43,6 +45,8 @@ type CockpitView =
   | 'storage'
   | 'machines'
   | 'processor-memory'
+  | 'poly-compute'
+  | 'acceleration'
   | 'operations'
   | 'resource-monitoring'
   | 'cluster'
@@ -132,6 +136,12 @@ function App() {
           <button className={cockpitView === 'processor-memory' ? 'active' : ''} onClick={() => setCockpitView('processor-memory')}>
             Processor &amp; Memory
           </button>
+          <button className={cockpitView === 'poly-compute' ? 'active' : ''} onClick={() => setCockpitView('poly-compute')}>
+            Poly-Compute Engine
+          </button>
+          <button className={cockpitView === 'acceleration' ? 'active' : ''} onClick={() => setCockpitView('acceleration')}>
+            Acceleration
+          </button>
           <button className={cockpitView === 'operations' ? 'active' : ''} onClick={() => setCockpitView('operations')}>
             Operations &amp; Compliance
           </button>
@@ -183,6 +193,8 @@ function App() {
         {cockpitView === 'storage' && <StorageDashboardView />}
         {cockpitView === 'machines' && <MachinesDashboardView />}
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView />}
+        {cockpitView === 'poly-compute' && <PolyComputeDashboardView />}
+        {cockpitView === 'acceleration' && <AccelerationDashboardView />}
         {cockpitView === 'operations' && <OperationsDashboardView />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (
