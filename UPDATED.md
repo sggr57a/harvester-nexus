@@ -1,8 +1,8 @@
-# Harvester Gemini-Omni (α-Branch)
+# Nexus
 
-`gemini-omni` is a next-generation, high-performance, open-source hyperconverged infrastructure (HCI) platform. Branching from the `harvester-nexus` architecture and built on a rock-solid **SLE Micro** base, `gemini-omni` breaks down the structural silos between traditional virtual machines, Kubernetes guest clusters, and high-efficiency system containers. 
+Nexus is a next-generation, high-performance, open-source hyperconverged infrastructure (HCI) platform. Branching from the `harvester-nexus` architecture and built on a rock-solid **SLE Micro** base, nexus breaks down the structural silos between traditional virtual machines, Kubernetes guest clusters, and high-efficiency system containers. 
 
-By unifying the bare-metal agility of **Proxmox** and **Incus (LXC)** with the massive cloud-native orchestration of **Kubernetes (KubeVirt)** and **VMware vSphere** class enterprise storage/scheduling, `gemini-omni` represents the ultimate consolidation of computing, storage, and specialized hardware accelerators.
+By unifying the bare-metal agility of **Proxmox** and **Incus (LXC)** with the massive cloud-native orchestration of **Kubernetes (KubeVirt)** and **VMware vSphere** class enterprise storage/scheduling, nexus represents the ultimate consolidation of computing, storage, and specialized hardware accelerators.
 
 ---
 
@@ -26,7 +26,7 @@ Run heterogeneous compute topologies on a single bare-metal node loop without pe
 | **NFS / SMB** | Subpath Volume Driver | Shared Media / Document Stores | Distributed RWX (ReadWriteMany) file shares |
 
 ### 3. Hyper-Efficient Data Path & Hardware Acceleration
-Traditional hypervisors waste critical processing cycles translating hardware commands. `gemini-omni` routes processing requests straight to the silicon:
+Traditional hypervisors waste critical processing cycles translating hardware commands. Nexus routes processing requests straight to the silicon:
 *   **Storage Bypass:** Uses **SPDK (Storage Performance Development Kit)** to direct NVMe-over-Fabrics commands from userspace directly to the network mesh.
 *   **Processing & Memory Memory Pinning:** Full Topology-Aware Scheduling aligns CPU cores, `1GiB` Hugepages, and PCI-e fabrics to the **same physical NUMA node** to eradicate cross-socket latency bottlenecks.
 *   **Network Line-Speed:** Implements **vhost-user** and DPDK ring buffers to bypass legacy virtual ethernet (`veth`) overhead.
