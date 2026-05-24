@@ -6,7 +6,7 @@ By unifying the bare-metal agility of **Proxmox** and **Incus (LXC)** with the m
 
 ---
 
-## 🚀 Key Architectural Pillars
+## Key Architectural Pillars
 
 ### 1. Unified Poly-Compute Engine
 Run heterogeneous compute topologies on a single bare-metal node loop without performance penances:
@@ -15,7 +15,7 @@ Run heterogeneous compute topologies on a single bare-metal node loop without pe
 *   **Native K8s Pods:** Standard containerized applications running directly on the orchestration backplane.
 
 ### 2. Universal Storage Fabric (USF)
-`gemini-omni` decouples the storage runtime from proprietary boundaries, allowing operators to spin up virtual disks or system containers utilizing any modern storage architecture concurrently:
+Nexus decouples the storage runtime from proprietary boundaries, allowing operators to spin up virtual disks or system containers utilizing any modern storage architecture concurrently:
 
 | Storage Type | Integration Path | Target Workload | Key Feature |
 | :--- | :--- | :--- | :--- |
