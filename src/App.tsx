@@ -73,10 +73,11 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">NX</div>
-          <div>
-            <h1>Nexus</h1>
-            <p>Dark-mode workload & storage manifest generator</p>
+          <div className="brand-icon">HX</div>
+          <div className="brand-wordmark">
+            <h1>Harvester</h1>
+            <span className="brand-sub">Nexus</span>
+            <p className="brand-tagline">Dark-mode workload & storage manifest generator</p>
           </div>
         </div>
         <div className="step-list">

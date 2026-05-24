@@ -6,7 +6,10 @@ export function LaunchSequence() {
   return (
     <section className="launch-sequence" aria-label="Nexus interface loading sequence">
       <div className="launch-grid" />
-      <div className="launch-wordmark">ELEVATE</div>
+      <div className="launch-wordmark-group">
+        <div className="launch-wordmark">HARVESTER</div>
+        <div className="launch-subwordmark">NEXUS</div>
+      </div>
       <div className="launch-meter-shell">
         <div className="launch-meter">
           <span />

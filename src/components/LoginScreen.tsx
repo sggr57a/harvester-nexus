@@ -29,8 +29,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     <div className="login-screen">
       <div className="login-container">
         <div className="login-header">
-          <div className="elevate-wordmark" aria-label="Elevate">
-            {'ELEVATE'.split('').map((letter, index) => (
+          <div className="elevate-wordmark" aria-label="Harvester">
+            {'HARVESTER'.split('').map((letter, index) => (
+              <span key={`${letter}-${index}`}>{letter}</span>
+            ))}
+          </div>
+          <div className="elevate-subwordmark" aria-label="Nexus">
+            {'NEXUS'.split('').map((letter, index) => (
               <span key={`${letter}-${index}`}>{letter}</span>
             ))}
           </div>
