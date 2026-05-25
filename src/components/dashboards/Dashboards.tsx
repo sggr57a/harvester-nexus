@@ -12,7 +12,7 @@ import {
   type CpuCore,
 } from '../../lib/dashboards';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
-import { WidgetTitle, WorldTrafficGlobe } from './Widgets';
+import { ThreatIntelMap, WidgetTitle } from './Widgets';
 
 const networking = buildNetworkingDashboard();
 const storage = buildStorageDashboard();
@@ -122,13 +122,13 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
         </div>
       </header>
 
-      <article className="dash-panel network-globe-panel">
+      <article className="dash-panel threat-intel-panel">
         <WidgetTitle
-          kicker="GEO-TRAFFIC"
-          title="World traffic map · live trajectories"
+          kicker="MDR // XDR · GEO-INTEL"
+          title="World threat intelligence · live"
           trailing={<span className="osc-readout">Frankfurt VIP · {networking.vip.address}</span>}
         />
-        <WorldTrafficGlobe snapshot={telemetry} visiblePanels={5} height={420} />
+        <ThreatIntelMap snapshot={telemetry} height={560} />
       </article>
 
       <article className="dash-panel topology-panel">

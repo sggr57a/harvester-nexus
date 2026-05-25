@@ -10843,3 +10843,500 @@ select option {
   margin-bottom: 0.7rem;
   padding: 0.7rem;
 }
+
+/* ============================================================
+   v6.1 — Threat-intel hero panel (MDR / XDR overlay world map)
+   Big 3-column layout: ACTIVE THREATS list | world map canvas
+   | XDR/MDR live stats. City lights, threat flares, network
+   paths, kill-chain strip.
+   ============================================================ */
+.threat-intel-map {
+  position: relative;
+  display: grid;
+  grid-template-columns: 240px 1fr 240px;
+  gap: 0.5rem;
+  padding: 0.55rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 6px;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 50%, rgba(0,0,0,0.45), rgba(0,0,0,0.92) 92%),
+    var(--theme-panel);
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.78), 0 22px 60px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+}
+@media (max-width: 1280px) {
+  .threat-intel-map { grid-template-columns: 200px 1fr 200px; }
+}
+@media (max-width: 980px) {
+  .threat-intel-map { grid-template-columns: 1fr; grid-auto-rows: minmax(0, auto); }
+}
+
+/* Side panels */
+.tim-side {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.4rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.04), transparent 60%),
+    rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--theme-mono, monospace);
+}
+.tim-side header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 0.32rem;
+  border-bottom: 1px dashed var(--theme-panel-border);
+}
+.tim-kicker {
+  font-size: 0.58rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-accent);
+  text-shadow: 0 0 6px var(--theme-accent);
+}
+.tim-side header strong {
+  font-size: 1.1rem;
+  color: var(--theme-text);
+  text-shadow: 0 0 6px var(--theme-accent);
+}
+.tim-live {
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--theme-good);
+  text-shadow: 0 0 4px var(--theme-good);
+}
+.tim-live::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  background: var(--theme-good);
+  box-shadow: 0 0 6px var(--theme-good);
+  animation: tim-live-pulse 1.2s ease-in-out infinite;
+}
+@keyframes tim-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* Active threats list (left side) */
+.tim-threats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.32rem;
+  overflow-y: auto;
+}
+.tim-threat {
+  position: relative;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--theme-panel-border);
+  border-left-width: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+  display: grid;
+  gap: 0.22rem;
+  animation: tim-threat-in 0.5s ease-out both;
+}
+@keyframes tim-threat-in {
+  0% { opacity: 0; transform: translateX(-12px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.tim-threat header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.4rem;
+  align-items: baseline;
+  padding-bottom: 0.18rem;
+  border-bottom: 1px dashed var(--theme-panel-border);
+}
+.tim-flag {
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  padding: 0.06rem 0.32rem;
+  border: 1px solid var(--theme-accent);
+  border-radius: 2px;
+  background: rgba(0,0,0,0.5);
+  color: var(--theme-accent);
+  text-shadow: 0 0 3px var(--theme-accent);
+}
+.tim-threat header strong {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--theme-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tim-action {
+  font-style: normal;
+  font-size: 0.52rem;
+  letter-spacing: 0.18em;
+  padding: 0.06rem 0.3rem;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+  background: rgba(0,0,0,0.4);
+}
+.tim-threat dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.4rem;
+  row-gap: 0.1rem;
+}
+.tim-threat dl > div { display: contents; }
+.tim-threat dt {
+  font-size: 0.5rem;
+  letter-spacing: 0.18em;
+  color: var(--theme-accent);
+  text-shadow: 0 0 2px var(--theme-accent);
+}
+.tim-threat dd {
+  margin: 0;
+  font-size: 0.62rem;
+  color: var(--theme-text);
+  letter-spacing: 0.04em;
+  word-break: break-all;
+}
+.tim-threat-pulse {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 3px;
+  box-shadow: 0 0 10px currentColor;
+  animation: tim-threat-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tim-threat-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.tim-threat.sev-low { border-left-color: var(--theme-good); }
+.tim-threat.sev-low .tim-action { color: var(--theme-good); }
+.tim-threat.sev-medium { border-left-color: var(--theme-accent-2); }
+.tim-threat.sev-medium .tim-action { color: var(--theme-accent-2); }
+.tim-threat.sev-high { border-left-color: var(--theme-warn); }
+.tim-threat.sev-high .tim-action { color: var(--theme-warn); }
+.tim-threat.sev-critical { border-left-color: var(--theme-danger); background: rgba(255, 93, 143, 0.06); }
+.tim-threat.sev-critical .tim-action { color: var(--theme-danger); }
+
+/* Center map canvas */
+.tim-canvas {
+  position: relative;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 50%, rgba(0,0,0,0.5), rgba(0,0,0,0.9) 90%),
+    var(--theme-panel);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+.tim-canvas svg {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  display: block;
+}
+.tim-source-label {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2.4px;
+  fill: var(--theme-accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 4px rgba(0,0,0,0.85);
+}
+.tim-home-label {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2.6px;
+  fill: var(--theme-text);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.tim-home-coord {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2.2px;
+  fill: var(--theme-warn);
+  letter-spacing: 0.06em;
+}
+.tim-threat-label {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2.4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tim-threat-cve {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2px;
+  letter-spacing: 0.04em;
+}
+
+/* Iron Man unfold panels (re-using styles from world-panel) */
+.tim-panels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.tim-panel {
+  position: absolute;
+  transform: translate(-50%, -110%);
+  min-width: 178px;
+  padding: 0.45rem 0.55rem 0.4rem;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.06), transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4)),
+    var(--theme-panel);
+  border: 1px solid var(--theme-accent);
+  border-radius: 4px;
+  font-family: var(--theme-mono, monospace);
+  color: var(--theme-text);
+  pointer-events: auto;
+  box-shadow:
+    0 0 0 1px var(--theme-panel-border),
+    0 14px 40px rgba(0, 0, 0, 0.85),
+    0 0 16px var(--theme-accent-soft);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  animation: world-panel-unfold 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.tim-panel::before {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 12px;
+  background: var(--theme-accent);
+  box-shadow: 0 0 4px var(--theme-accent);
+}
+.tim-panel::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  box-shadow: 0 0 6px var(--theme-accent), 0 0 12px var(--theme-accent);
+}
+.tim-panel-bracket {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, var(--theme-accent) 0 12px, transparent 12px) top left / 12px 1px no-repeat,
+    linear-gradient(to bottom, var(--theme-accent) 0 12px, transparent 12px) top left / 1px 12px no-repeat,
+    linear-gradient(to left, var(--theme-accent) 0 12px, transparent 12px) top right / 12px 1px no-repeat,
+    linear-gradient(to bottom, var(--theme-accent) 0 12px, transparent 12px) top right / 1px 12px no-repeat,
+    linear-gradient(to right, var(--theme-accent) 0 12px, transparent 12px) bottom left / 12px 1px no-repeat,
+    linear-gradient(to top, var(--theme-accent) 0 12px, transparent 12px) bottom left / 1px 12px no-repeat,
+    linear-gradient(to left, var(--theme-accent) 0 12px, transparent 12px) bottom right / 12px 1px no-repeat,
+    linear-gradient(to top, var(--theme-accent) 0 12px, transparent 12px) bottom right / 1px 12px no-repeat;
+  filter: drop-shadow(0 0 4px var(--theme-accent));
+}
+.tim-panel header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding-bottom: 0.32rem;
+  margin-bottom: 0.32rem;
+  border-bottom: 1px dashed var(--theme-panel-border);
+}
+.tim-panel-flag {
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--theme-accent);
+  border-radius: 2px;
+  background: rgba(0,0,0,0.6);
+  color: var(--theme-accent);
+  text-shadow: 0 0 3px var(--theme-accent);
+}
+.tim-panel header strong {
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  color: var(--theme-text);
+}
+.tim-panel header em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 0.5rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--theme-text-dim);
+}
+.tim-panel dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5rem;
+  row-gap: 0.16rem;
+}
+.tim-panel dl > div { display: contents; }
+.tim-panel dt {
+  font-size: 0.5rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--theme-accent);
+}
+.tim-panel dd {
+  margin: 0;
+  font-size: 0.66rem;
+  color: var(--theme-text);
+  letter-spacing: 0.04em;
+  word-break: break-all;
+}
+.tim-panel dd.status-good { color: var(--theme-good); }
+.tim-panel dd.status-warn { color: var(--theme-warn); }
+.tim-panel dd.status-info { color: var(--theme-accent-2); }
+.tim-panel dd.status-danger { color: var(--theme-danger); }
+
+/* Kill-chain strip across the bottom of the canvas */
+.tim-killchain {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 0.3rem 0.4rem;
+  background: rgba(0, 0, 0, 0.55);
+  border-top: 1px dashed var(--theme-panel-border);
+  font-family: var(--theme-mono, monospace);
+}
+.tim-killchain-cell {
+  display: grid;
+  gap: 0.06rem;
+  padding: 0.28rem 0.32rem;
+  border: 1px solid var(--theme-panel-border);
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 2px;
+  text-align: center;
+  animation: tim-threat-in 0.5s ease-out both;
+}
+.tim-killchain-cell span {
+  font-size: 0.5rem;
+  letter-spacing: 0.18em;
+  color: var(--theme-text-dim);
+}
+.tim-killchain-cell strong {
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-text);
+}
+.tim-killchain-cell b {
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.85rem;
+  color: var(--theme-text-dim);
+}
+.tim-killchain-cell.is-hit {
+  border-color: var(--theme-warn);
+  background: rgba(255, 209, 102, 0.06);
+}
+.tim-killchain-cell.is-hit b {
+  color: var(--theme-warn);
+  text-shadow: 0 0 6px var(--theme-warn);
+}
+
+/* Right side — XDR / MDR stats grid */
+.tim-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.32rem;
+  overflow-y: auto;
+  align-content: start;
+}
+.tim-stat {
+  position: relative;
+  display: grid;
+  gap: 0.06rem;
+  padding: 0.42rem 0.5rem;
+  border: 1px solid var(--theme-panel-border);
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+}
+.tim-stat::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--theme-accent), transparent);
+  opacity: 0.65;
+}
+.tim-stat span {
+  font-size: 0.5rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--theme-text-dim);
+}
+.tim-stat strong {
+  font-size: 1rem;
+  color: var(--theme-accent);
+  text-shadow: 0 0 8px var(--theme-accent);
+  letter-spacing: 0.04em;
+}
+.tim-stat small {
+  font-size: 0.5rem;
+  color: var(--theme-text-dim);
+  letter-spacing: 0.06em;
+}
+.tim-stat.status-good strong { color: var(--theme-good); text-shadow: 0 0 6px var(--theme-good); }
+.tim-stat.status-warn strong { color: var(--theme-warn); text-shadow: 0 0 6px var(--theme-warn); }
+.tim-stat.status-danger strong { color: var(--theme-danger); text-shadow: 0 0 6px var(--theme-danger); }
+
+/* Live scan bar at bottom of right side */
+.tim-scan {
+  display: grid;
+  gap: 0.18rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--theme-panel-border);
+}
+.tim-scan-label {
+  font-size: 0.5rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-accent);
+  text-shadow: 0 0 4px var(--theme-accent);
+}
+.tim-scan-bar {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tim-scan-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, var(--theme-accent), transparent);
+  box-shadow: 0 0 8px var(--theme-accent);
+  animation: tim-scan-sweep 2.6s linear infinite;
+}
+@keyframes tim-scan-sweep {
+  0% { left: -30%; }
+  100% { left: 100%; }
+}
+
+/* Threat-intel hero panel sits full-width above the topology panel */
+.dash-networking .threat-intel-panel {
+  margin-bottom: 0.8rem;
+  padding: 0.7rem 0.85rem;
+}

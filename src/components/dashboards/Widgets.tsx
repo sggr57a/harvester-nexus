@@ -769,7 +769,12 @@ const STATUS_TONE = (status: number) =>
  * sources is "active" — their info panel unfolds with IP / host / method /
  * status / bytes / RPS (Iron Man HUD style), and an animated trajectory arcs
  * from the country to the system center (Frankfurt). Travelling glow particles
- * along each arc give the live feel. */
+ * along each arc give the live feel.
+ *
+ * @deprecated Used as a small map; the new `ThreatIntelMap` is the hero panel
+ *             and provides full MDR/XDR threat overlay, city-lights, and
+ *             side-panel intelligence feeds.
+ */
 export function WorldTrafficGlobe({
   snapshot,
   sources = DEFAULT_SOURCES,
@@ -912,6 +917,465 @@ export function WorldTrafficGlobe({
         <span className="leg-backup"><i />backup</span>
         <span className="leg-meta">tick #{seed} · {sources.length} sources · {activeIds.size} live</span>
       </div>
+    </div>
+  );
+}
+
+/* -------------------- Threat-intel map (MDR / XDR overlay, big hero panel) -------------------- */
+
+interface ThreatActor {
+  id: string;
+  /** Geographic origin */
+  city: string;
+  country: string;
+  lat: number;
+  lng: number;
+  /** APT / threat-group attribution (e.g. APT28, LAZARUS) */
+  actor: string;
+  /** CVE ID being weaponised (e.g. CVE-2024-3094) */
+  cve: string;
+  /** Malware family / payload */
+  malware: string;
+  /** Primary tactic from MITRE ATT&CK */
+  tactic: 'recon' | 'initial-access' | 'execution' | 'persistence' | 'lateral' | 'exfil' | 'c2';
+  /** XDR severity */
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  /** What the MDR/XDR platform did about it */
+  action: 'blocked' | 'isolated' | 'escalated' | 'observing' | 'auto-rolled-back';
+  /** Source IP being blocked / observed */
+  ip: string;
+  /** Number of indicators-of-compromise observed */
+  iocCount: number;
+}
+
+const DEFAULT_THREATS: ThreatActor[] = [
+  { id: 't1', city: 'Saint Petersburg', country: 'RU', lat: 59.9, lng: 30.3, actor: 'APT28 / Fancy Bear', cve: 'CVE-2024-3094', malware: 'XZ Utils backdoor', tactic: 'initial-access', severity: 'critical', action: 'blocked', ip: '203.0.113.61', iocCount: 184 },
+  { id: 't2', city: 'Pyongyang', country: 'KP', lat: 39.0, lng: 125.7, actor: 'LAZARUS', cve: 'CVE-2024-21338', malware: 'FudModule rootkit', tactic: 'persistence', severity: 'critical', action: 'isolated', ip: '198.51.100.7', iocCount: 96 },
+  { id: 't3', city: 'Tehran', country: 'IR', lat: 35.7, lng: 51.4, actor: 'APT34 / OilRig', cve: 'CVE-2023-46805', malware: 'Karkoff dropper', tactic: 'recon', severity: 'high', action: 'observing', ip: '203.0.113.84', iocCount: 38 },
+  { id: 't4', city: 'Shanghai', country: 'CN', lat: 31.2, lng: 121.5, actor: 'APT41 / BARIUM', cve: 'CVE-2024-1086', malware: 'Mootbot variant', tactic: 'lateral', severity: 'high', action: 'escalated', ip: '198.51.100.42', iocCount: 122 },
+  { id: 't5', city: 'Lagos', country: 'NG', lat: 6.5, lng: 3.4, actor: 'TA505', cve: 'CVE-2023-50164', malware: 'Cobalt Strike beacon', tactic: 'c2', severity: 'medium', action: 'blocked', ip: '203.0.113.140', iocCount: 28 },
+  { id: 't6', city: 'Brasília', country: 'BR', lat: -15.8, lng: -47.9, actor: 'Coyote', cve: 'CVE-2024-6387', malware: 'Coyote banker', tactic: 'execution', severity: 'medium', action: 'auto-rolled-back', ip: '198.51.100.219', iocCount: 12 },
+  { id: 't7', city: 'Hanoi', country: 'VN', lat: 21.0, lng: 105.8, actor: 'APT32 / OceanLotus', cve: 'CVE-2024-30040', malware: 'Cobra DocGuard', tactic: 'initial-access', severity: 'high', action: 'blocked', ip: '203.0.113.22', iocCount: 64 },
+  { id: 't8', city: 'Caracas', country: 'VE', lat: 10.5, lng: -66.9, actor: 'unattributed', cve: 'CVE-2024-21893', malware: 'GoMet implant', tactic: 'exfil', severity: 'low', action: 'observing', ip: '198.51.100.198', iocCount: 6 },
+];
+
+interface ThreatIntelMapProps {
+  snapshot?: EnvironmentSnapshot;
+  sources?: TrafficSource[];
+  threats?: ThreatActor[];
+  height?: number;
+}
+
+const SEVERITY_TONE: Record<ThreatActor['severity'], string> = {
+  low: 'var(--theme-good)',
+  medium: 'var(--theme-accent-2)',
+  high: 'var(--theme-warn)',
+  critical: 'var(--theme-danger)',
+};
+
+const ACTION_LABEL: Record<ThreatActor['action'], string> = {
+  blocked: 'BLOCKED',
+  isolated: 'ISOLATED',
+  escalated: 'ESCALATED',
+  observing: 'OBSERVING',
+  'auto-rolled-back': 'ROLLED BACK',
+};
+
+/** Simulated "city lights at night" — random glow dots scattered across each
+ * continent. Stable across re-renders so the lights don't strobe randomly. */
+const CITY_LIGHTS: { x: number; y: number; r: number; bright: boolean }[] = (() => {
+  const lights: { x: number; y: number; r: number; bright: boolean }[] = [];
+  // Hand-picked clusters within continent bounding boxes
+  const clusters = [
+    { cx: 60, cy: 70, n: 32 },   // North America east coast
+    { cx: 38, cy: 76, n: 14 },   // North America west coast
+    { cx: 110, cy: 130, n: 18 }, // South America east coast
+    { cx: 188, cy: 56, n: 26 },  // Europe
+    { cx: 200, cy: 100, n: 16 }, // Africa
+    { cx: 252, cy: 60, n: 28 },  // Asia
+    { cx: 290, cy: 76, n: 14 },  // East Asia
+    { cx: 256, cy: 88, n: 12 },  // SE Asia
+    { cx: 304, cy: 134, n: 10 }, // Australia
+  ];
+  let s = 17;
+  for (const cl of clusters) {
+    for (let i = 0; i < cl.n; i += 1) {
+      s = (s * 9301 + 49297) % 233280;
+      const angle = (s / 233280) * Math.PI * 2;
+      s = (s * 9301 + 49297) % 233280;
+      const radius = (s / 233280) * 18;
+      s = (s * 9301 + 49297) % 233280;
+      const r = 0.25 + (s / 233280) * 0.55;
+      s = (s * 9301 + 49297) % 233280;
+      const bright = (s / 233280) < 0.18;
+      lights.push({
+        x: cl.cx + Math.cos(angle) * radius,
+        y: cl.cy + Math.sin(angle) * radius,
+        r,
+        bright,
+      });
+    }
+  }
+  return lights;
+})();
+
+/** Pre-defined inter-DC network paths (cyan trade-route lines) */
+const NETWORK_PATHS: { a: [number, number]; b: [number, number]; channel: 'mgmt' | 'storage' | 'mesh' }[] = (() => {
+  const cities: Record<string, [number, number]> = {
+    frankfurt: projectGeo(50.1, 8.7),
+    london: projectGeo(51.5, -0.1),
+    nyc: projectGeo(40.7, -74.0),
+    sj: projectGeo(37.3, -121.9),
+    tokyo: projectGeo(35.7, 139.7),
+    sg: projectGeo(1.4, 103.8),
+    sydney: projectGeo(-33.9, 151.2),
+    dubai: projectGeo(25.3, 55.3),
+    saopaulo: projectGeo(-23.5, -46.6),
+    capetown: projectGeo(-33.9, 18.4),
+    mumbai: projectGeo(19.1, 72.9),
+    toronto: projectGeo(43.7, -79.4),
+  };
+  return [
+    { a: cities.frankfurt, b: cities.london, channel: 'mgmt' as const },
+    { a: cities.frankfurt, b: cities.nyc, channel: 'mesh' as const },
+    { a: cities.nyc, b: cities.sj, channel: 'storage' as const },
+    { a: cities.frankfurt, b: cities.dubai, channel: 'mgmt' as const },
+    { a: cities.dubai, b: cities.mumbai, channel: 'mesh' as const },
+    { a: cities.mumbai, b: cities.sg, channel: 'storage' as const },
+    { a: cities.sg, b: cities.tokyo, channel: 'mesh' as const },
+    { a: cities.sg, b: cities.sydney, channel: 'storage' as const },
+    { a: cities.frankfurt, b: cities.toronto, channel: 'mgmt' as const },
+    { a: cities.toronto, b: cities.nyc, channel: 'mesh' as const },
+    { a: cities.nyc, b: cities.saopaulo, channel: 'storage' as const },
+    { a: cities.saopaulo, b: cities.capetown, channel: 'mesh' as const },
+    { a: cities.capetown, b: cities.frankfurt, channel: 'mgmt' as const },
+  ];
+})();
+
+export function ThreatIntelMap({
+  snapshot,
+  sources = DEFAULT_SOURCES,
+  threats = DEFAULT_THREATS,
+  height = 540,
+}: ThreatIntelMapProps) {
+  const seed = snapshot?.tick ?? 0;
+  const homeProj = projectGeo(SYSTEM_HOME.lat, SYSTEM_HOME.lng);
+
+  // Cycle which sources have an Iron-Man unfold panel
+  const activeIds = useMemo(() => {
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      ids.push(sources[(seed + i * 3) % sources.length].id);
+    }
+    return new Set(ids);
+  }, [seed, sources]);
+
+  const projectedSources = useMemo(
+    () => sources.map((src) => ({ src, point: projectGeo(src.lat, src.lng) })),
+    [sources],
+  );
+  const projectedThreats = useMemo(
+    () => threats.map((t) => ({ t, point: projectGeo(t.lat, t.lng) })),
+    [threats],
+  );
+
+  // Aggregate XDR stats — light perturbation per tick so the side panels feel live
+  const xdrStats = useMemo(() => {
+    const drift = (i: number) => ((seed * 7 + i * 13) % 17) - 8;
+    return {
+      alertsPerMin: 4280 + drift(1) * 12,
+      blocked24h: 18420 + drift(2) * 96,
+      escalated24h: 142 + (Math.abs(drift(3)) % 6),
+      isolatedHosts: 3 + (Math.abs(drift(4)) % 3),
+      iocsToday: 9824 + drift(5) * 40,
+      mttd: '4.2 s',
+      mttr: '38 s',
+      activeAPTs: 6,
+      criticalCves: 3,
+    };
+  }, [seed]);
+
+  // Rotating subset of threats shown in the left ACTIVE THREATS panel
+  const visibleThreats = useMemo(() => {
+    return threats.slice(0, 5).map((t, idx) => ({
+      ...t,
+      _liveDelay: ((seed * 3 + idx * 7) % 9) + 1,
+    }));
+  }, [threats, seed]);
+
+  return (
+    <div className="threat-intel-map" style={{ height }}>
+      {/* Left side — ACTIVE THREATS panel */}
+      <aside className="tim-side tim-left" aria-label="Active threats">
+        <header>
+          <span className="tim-kicker">XDR · ACTIVE THREATS</span>
+          <strong>{threats.length}</strong>
+        </header>
+        <ul className="tim-threats">
+          {visibleThreats.map((t) => (
+            <li key={t.id} className={`tim-threat sev-${t.severity}`}>
+              <header>
+                <span className="tim-flag">{t.country}</span>
+                <strong>{t.actor}</strong>
+                <em className="tim-action">{ACTION_LABEL[t.action]}</em>
+              </header>
+              <dl>
+                <div><dt>CVE</dt><dd>{t.cve}</dd></div>
+                <div><dt>MAL</dt><dd>{t.malware}</dd></div>
+                <div><dt>TTP</dt><dd>{t.tactic}</dd></div>
+                <div><dt>IP</dt><dd>{t.ip}</dd></div>
+                <div><dt>IOC</dt><dd>{t.iocCount}</dd></div>
+              </dl>
+              <i className="tim-threat-pulse" style={{ background: SEVERITY_TONE[t.severity] }} />
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      {/* Center — the big map */}
+      <div className="tim-canvas">
+        <svg viewBox="0 0 360 180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <defs>
+            <radialGradient id="tim-bg-glow" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stopColor="var(--theme-accent-soft)" stopOpacity="0.45" />
+              <stop offset="60%" stopColor="var(--theme-accent-soft)" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="var(--theme-accent-soft)" stopOpacity="0" />
+            </radialGradient>
+            <pattern id="tim-graticule" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--theme-grid)" strokeWidth="0.18" />
+            </pattern>
+            <radialGradient id="tim-threat-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="var(--theme-danger)" stopOpacity="0.6" />
+              <stop offset="80%" stopColor="var(--theme-danger)" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="tim-light-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="var(--theme-warn)" stopOpacity="0.7" />
+              <stop offset="100%" stopColor="var(--theme-warn)" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          {/* Background glow + graticule */}
+          <rect x="0" y="0" width="360" height="180" fill="url(#tim-bg-glow)" />
+          <rect x="0" y="0" width="360" height="180" fill="url(#tim-graticule)" opacity="0.55" />
+          {/* Equator + tropics */}
+          <line x1="0" y1="90" x2="360" y2="90" stroke="var(--theme-accent)" strokeWidth="0.25" strokeDasharray="2 3" opacity="0.4" />
+          <line x1="0" y1="66" x2="360" y2="66" stroke="var(--theme-accent-soft)" strokeWidth="0.18" strokeDasharray="1 4" opacity="0.5" />
+          <line x1="0" y1="114" x2="360" y2="114" stroke="var(--theme-accent-soft)" strokeWidth="0.18" strokeDasharray="1 4" opacity="0.5" />
+          {/* Continents */}
+          {CONTINENT_PATHS.map((c) => (
+            <g key={c.id}>
+              <path d={c.d} fill="var(--theme-accent-soft)" fillOpacity="0.34" stroke="var(--theme-accent)" strokeWidth="0.35" opacity="0.7" />
+              <path d={c.d} fill="none" stroke="var(--theme-accent)" strokeWidth="0.2" opacity="0.5" style={{ filter: 'drop-shadow(0 0 3px var(--theme-accent))' }} />
+            </g>
+          ))}
+          {/* City lights at night */}
+          {CITY_LIGHTS.map((light, idx) => (
+            <circle
+              key={idx}
+              cx={light.x}
+              cy={light.y}
+              r={light.r}
+              fill={light.bright ? 'var(--theme-warn)' : 'var(--theme-accent-2)'}
+              opacity={light.bright ? 0.85 : 0.55}
+              style={{ filter: light.bright ? 'drop-shadow(0 0 1.5px var(--theme-warn))' : undefined }}
+            >
+              <animate
+                attributeName="opacity"
+                values={light.bright ? '0.55;1;0.55' : '0.3;0.7;0.3'}
+                dur={`${2.5 + (idx % 5) * 0.4}s`}
+                repeatCount="indefinite"
+                begin={`${(idx % 7) * 0.18}s`}
+              />
+            </circle>
+          ))}
+          {/* Inter-DC network paths */}
+          {NETWORK_PATHS.map((path, idx) => {
+            const color = `var(--theme-channel-${path.channel})`;
+            const [ax, ay] = path.a;
+            const [bx, by] = path.b;
+            const midX = (ax + bx) / 2;
+            const dist = Math.hypot(bx - ax, by - ay);
+            const bow = Math.min(50, dist * 0.42);
+            const midY = (ay + by) / 2 - bow;
+            const d = `M${ax} ${ay} Q ${midX} ${midY} ${bx} ${by}`;
+            return (
+              <g key={idx} className={`tim-net-path channel-${path.channel}`}>
+                <path d={d} stroke={color} strokeWidth="0.35" fill="none" opacity="0.45" />
+                <path d={d} stroke={color} strokeWidth="0.55" fill="none" strokeDasharray="3 5" opacity="0.85" style={{ filter: `drop-shadow(0 0 2px ${color})` }}>
+                  <animate attributeName="stroke-dashoffset" values="0;-16" dur={`${4 + (idx % 4)}s`} repeatCount="indefinite" />
+                </path>
+                <circle r="0.7" fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }}>
+                  <animateMotion dur={`${5 + (idx % 4)}s`} repeatCount="indefinite" path={d} begin={`${idx * 0.3}s`} />
+                </circle>
+              </g>
+            );
+          })}
+          {/* Frankfurt VIP halo */}
+          <g transform={`translate(${homeProj[0]} ${homeProj[1]})`}>
+            <circle r="6" fill="none" stroke="var(--theme-accent)" strokeWidth="0.4" opacity="0.6">
+              <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.7;0;0.7" dur="2.4s" repeatCount="indefinite" />
+            </circle>
+            <circle r="2.4" fill="var(--theme-accent)" style={{ filter: 'drop-shadow(0 0 5px var(--theme-accent)) drop-shadow(0 0 12px var(--theme-accent))' }} />
+            <circle r="1" fill="var(--theme-text)" />
+            <text y="-3.4" textAnchor="middle" className="tim-home-label">{SYSTEM_HOME.city}</text>
+            <text y="6.4" textAnchor="middle" className="tim-home-coord">VIP · {SYSTEM_HOME.country}</text>
+          </g>
+          {/* Threat hotspots — orange flares */}
+          {projectedThreats.map(({ t, point }, idx) => {
+            const [tx, ty] = point;
+            const tone = SEVERITY_TONE[t.severity];
+            return (
+              <g key={t.id} className={`tim-threat-flare sev-${t.severity}`}>
+                <circle cx={tx} cy={ty} r="6" fill="url(#tim-threat-glow)" opacity="0.55">
+                  <animate attributeName="r" values="3;7;3" dur={`${1.6 + (idx % 4) * 0.3}s`} repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.65;0;0.65" dur={`${1.6 + (idx % 4) * 0.3}s`} repeatCount="indefinite" />
+                </circle>
+                <circle cx={tx} cy={ty} r="1.6" fill={tone} style={{ filter: `drop-shadow(0 0 3px ${tone}) drop-shadow(0 0 8px ${tone})` }} />
+                <line x1={tx} y1={ty - 4} x2={tx} y2={ty - 8} stroke={tone} strokeWidth="0.4" opacity="0.85" />
+                <line x1={tx + 4} y1={ty} x2={tx + 8} y2={ty} stroke={tone} strokeWidth="0.4" opacity="0.85" />
+                <line x1={tx - 4} y1={ty} x2={tx - 8} y2={ty} stroke={tone} strokeWidth="0.4" opacity="0.85" />
+                <text x={tx} y={ty - 9.5} textAnchor="middle" className="tim-threat-label" style={{ fill: tone }}>{t.actor.split(' ')[0]}</text>
+                <text x={tx} y={ty + 11} textAnchor="middle" className="tim-threat-cve" style={{ fill: tone }}>{t.cve}</text>
+              </g>
+            );
+          })}
+          {/* Source dots + trajectory arcs to Frankfurt */}
+          {projectedSources.map(({ src, point }, idx) => {
+            const color = KIND_COLORS[src.kind];
+            const [x1, y1] = point;
+            const [x2, y2] = homeProj;
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const bow = Math.min(40, dist * 0.32);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2 - bow;
+            const path = `M${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
+            const animActive = activeIds.has(src.id);
+            return (
+              <g key={src.id} className={`tim-traj kind-${src.kind} ${animActive ? 'is-active' : ''}`}>
+                <path d={path} stroke={color} strokeWidth="0.25" fill="none" opacity={animActive ? 0.65 : 0.22} />
+                {animActive && (
+                  <>
+                    <path d={path} stroke={color} strokeWidth="0.45" fill="none" strokeDasharray="3 6" style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 5px ${color})` }}>
+                      <animate attributeName="stroke-dashoffset" values="0;-18" dur="1.6s" repeatCount="indefinite" />
+                    </path>
+                    <circle r="1.1" fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }}>
+                      <animateMotion dur="2.2s" repeatCount="indefinite" path={path} begin={`${(idx * 0.12) % 0.8}s`} />
+                    </circle>
+                  </>
+                )}
+                <circle cx={x1} cy={y1} r="1.4" fill={color} style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 5px ${color})` }} />
+                <circle cx={x1} cy={y1} r="2.6" fill="none" stroke={color} strokeWidth="0.3" opacity="0.55">
+                  <animate attributeName="r" values="2.6;5;2.6" dur="2.2s" repeatCount="indefinite" begin={`${idx * 0.13}s`} />
+                  <animate attributeName="opacity" values="0.55;0;0.55" dur="2.2s" repeatCount="indefinite" begin={`${idx * 0.13}s`} />
+                </circle>
+                <text x={x1} y={y1 - 2.2} textAnchor="middle" className="tim-source-label">{src.country}</text>
+              </g>
+            );
+          })}
+          {/* Sweep cursor */}
+          <line x1="0" y1="2" x2="360" y2="2" stroke="var(--theme-accent)" strokeWidth="0.3" opacity="0.6" />
+          <line x1="0" y1="178" x2="360" y2="178" stroke="var(--theme-accent)" strokeWidth="0.3" opacity="0.6" />
+        </svg>
+
+        {/* Iron Man unfold panels */}
+        <div className="tim-panels">
+          {projectedSources
+            .filter(({ src }) => activeIds.has(src.id))
+            .map(({ src, point }, idx) => {
+              const [px, py] = point;
+              const left = `${(px / 360) * 100}%`;
+              const top = `${(py / 180) * 100}%`;
+              const tone = STATUS_TONE(src.status);
+              return (
+                <div key={src.id} className={`tim-panel tone-${tone} kind-${src.kind}`} style={{ left, top, animationDelay: `${idx * 80}ms` }}>
+                  <div className="tim-panel-bracket" />
+                  <header>
+                    <span className="tim-panel-flag">{src.country}</span>
+                    <strong>{src.city}</strong>
+                    <em>{src.kind}</em>
+                  </header>
+                  <dl>
+                    <div><dt>IP</dt><dd>{src.ip}</dd></div>
+                    <div><dt>HOST</dt><dd>{src.host}</dd></div>
+                    <div><dt>{src.method}</dt><dd className={`status-${tone}`}>{src.status}</dd></div>
+                    <div><dt>RPS</dt><dd>{src.rps}/s</dd></div>
+                    <div><dt>BYTES</dt><dd>{src.bytes >= 1024 ? `${(src.bytes / 1024).toFixed(1)} KB` : `${src.bytes} B`}</dd></div>
+                  </dl>
+                </div>
+              );
+            })}
+        </div>
+
+        {/* Bottom kill-chain strip */}
+        <div className="tim-killchain">
+          {(['recon', 'initial-access', 'execution', 'persistence', 'lateral', 'c2', 'exfil'] as const).map((stage, idx) => {
+            const count = threats.filter((t) => t.tactic === stage).length;
+            return (
+              <div key={stage} className={`tim-killchain-cell ${count > 0 ? 'is-hit' : ''}`} style={{ animationDelay: `${idx * 70}ms` }}>
+                <span>{idx + 1}</span>
+                <strong>{stage.replace('-', ' ')}</strong>
+                <b>{count}</b>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Right side — XDR / MDR stats */}
+      <aside className="tim-side tim-right" aria-label="MDR / XDR stats">
+        <header>
+          <span className="tim-kicker">MDR · XDR PLATFORM</span>
+          <strong className="tim-live">stream live</strong>
+        </header>
+        <div className="tim-stats">
+          <div className="tim-stat status-good">
+            <span>ALERTS / MIN</span>
+            <strong>{xdrStats.alertsPerMin.toLocaleString()}</strong>
+            <small>rolling 1h</small>
+          </div>
+          <div className="tim-stat status-good">
+            <span>BLOCKED 24h</span>
+            <strong>{xdrStats.blocked24h.toLocaleString()}</strong>
+            <small>auto-mitigation</small>
+          </div>
+          <div className="tim-stat status-warn">
+            <span>ESCALATED 24h</span>
+            <strong>{xdrStats.escalated24h}</strong>
+            <small>SOC tier-2 queue</small>
+          </div>
+          <div className="tim-stat status-danger">
+            <span>ISOLATED HOSTS</span>
+            <strong>{xdrStats.isolatedHosts}</strong>
+            <small>quarantined VLANs</small>
+          </div>
+          <div className="tim-stat">
+            <span>IOC TODAY</span>
+            <strong>{xdrStats.iocsToday.toLocaleString()}</strong>
+            <small>hashes · IPs · domains</small>
+          </div>
+          <div className="tim-stat">
+            <span>MTTD / MTTR</span>
+            <strong>{xdrStats.mttd}</strong>
+            <small>{xdrStats.mttr} mean response</small>
+          </div>
+          <div className="tim-stat status-warn">
+            <span>ACTIVE APTs</span>
+            <strong>{xdrStats.activeAPTs}</strong>
+            <small>actors tracked</small>
+          </div>
+          <div className="tim-stat status-danger">
+            <span>CRIT CVES</span>
+            <strong>{xdrStats.criticalCves}</strong>
+            <small>weaponised in-the-wild</small>
+          </div>
+        </div>
+        <div className="tim-scan">
+          <span className="tim-scan-label">LIVE SCAN</span>
+          <div className="tim-scan-bar"><i /></div>
+        </div>
+      </aside>
     </div>
   );
 }
