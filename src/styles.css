@@ -5818,3 +5818,469 @@ body::before {
 .hud-gauge-svg .gauge-pct { fill: var(--theme-text) !important; }
 .hud-gauge-svg .gauge-lbl { fill: var(--theme-text-dim) !important; }
 
+
+/* ============================================================
+   MACHINE + MANIFEST WIZARD COMBINED VIEW
+   ============================================================ */
+.machine-manifest-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.machine-manifest-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--theme-panel-border);
+  background: rgba(0,0,0,0.28);
+  padding: 0.5rem 0.75rem 0;
+}
+
+.machine-manifest-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--theme-panel-border) !important;
+  border-bottom: none !important;
+  background: rgba(0,0,0,0.3) !important;
+  color: var(--theme-text-dim) !important;
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0 !important;
+  transition: background 0.14s, color 0.14s;
+  margin-right: 2px;
+}
+
+.machine-manifest-tabs button span {
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.58rem;
+  background: rgba(0,0,0,0.42);
+  border: 1px solid var(--theme-panel-border);
+  padding: 0.1rem 0.3rem;
+  color: var(--theme-text-dim);
+}
+
+.machine-manifest-tabs button:hover {
+  background: var(--theme-accent-soft) !important;
+  color: var(--theme-text) !important;
+}
+
+.machine-manifest-tabs button.is-selected {
+  background: var(--theme-panel) !important;
+  border-color: var(--theme-accent) !important;
+  color: var(--theme-accent) !important;
+  box-shadow: var(--theme-route-glow) !important;
+  border-bottom-color: var(--theme-panel) !important;
+}
+
+.machine-manifest-tabs button.is-selected span {
+  color: var(--theme-accent) !important;
+  border-color: var(--theme-accent) !important;
+}
+
+
+/* ============================================================
+   HUD v3 — MAJOR LAYOUT OVERHAUL
+   ============================================================ */
+
+/* ── HUD grid columns: 2 rows of specific content ── */
+.hud-dashboard {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.75rem !important;
+  padding: 0.9rem !important;
+  border-radius: 6px !important;
+}
+
+/* ── Hero row ── */
+.hud-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.2rem;
+  border-radius: 4px !important;
+}
+
+.hud-hero-left { display: flex; flex-direction: column; gap: 0.2rem; }
+
+/* ── Controls row ── */
+.hud-controls-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  gap: 0.75rem;
+}
+
+.hud-segment-menu { display: flex; gap: 0.4rem; flex-wrap: wrap; padding: 0.75rem; align-content: flex-start; }
+.hud-drawn-menu { align-items: flex-start; }
+.hud-segment-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.7rem !important;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hud-segment-menu button span {
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.55rem;
+  opacity: 0.7;
+}
+
+.hud-select-panel { padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.hud-select-shell { display: flex; flex-direction: column; gap: 0.3rem; }
+.hud-select-shell > span { font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--theme-text-dim); }
+.hud-status-rails-mini { display: flex; flex-direction: column; gap: 0.35rem; }
+
+/* ── Main topology + side col ── */
+.hud-main-row {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 0.75rem;
+}
+
+.hud-topology-panel {
+  padding: 0.8rem !important;
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 4px !important;
+  min-height: 240px;
+}
+
+.hud-topo-svg {
+  flex: 1;
+  width: 100%;
+  min-height: 180px;
+  background:
+    radial-gradient(ellipse at 50% 50%, var(--theme-accent-soft), transparent 55%);
+}
+
+/* Hex topology SVG element styles */
+.topo-hex-cell {
+  fill: none;
+  stroke: var(--theme-grid, rgba(91,139,255,0.12));
+  stroke-width: 0.25;
+  animation: topo-hex-breathe 4s ease-in-out infinite alternate;
+}
+@keyframes topo-hex-breathe {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+.topo-edge-bg {
+  fill: none;
+  stroke: rgba(255,255,255,0.06);
+  stroke-width: 0.5;
+}
+.topo-edge-pulse {
+  fill: none;
+  stroke: var(--theme-accent);
+  stroke-width: 0.7;
+  filter: drop-shadow(0 0 1px var(--theme-accent));
+  animation: topo-pulse 4s linear infinite;
+}
+@keyframes topo-pulse {
+  from { stroke-dashoffset: 18; opacity: 0.9; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+
+.topo-node-halo {
+  fill: none;
+  stroke: var(--theme-accent);
+  stroke-opacity: 0.15;
+  stroke-width: 0.3;
+  animation: node-halo 3s ease-in-out infinite;
+}
+@keyframes node-halo { 0%,100% { r: 5.2; stroke-opacity: 0.15; } 50% { r: 6.8; stroke-opacity: 0.35; } }
+
+.topo-node-ring { fill: none; stroke: var(--theme-accent); stroke-width: 0.5; stroke-opacity: 0.55; }
+.topo-node-core { fill: var(--theme-accent); }
+.topo-node-online  { fill: var(--theme-good) !important; }
+.topo-node-syncing { fill: var(--theme-accent) !important; animation: syncing-pulse 1.4s ease-in-out infinite; }
+.topo-node-watching { fill: var(--theme-warn) !important; }
+@keyframes syncing-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.topo-node-label { fill: var(--theme-text); font-size: 2.2px; letter-spacing: 0.04em; font-family: var(--theme-mono, monospace); }
+.topo-node-health { fill: var(--theme-text-dim); font-size: 1.8px; letter-spacing: 0.03em; }
+.topo-glow-stop-0 { stop-color: var(--theme-accent); }
+
+.topo-legend {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.topo-leg {
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-family: var(--theme-mono, monospace);
+}
+.topo-leg.online  { color: var(--theme-good); }
+.topo-leg.syncing { color: var(--theme-accent); }
+.topo-leg.watching { color: var(--theme-warn); }
+
+/* Side column */
+.hud-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Compact widget drawer */
+.hud-widget-drawer-compact { padding: 0.7rem !important; }
+.hud-widget-compact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.hud-compact-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem;
+  border: 1px solid var(--theme-panel-border);
+  background: rgba(0,0,0,0.3);
+}
+.hud-compact-widget > span {
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--theme-accent);
+  font-family: var(--theme-font-stack, sans-serif);
+}
+.hud-widget-matrix-sm { grid-template-columns: repeat(6, 1fr); gap: 2px; }
+.hud-widget-graph-sm { height: 30px; }
+.hud-widget-graph-sm span { flex-shrink: 0; min-width: 4px; }
+
+/* ── Gauge grid ── */
+.hud-gauge-grid {
+  display: grid !important;
+  grid-template-columns: repeat(8, 1fr) !important;
+  gap: 0.6rem !important;
+}
+@media (max-width: 1400px) { .hud-gauge-grid { grid-template-columns: repeat(4, 1fr) !important; } }
+
+/* Gauge SVG text sub */
+.hud-gauge-svg text.gauge-sublbl { fill: var(--theme-text-dim); }
+
+/* ── Bottom row ── */
+.hud-bottom-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 1400px) {
+  .hud-bottom-row { grid-template-columns: 1fr 1fr 1fr; }
+  .hud-main-row { grid-template-columns: 1fr; }
+}
+
+.hud-wave-svg {
+  width: 100%;
+  height: 60px;
+}
+.hud-waveform { padding: 0.8rem !important; }
+.hud-waveform svg polyline { stroke: var(--theme-accent) !important; filter: drop-shadow(0 0 2px var(--theme-accent)) !important; }
+.hud-waveform svg polygon { fill: var(--theme-accent) !important; opacity: 0.12 !important; }
+.hud-waveform svg circle  { fill: var(--theme-accent) !important; filter: drop-shadow(0 0 1.5px var(--theme-accent)) !important; }
+
+.hud-radio-panel { padding: 0.7rem !important; }
+.banner-radio-matrix-sm { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+
+/* ── Fix old hud-panel border-radius to match ── */
+.hud-panel { border-radius: 4px !important; }
+
+/* ── Status rail compact ── */
+.banner-status-rail {
+  display: grid !important;
+  grid-template-columns: 3.5rem 1fr 2rem !important;
+  gap: 0.4rem !important;
+  align-items: center !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.2em !important;
+}
+.banner-status-rail i {
+  height: 4px !important;
+  border-radius: 2px !important;
+  overflow: hidden;
+  background: rgba(255,255,255,0.07) !important;
+}
+.banner-status-rail b { display: block; height: 100%; border-radius: 2px; }
+
+
+/* ============================================================
+   PER-THEME DEEPER VISUAL DIFFERENTIATION
+   ============================================================ */
+
+/* Route Grid — circuit board glow, strong cyan, rectangular panels */
+:root[data-theme='route-grid'] {
+  --theme-panel-radius: 4px;
+  --theme-border-style: 1px solid var(--theme-panel-border);
+  --theme-btn-radius: 2px;
+}
+:root[data-theme='route-grid'] .hud-dashboard {
+  border-color: rgba(51,247,255,0.4) !important;
+  box-shadow:
+    0 0 0 1px rgba(51,247,255,0.15),
+    0 0 60px rgba(51,247,255,0.08),
+    inset 0 0 80px rgba(51,247,255,0.04) !important;
+}
+:root[data-theme='route-grid'] .hud-panel {
+  border-color: rgba(51,247,255,0.28) !important;
+  box-shadow: inset 0 0 20px rgba(51,247,255,0.04), 0 8px 20px rgba(0,0,0,0.3) !important;
+}
+:root[data-theme='route-grid'] .topo-edge-pulse { stroke: #33f7ff !important; filter: drop-shadow(0 0 2px #33f7ff) !important; }
+:root[data-theme='route-grid'] .topo-node-ring { stroke: #33f7ff !important; }
+:root[data-theme='route-grid'] .banner-corner {
+  border-color: rgba(51,247,255,0.7) !important;
+}
+
+/* Emerald Console — sharp phosphor green, pure black panels, CRT overlay */
+:root[data-theme='emerald-console'] {
+  --theme-panel-radius: 2px;
+}
+:root[data-theme='emerald-console'] .hud-dashboard {
+  border-color: rgba(54,211,153,0.5) !important;
+  box-shadow: 0 0 0 1px rgba(54,211,153,0.12), 0 0 50px rgba(54,211,153,0.06), inset 0 0 60px rgba(54,211,153,0.03) !important;
+}
+:root[data-theme='emerald-console'] .hud-panel {
+  border-color: rgba(54,211,153,0.32) !important;
+  background: rgba(2, 12, 8, 0.92) !important;
+}
+:root[data-theme='emerald-console'] .hud-hero h2 {
+  text-shadow: 0 0 20px rgba(54,211,153,0.5), 0 0 60px rgba(54,211,153,0.2) !important;
+}
+:root[data-theme='emerald-console'] .topo-edge-pulse { stroke: #36d399 !important; filter: drop-shadow(0 0 2px #36d399) !important; }
+:root[data-theme='emerald-console'] .sidebar {
+  background: linear-gradient(180deg, rgba(2,10,6,0.98), rgba(4,18,12,0.96)) !important;
+}
+:root[data-theme='emerald-console'] .gauge-fill { stroke: #36d399 !important; filter: drop-shadow(0 0 4px #36d399) !important; }
+:root[data-theme='emerald-console'] .hud-bars span { background: #36d399 !important; box-shadow: 0 0 8px #36d399 !important; }
+:root[data-theme='emerald-console'] .hud-waveform svg polyline { stroke: #36d399 !important; filter: drop-shadow(0 0 3px #36d399) !important; }
+
+/* Solar Flare — warm amber, blueprint technical, orange glow */
+:root[data-theme='solar-flare'] {
+  --theme-panel-radius: 2px;
+}
+:root[data-theme='solar-flare'] .hud-dashboard {
+  border-color: rgba(255,140,42,0.45) !important;
+  box-shadow: 0 0 0 1px rgba(255,140,42,0.12), 0 0 55px rgba(255,140,42,0.07), inset 0 0 70px rgba(255,140,42,0.04) !important;
+}
+:root[data-theme='solar-flare'] .hud-panel {
+  border-color: rgba(255,140,42,0.3) !important;
+  background: rgba(14,9,4,0.92) !important;
+}
+:root[data-theme='solar-flare'] .hud-hero h2 {
+  text-shadow: 0 0 24px rgba(255,140,42,0.45), 0 0 50px rgba(255,209,102,0.2) !important;
+}
+:root[data-theme='solar-flare'] .topo-edge-pulse { stroke: #ff8c2a !important; filter: drop-shadow(0 0 2px #ff8c2a) !important; }
+:root[data-theme='solar-flare'] .gauge-fill { stroke: #ff8c2a !important; filter: drop-shadow(0 0 4px #ff8c2a) !important; }
+:root[data-theme='solar-flare'] .hud-bars span { background: #ff8c2a !important; box-shadow: 0 0 8px rgba(255,140,42,0.7) !important; }
+:root[data-theme='solar-flare'] .hud-waveform svg polyline { stroke: #ff8c2a !important; filter: drop-shadow(0 0 3px #ff8c2a) !important; }
+:root[data-theme='solar-flare'] .sidebar {
+  background: linear-gradient(180deg, rgba(14,9,4,0.98), rgba(22,14,6,0.96)) !important;
+}
+:root[data-theme='solar-flare'] .nav-item.active { background: rgba(255,140,42,0.12) !important; }
+
+/* Void Protocol — deep purple, neon violet glow */
+:root[data-theme='void-protocol'] .hud-dashboard {
+  border-color: rgba(192,132,252,0.5) !important;
+  box-shadow: 0 0 0 1px rgba(124,58,237,0.2), 0 0 60px rgba(192,132,252,0.08), inset 0 0 80px rgba(192,132,252,0.04) !important;
+}
+:root[data-theme='void-protocol'] .hud-panel {
+  border-color: rgba(192,132,252,0.28) !important;
+  background: rgba(6,0,16,0.93) !important;
+}
+:root[data-theme='void-protocol'] .hud-hero h2 {
+  text-shadow: 0 0 24px rgba(192,132,252,0.5), 0 0 60px rgba(124,58,237,0.25) !important;
+}
+:root[data-theme='void-protocol'] .topo-edge-pulse { stroke: #c084fc !important; filter: drop-shadow(0 0 2px #c084fc) !important; }
+:root[data-theme='void-protocol'] .gauge-fill { stroke: #c084fc !important; filter: drop-shadow(0 0 5px #c084fc) !important; }
+:root[data-theme='void-protocol'] .sidebar { background: linear-gradient(180deg, rgba(6,0,14,0.98), rgba(12,0,26,0.96)) !important; }
+
+/* Arctic Command — ice blue, military clean */
+:root[data-theme='arctic-command'] .hud-dashboard {
+  border-color: rgba(56,189,248,0.42) !important;
+  box-shadow: 0 0 0 1px rgba(14,165,233,0.18), 0 0 50px rgba(56,189,248,0.07), inset 0 0 60px rgba(56,189,248,0.04) !important;
+}
+:root[data-theme='arctic-command'] .hud-panel {
+  border-color: rgba(56,189,248,0.28) !important;
+  background: rgba(4,10,18,0.93) !important;
+}
+:root[data-theme='arctic-command'] .hud-hero h2 {
+  text-shadow: 0 0 20px rgba(56,189,248,0.42) !important;
+}
+:root[data-theme='arctic-command'] .topo-edge-pulse { stroke: #38bdf8 !important; filter: drop-shadow(0 0 2px #38bdf8) !important; }
+:root[data-theme='arctic-command'] .gauge-fill { stroke: #38bdf8 !important; filter: drop-shadow(0 0 4px #38bdf8) !important; }
+
+/* ============================================================
+   BANNER CORNERS — sharp tech brackets
+   ============================================================ */
+.banner-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--theme-corner);
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 0 3px var(--theme-accent));
+}
+.banner-corner-tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+.banner-corner-tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
+.banner-corner-bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; }
+.banner-corner-br { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+
+/* ============================================================
+   HEADING TYPOGRAPHY — Orbitron + tight letter spacing
+   ============================================================ */
+.hud-hero h2,
+.dash-header h2,
+.wizard-header h2,
+.panel-header h2,
+.manifest-panel h2 {
+  font-family: var(--theme-font-stack, 'Orbitron', sans-serif) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.18em !important;
+}
+
+.hud-kicker,
+.dash-kicker,
+.hud-panel-title,
+.nav-group-label {
+  font-family: var(--theme-font-stack, 'Orbitron', sans-serif) !important;
+}
+
+/* ============================================================
+   DASHBOARD PANELS — theme-consistent corner brackets
+   ============================================================ */
+.dash-panel {
+  border-radius: 3px !important;
+}
+.dash-panel::before { border-color: var(--theme-corner) !important; filter: drop-shadow(0 0 2px var(--theme-accent)); }
+.dash-panel::after  { border-color: var(--theme-corner) !important; filter: drop-shadow(0 0 2px var(--theme-accent)); }
+
+/* ============================================================
+   RADIAL GAUGE — enhanced glow per status
+   ============================================================ */
+.hud-gauge-svg .gauge-fill {
+  stroke: var(--theme-accent);
+  filter: drop-shadow(0 0 5px var(--theme-accent));
+  animation: gauge-load 1.4s cubic-bezier(0.4,0,0.2,1) both;
+}
+.gauge-status-surging { stroke: var(--theme-warn) !important; filter: drop-shadow(0 0 5px var(--theme-warn)) !important; }
+.gauge-status-active  { stroke: var(--theme-accent) !important; filter: drop-shadow(0 0 5px var(--theme-accent)) !important; }
+.gauge-status-stable  { stroke: var(--theme-good) !important; filter: drop-shadow(0 0 5px var(--theme-good)) !important; }
+.hud-gauge-card.hud-status-surging .hud-gauge-trend { color: var(--theme-warn) !important; }
+.hud-gauge-card.hud-status-stable  .hud-gauge-trend { color: var(--theme-good) !important; }
+
+/* ============================================================
+   APP-SHELL GRID — slight refinement
+   ============================================================ */
+.app-shell {
+  grid-template-columns: 270px 1fr !important;
+  gap: 14px !important;
+  padding: 14px !important;
+}
+
