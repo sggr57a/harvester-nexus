@@ -10043,3 +10043,211 @@ select option {
   border: 1px solid rgba(0, 255, 200, 0.25);
   border-radius: 0;
 }
+
+/* ============================================================
+   Enhanced HUD graph elements — multi-channel waveforms,
+   dense spectrum bars, arc gauges, digital readouts, ticker
+   ============================================================ */
+
+/* Multi-channel waveform traces */
+.hud-trace {
+  fill: none;
+  stroke-width: 0.8;
+  filter: drop-shadow(0 0 2px currentColor);
+}
+.hud-trace-1 {
+  stroke: var(--theme-accent);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 3px var(--theme-accent)) drop-shadow(0 0 6px var(--theme-accent));
+}
+.hud-trace-2 {
+  stroke: var(--theme-accent-2);
+  stroke-width: 0.7;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 2px var(--theme-accent-2));
+}
+.hud-trace-3 {
+  stroke: var(--theme-good);
+  stroke-width: 0.5;
+  opacity: 0.6;
+  stroke-dasharray: 2 1;
+}
+
+/* Multi-channel waveform panel */
+.hud-wave-line {
+  fill: none;
+  stroke-width: 0.9;
+}
+.hud-wave-ch1 {
+  stroke: var(--theme-accent);
+  filter: drop-shadow(0 0 3px var(--theme-accent)) drop-shadow(0 0 8px var(--theme-accent));
+}
+.hud-wave-ch2 {
+  stroke: var(--theme-accent-2);
+  stroke-width: 0.7;
+  opacity: 0.85;
+  filter: drop-shadow(0 0 2px var(--theme-accent-2));
+}
+.hud-wave-ch3 {
+  stroke: var(--theme-good);
+  stroke-width: 0.5;
+  opacity: 0.65;
+  filter: drop-shadow(0 0 2px var(--theme-good));
+}
+.hud-wave-area {
+  opacity: 0.8;
+}
+.hud-wave-legend {
+  display: flex;
+  gap: 0.8rem;
+  padding: 0.3rem 0.5rem 0;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.hud-legend-ch1 { color: var(--theme-accent); }
+.hud-legend-ch2 { color: var(--theme-accent-2); }
+.hud-legend-ch3 { color: var(--theme-good); }
+
+/* Dense spectrum bars (city skyline effect) */
+.hud-widget-dense-spectrum {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 100%;
+  min-height: 60px;
+  padding: 0;
+}
+.hud-spectrum-bar {
+  flex: 1;
+  height: var(--sample);
+  background: linear-gradient(0deg, var(--theme-accent) 0%, var(--theme-accent-2) 100%);
+  opacity: 0.7;
+  min-width: 1px;
+  animation: spectrum-grow 0.4s ease-out both;
+  box-shadow: 0 0 2px var(--theme-accent);
+}
+@keyframes spectrum-grow {
+  0% { transform: scaleY(0); opacity: 0; }
+  100% { transform: scaleY(1); opacity: 0.7; }
+}
+
+/* Dense bars panel (frequency spectrum) */
+.hud-dense-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 80px;
+  padding: 0.4rem 0;
+}
+.hud-dense-bar {
+  flex: 1;
+  min-width: 1px;
+  background: linear-gradient(0deg, var(--theme-accent) 0%, var(--theme-accent-2) 60%, var(--theme-warn) 100%);
+  opacity: 0.75;
+  box-shadow: 0 0 2px var(--theme-accent);
+  animation: spectrum-grow 0.5s ease-out both;
+}
+
+/* Horizon glow line */
+.hud-horizon-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--theme-accent), transparent);
+  box-shadow: 0 0 6px var(--theme-accent), 0 0 12px var(--theme-accent);
+  margin: 0.2rem 0;
+}
+
+/* Arc gauges (segmented circular with ticks) */
+.hud-widget-gauge-cluster {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+  padding: 0.2rem;
+}
+.hud-arc-gauge {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.hud-arc-gauge svg {
+  width: 100%;
+  aspect-ratio: 1;
+}
+.hud-gauge-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 3;
+}
+.hud-gauge-fill {
+  fill: none;
+  stroke: var(--theme-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px var(--theme-accent)) drop-shadow(0 0 6px var(--theme-accent));
+  transition: stroke-dasharray 0.6s ease-out;
+}
+.hud-gauge-tick {
+  stroke: var(--theme-text-dim);
+  stroke-width: 0.4;
+  opacity: 0.5;
+}
+.hud-gauge-value {
+  position: absolute;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--theme-accent);
+  text-shadow: 0 0 4px var(--theme-accent);
+  font-family: var(--theme-mono);
+}
+
+/* Digital readout styling (segmented LCD look) */
+.hud-digital-readout {
+  font-family: var(--theme-mono, 'IBM Plex Mono', monospace);
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px var(--theme-accent), 0 0 12px var(--theme-accent);
+}
+
+/* Data ticker strip */
+.hud-data-ticker {
+  display: flex;
+  gap: 2rem;
+  padding: 0.4rem 0.8rem;
+  font-family: var(--theme-mono, 'IBM Plex Mono', monospace);
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  color: var(--theme-text-dim);
+  border-top: 1px solid var(--theme-panel-border);
+  overflow: hidden;
+  white-space: nowrap;
+  animation: ticker-scroll 20s linear infinite;
+}
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Wireframe overrides for new elements */
+:root[data-theme='cyber-wireframe'] .hud-spectrum-bar {
+  background: transparent;
+  border-left: 1px solid rgba(0, 255, 200, 0.5);
+  border-right: 1px solid rgba(0, 255, 200, 0.5);
+  border-top: 1px solid rgba(0, 255, 200, 0.7);
+  box-shadow: 0 0 2px rgba(0, 255, 200, 0.2);
+}
+:root[data-theme='cyber-wireframe'] .hud-dense-bar {
+  background: transparent;
+  border-left: 1px solid rgba(0, 255, 200, 0.4);
+  border-right: 1px solid rgba(0, 255, 200, 0.4);
+  border-top: 1px solid rgba(0, 255, 200, 0.6);
+  box-shadow: 0 0 2px rgba(0, 255, 200, 0.15);
+}
+:root[data-theme='cyber-wireframe'] .hud-gauge-fill {
+  stroke: rgba(0, 255, 200, 0.8);
+  filter: drop-shadow(0 0 4px rgba(0, 255, 200, 0.8)) drop-shadow(0 0 10px rgba(0, 255, 200, 0.3));
+}
+:root[data-theme='cyber-wireframe'] .hud-gauge-track {
+  stroke: rgba(0, 255, 200, 0.1);
+}
+:root[data-theme='cyber-wireframe'] .hud-data-ticker {
+  border-top-color: rgba(0, 255, 200, 0.15);
+}
