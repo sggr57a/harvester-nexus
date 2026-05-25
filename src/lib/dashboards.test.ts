@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAccelerationDashboard,
+  buildActivityDashboard,
+  buildEnvironmentDashboard,
   buildMachinesDashboard,
   buildNetworkingDashboard,
   buildOperationsDashboard,
@@ -170,5 +172,39 @@ describe('acceleration dashboard data (v2.0)', () => {
     expect(roles.has('inference')).toBe(true);
     expect(roles.has('sandbox')).toBe(true);
     expect(roles.has('ci')).toBe(true);
+  });
+});
+
+describe('environment dashboard data', () => {
+  it('tracks facility zones with spatial coordinates and bounded climate values', () => {
+    const dash = buildEnvironmentDashboard();
+
+    expect(dash.zones.length).toBeGreaterThanOrEqual(5);
+    expect(dash.totals.map((total) => total.label)).toContain('Thermal average');
+    expect(dash.backdropVectors).toHaveLength(12);
+    for (const zone of dash.zones) {
+      expect(zone.x).toBeGreaterThanOrEqual(0);
+      expect(zone.x).toBeLessThanOrEqual(100);
+      expect(zone.y).toBeGreaterThanOrEqual(0);
+      expect(zone.y).toBeLessThanOrEqual(100);
+      expect(zone.thermalC).toBeGreaterThan(0);
+      expect(zone.humidityPercent).toBeGreaterThanOrEqual(0);
+      expect(zone.humidityPercent).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+describe('activity dashboard data', () => {
+  it('exposes operator lanes with queue counts and burst samples', () => {
+    const dash = buildActivityDashboard();
+
+    expect(dash.signals.length).toBeGreaterThanOrEqual(4);
+    expect(dash.lanes.some((lane) => lane.failed > 0)).toBe(true);
+    expect(dash.bursts.every((burst) => burst.samples.length >= 12)).toBe(true);
+    for (const lane of dash.lanes) {
+      expect(lane.queued + lane.running + lane.completed + lane.failed).toBeGreaterThan(0);
+      expect(lane.saturationPercent).toBeGreaterThanOrEqual(0);
+      expect(lane.saturationPercent).toBeLessThanOrEqual(100);
+    }
   });
 });

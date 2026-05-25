@@ -12,12 +12,13 @@ import { EnvironmentTicker, SidebarRouteDecoration } from './components/Environm
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
-import { NexusMachineWizard } from './components/NexusMachineWizard';
 import { ThemePicker } from './components/ThemePicker';
-import { Wizard } from './components/Wizard';
+import { UnifiedSetupWizard } from './components/UnifiedSetupWizard';
 import { YamlEditor } from './components/YamlEditor';
 import {
   AccelerationDashboardView,
+  ActivityDashboardView,
+  EnvironmentDashboardView,
   MachinesDashboardView,
   NetworkingDashboardView,
   OperationsDashboardView,
@@ -53,11 +54,12 @@ type CockpitView =
   | 'processor-memory'
   | 'poly-compute'
   | 'acceleration'
+  | 'environment'
+  | 'activity'
   | 'operations'
   | 'resource-monitoring'
   | 'cluster'
-  | 'machine'
-  | 'wizard';
+  | 'setup';
 
 function readStoredTheme(): ThemeId {
   if (typeof window === 'undefined') return DEFAULT_THEME_ID;
@@ -74,6 +76,7 @@ function App() {
   const [cockpitView, setCockpitView] = useState<CockpitView>('mission-control');
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
+  const [includeManifestSetup, setIncludeManifestSetup] = useState(false);
   const telemetry = useLiveTelemetry(1600);
 
   useEffect(() => {
@@ -143,8 +146,49 @@ function App() {
           <div className="brand-wordmark">
             <h1>Harvester</h1>
             <span className="brand-sub">Nexus</span>
-            <p className="brand-tagline">HCI cockpit · poly-compute · storage fabric</p>
+            <p className="brand-tagline">Dark-mode workload & storage manifest generator</p>
           </div>
+        </div>
+        <div className="step-list">
+          <button className={cockpitView === 'dashboard' ? 'active' : ''} onClick={() => setCockpitView('dashboard')}>
+            HUD Dashboard
+          </button>
+          <button className={cockpitView === 'networking' ? 'active' : ''} onClick={() => setCockpitView('networking')}>
+            Networking
+          </button>
+          <button className={cockpitView === 'storage' ? 'active' : ''} onClick={() => setCockpitView('storage')}>
+            Storage
+          </button>
+          <button className={cockpitView === 'machines' ? 'active' : ''} onClick={() => setCockpitView('machines')}>
+            Machines &amp; Containers
+          </button>
+          <button className={cockpitView === 'processor-memory' ? 'active' : ''} onClick={() => setCockpitView('processor-memory')}>
+            Processor &amp; Memory
+          </button>
+          <button className={cockpitView === 'poly-compute' ? 'active' : ''} onClick={() => setCockpitView('poly-compute')}>
+            Poly-Compute Engine
+          </button>
+          <button className={cockpitView === 'acceleration' ? 'active' : ''} onClick={() => setCockpitView('acceleration')}>
+            Acceleration
+          </button>
+          <button className={cockpitView === 'environment' ? 'active' : ''} onClick={() => setCockpitView('environment')}>
+            Environment Intelligence
+          </button>
+          <button className={cockpitView === 'activity' ? 'active' : ''} onClick={() => setCockpitView('activity')}>
+            Activity Command
+          </button>
+          <button className={cockpitView === 'operations' ? 'active' : ''} onClick={() => setCockpitView('operations')}>
+            Operations &amp; Compliance
+          </button>
+          <button className={cockpitView === 'resource-monitoring' ? 'active' : ''} onClick={() => setCockpitView('resource-monitoring')}>
+            Resource Monitoring
+          </button>
+          <button className={cockpitView === 'cluster' ? 'active' : ''} onClick={() => setCockpitView('cluster')}>
+            Cluster Console
+          </button>
+          <button className={cockpitView === 'setup' ? 'active' : ''} onClick={() => setCockpitView('setup')}>
+            Setup Wizard
+          </button>
         </div>
 
         <nav className="cockpit-nav" aria-label="Cockpit views">
@@ -182,13 +226,23 @@ function App() {
             );
           })}
         </div>
-
+        <ThemePicker active={theme} onSelect={setTheme} />
         <div className="storage-summary">
-          <span className="nav-group-label">STORAGE TEMPLATE</span>
+          <h2>Storage template</h2>
           <p>{STORAGE_TEMPLATES[config.storage.storageType]}</p>
         </div>
       </aside>
       <main className="main-view">
+        {cockpitView === 'dashboard' && <HudDashboard activeTheme={theme} />}
+        {cockpitView === 'networking' && <NetworkingDashboardView />}
+        {cockpitView === 'storage' && <StorageDashboardView />}
+        {cockpitView === 'machines' && <MachinesDashboardView />}
+        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView />}
+        {cockpitView === 'poly-compute' && <PolyComputeDashboardView />}
+        {cockpitView === 'acceleration' && <AccelerationDashboardView />}
+        {cockpitView === 'environment' && <EnvironmentDashboardView />}
+        {cockpitView === 'activity' && <ActivityDashboardView />}
+        {cockpitView === 'operations' && <OperationsDashboardView />}
         <EnvironmentTicker snapshot={telemetry} />
         {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
         {cockpitView === 'dashboard' && <HudDashboard />}
@@ -210,6 +264,19 @@ function App() {
             csiPreview={csiPreview}
             operationBundle={operationBundle}
             config={config}
+          />
+        )}
+        {cockpitView === 'setup' && (
+          <UnifiedSetupWizard
+            machineConfig={machineConfig}
+            machinePlan={machinePlan}
+            onMachineChange={setMachineConfig}
+            manifestConfig={config}
+            onManifestChange={setConfig}
+            manifestStep={step}
+            onManifestStepChange={setStep}
+            includeManifestSetup={includeManifestSetup}
+            onIncludeManifestSetupChange={setIncludeManifestSetup}
           />
         )}
         {cockpitView === 'machine' && (
