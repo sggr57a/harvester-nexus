@@ -358,6 +358,195 @@ export interface TimelineTrack {
   segments: Array<{ start: number; end: number; status: 'ok' | 'warn' | 'crit'; tag: string }>;
 }
 
+/* -------------------- Radar / spider chart -------------------- */
+
+export interface RadarSeries {
+  id: string;
+  label: string;
+  color: string;
+  /** Same length as axes; each in 0..100. */
+  values: number[];
+}
+
+export interface RadarDataset {
+  axes: string[];
+  series: RadarSeries[];
+}
+
+export function buildRadarMatrix(): RadarDataset {
+  return {
+    axes: ['SECURITY', 'LATENCY', 'DURABILITY', 'THROUGHPUT', 'COST EFF', 'AVAIL', 'RECOVERY', 'OBSERV'],
+    series: [
+      {
+        id: 'current',
+        label: 'current',
+        color: '#33f7ff',
+        values: [86, 78, 91, 72, 64, 95, 88, 92],
+      },
+      {
+        id: 'baseline',
+        label: 'baseline',
+        color: '#a4f9ff',
+        values: [74, 62, 80, 60, 70, 88, 71, 78],
+      },
+      {
+        id: 'target',
+        label: 'SLO target',
+        color: '#ff4af7',
+        values: [90, 85, 95, 80, 75, 99, 90, 95],
+      },
+    ],
+  };
+}
+
+/* -------------------- Streamgraph (stacked workload classes) -------------------- */
+
+export interface StreamSeries {
+  id: string;
+  label: string;
+  color: string;
+  /** Length-matched samples 0..100, raw "instance count" weights. */
+  values: number[];
+}
+
+export function buildStreamgraph(length = 60): StreamSeries[] {
+  const seedSeries = (base: number, amp: number, phase: number, drift: number): number[] => {
+    return Array.from({ length }, (_, i) => {
+      const t = i / length;
+      const v = base
+        + Math.sin(t * Math.PI * 2 + phase) * amp
+        + Math.sin(t * Math.PI * 4.3 + phase * 1.6) * (amp * 0.4)
+        + drift * (t - 0.5) * 2;
+      return Math.max(4, Math.round(v + Math.sin(i * 11.31 + phase) * 2.6));
+    });
+  };
+  return [
+    { id: 'vm',    label: 'KubeVirt VMs', color: '#33f7ff', values: seedSeries(38, 8, 0.0, 4) },
+    { id: 'lxc',   label: 'Incus LXC',    color: '#75ff6a', values: seedSeries(24, 6, 1.4, -2) },
+    { id: 'pod',   label: 'K8s Pods',     color: '#a4f9ff', values: seedSeries(46, 10, 0.7, 6) },
+    { id: 'batch', label: 'Batch jobs',   color: '#ffd166', values: seedSeries(18, 12, 2.6, -1) },
+    { id: 'gpu',   label: 'GPU train',    color: '#ff4af7', values: seedSeries(12, 8, 3.1, 3) },
+  ];
+}
+
+/* -------------------- Bubble pack (service overview) -------------------- */
+
+export interface BubbleService {
+  id: string;
+  label: string;
+  /** Bubble radius weight (e.g. RPS). */
+  rps: number;
+  /** Error percentage 0..100; colour ramp. */
+  errorPct: number;
+  /** Bubble category (used for hue grouping). */
+  cluster: 'frontend' | 'core' | 'data' | 'platform';
+}
+
+export function buildBubblePack(): BubbleService[] {
+  return [
+    { id: 'web-ui',      label: 'web-ui',      rps: 2400, errorPct: 0.4, cluster: 'frontend' },
+    { id: 'mobile-bff',  label: 'mobile-bff',  rps: 1800, errorPct: 0.7, cluster: 'frontend' },
+    { id: 'api-gw',      label: 'api-gw',      rps: 4600, errorPct: 0.3, cluster: 'frontend' },
+    { id: 'auth-svc',    label: 'auth',        rps: 1200, errorPct: 0.2, cluster: 'core' },
+    { id: 'catalog',     label: 'catalog',     rps: 2100, errorPct: 1.4, cluster: 'core' },
+    { id: 'cart',        label: 'cart',        rps: 1450, errorPct: 0.6, cluster: 'core' },
+    { id: 'payments',    label: 'payments',    rps: 780,  errorPct: 0.1, cluster: 'core' },
+    { id: 'orders',      label: 'orders',      rps: 1320, errorPct: 0.9, cluster: 'core' },
+    { id: 'shipping',    label: 'shipping',    rps: 640,  errorPct: 2.8, cluster: 'core' },
+    { id: 'recommend',   label: 'rec',         rps: 980,  errorPct: 3.6, cluster: 'core' },
+    { id: 'pricing',     label: 'pricing',     rps: 1620, errorPct: 0.5, cluster: 'data' },
+    { id: 'inventory',   label: 'inventory',   rps: 1140, errorPct: 1.1, cluster: 'data' },
+    { id: 'search',      label: 'search',      rps: 2280, errorPct: 0.8, cluster: 'data' },
+    { id: 'analytics',   label: 'analytics',   rps: 560,  errorPct: 4.2, cluster: 'data' },
+    { id: 'fraud',       label: 'fraud-det',   rps: 420,  errorPct: 0.3, cluster: 'data' },
+    { id: 'telemetry',   label: 'telemetry',   rps: 3100, errorPct: 0.4, cluster: 'platform' },
+    { id: 'log-pipe',    label: 'log-pipe',    rps: 2680, errorPct: 0.6, cluster: 'platform' },
+    { id: 'trace-pipe',  label: 'trace-pipe',  rps: 1840, errorPct: 0.5, cluster: 'platform' },
+    { id: 'config-svc',  label: 'config',      rps: 320,  errorPct: 0.1, cluster: 'platform' },
+    { id: 'secrets',     label: 'secrets',     rps: 180,  errorPct: 0.0, cluster: 'platform' },
+  ];
+}
+
+/* -------------------- Isometric rack -------------------- */
+
+export interface RackUnit {
+  /** Slot index 0 at top. */
+  slot: number;
+  height: number;
+  label: string;
+  kind: 'vm-host' | 'storage' | 'gpu' | 'switch' | 'control' | 'empty';
+  /** 0..100 utilisation; drives LED brightness. */
+  load: number;
+  status: 'ok' | 'warn' | 'crit' | 'idle';
+}
+
+export interface IsometricRack {
+  id: string;
+  label: string;
+  units: RackUnit[];
+}
+
+export function buildIsometricRacks(): IsometricRack[] {
+  return [
+    {
+      id: 'rack-a',
+      label: 'rack-a · power-1',
+      units: [
+        { slot: 0,  height: 1, label: 'switch-tor-a',  kind: 'switch',  load: 62, status: 'ok' },
+        { slot: 1,  height: 1, label: 'switch-tor-b',  kind: 'switch',  load: 58, status: 'ok' },
+        { slot: 2,  height: 1, label: 'ctrl-a01',      kind: 'control', load: 41, status: 'ok' },
+        { slot: 3,  height: 1, label: 'ctrl-a02',      kind: 'control', load: 38, status: 'ok' },
+        { slot: 4,  height: 2, label: 'gpu-a100-01',   kind: 'gpu',     load: 92, status: 'warn' },
+        { slot: 6,  height: 2, label: 'gpu-a100-02',   kind: 'gpu',     load: 88, status: 'ok' },
+        { slot: 8,  height: 2, label: 'gpu-h100-03',   kind: 'gpu',     load: 96, status: 'crit' },
+        { slot: 10, height: 1, label: '— empty —',     kind: 'empty',   load: 0,  status: 'idle' },
+        { slot: 11, height: 2, label: 'vm-host-a04',   kind: 'vm-host', load: 74, status: 'ok' },
+        { slot: 13, height: 2, label: 'vm-host-a05',   kind: 'vm-host', load: 68, status: 'ok' },
+        { slot: 15, height: 4, label: 'storage-jbod-1', kind: 'storage', load: 71, status: 'ok' },
+        { slot: 19, height: 4, label: 'storage-jbod-2', kind: 'storage', load: 55, status: 'ok' },
+      ],
+    },
+    {
+      id: 'rack-b',
+      label: 'rack-b · power-2',
+      units: [
+        { slot: 0,  height: 1, label: 'switch-tor-c',  kind: 'switch',  load: 60, status: 'ok' },
+        { slot: 1,  height: 1, label: 'switch-tor-d',  kind: 'switch',  load: 51, status: 'ok' },
+        { slot: 2,  height: 1, label: 'ctrl-b01',      kind: 'control', load: 42, status: 'ok' },
+        { slot: 3,  height: 1, label: '— empty —',     kind: 'empty',   load: 0,  status: 'idle' },
+        { slot: 4,  height: 2, label: 'vm-host-b01',   kind: 'vm-host', load: 88, status: 'warn' },
+        { slot: 6,  height: 2, label: 'vm-host-b02',   kind: 'vm-host', load: 81, status: 'ok' },
+        { slot: 8,  height: 2, label: 'vm-host-b03',   kind: 'vm-host', load: 64, status: 'ok' },
+        { slot: 10, height: 2, label: 'gpu-mi300-01',  kind: 'gpu',     load: 78, status: 'ok' },
+        { slot: 12, height: 2, label: 'gpu-l40s-02',   kind: 'gpu',     load: 48, status: 'ok' },
+        { slot: 14, height: 4, label: 'storage-allflash', kind: 'storage', load: 84, status: 'warn' },
+        { slot: 18, height: 4, label: 'storage-nvmeof',   kind: 'storage', load: 67, status: 'ok' },
+        { slot: 22, height: 1, label: '— empty —',     kind: 'empty',   load: 0,  status: 'idle' },
+      ],
+    },
+  ];
+}
+
+/* -------------------- Polar bar (24h request profile) -------------------- */
+
+export interface PolarBar {
+  hour: number;
+  /** Request count per second average for that hour. */
+  rps: number;
+  status: 'ok' | 'warn' | 'crit';
+}
+
+export function buildPolarRequestProfile(): PolarBar[] {
+  return Array.from({ length: 24 }, (_, h) => {
+    const main = Math.exp(-((h - 14) ** 2) / 28) * 80;
+    const evening = Math.exp(-((h - 21) ** 2) / 8) * 35;
+    const noise = (Math.sin(h * 1.91) + 1) * 4;
+    const rps = Math.round(20 + main + evening + noise);
+    const status: PolarBar['status'] = rps > 95 ? 'crit' : rps > 75 ? 'warn' : 'ok';
+    return { hour: h, rps, status };
+  });
+}
+
 export function buildTimeline(): TimelineTrack[] {
   return [
     { id: 'tl-apply', label: 'apply-pipeline', category: 'apply', segments: [

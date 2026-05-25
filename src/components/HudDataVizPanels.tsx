@@ -1,14 +1,20 @@
 import { useMemo, type CSSProperties } from 'react';
 import {
   buildActivityHeatmap,
+  buildBubblePack,
   buildChord,
   buildGeoEdgeMap,
   buildGpuThermals,
   buildHexFabric,
+  buildIsometricRacks,
   buildLatencyViolins,
+  buildPolarRequestProfile,
+  buildRadarMatrix,
   buildSankey,
   buildStorageTreemap,
+  buildStreamgraph,
   buildTimeline,
+  type RackUnit,
   type SankeyLink,
 } from '../lib/hudDataViz';
 import type { EnvironmentSnapshot } from '../lib/liveTelemetry';
@@ -22,6 +28,11 @@ const violins = buildLatencyViolins();
 const treemap = buildStorageTreemap();
 const hex = buildHexFabric(6, 11);
 const timeline = buildTimeline();
+const radar = buildRadarMatrix();
+const stream = buildStreamgraph(60);
+const bubbles = buildBubblePack();
+const racks = buildIsometricRacks();
+const polarProfile = buildPolarRequestProfile();
 
 interface CommonProps {
   telemetry?: EnvironmentSnapshot;
@@ -670,6 +681,487 @@ export function TimelinePanel({ telemetry }: CommonProps) {
 }
 
 /* ============================================================================
+   10. RadarMatrixPanel — multi-axis spider / radar with overlaid series
+   ============================================================================ */
+
+export function RadarMatrixPanel(_props: CommonProps) {
+  const cx = 50;
+  const cy = 50;
+  const radius = 36;
+  const axisCount = radar.axes.length;
+
+  const axisPoint = (i: number, r: number): { x: number; y: number } => {
+    const angle = (i / axisCount) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+  };
+
+  const seriesPath = (values: number[]): string => {
+    const pts = values.map((v, i) => {
+      const p = axisPoint(i, (v / 100) * radius);
+      return `${p.x},${p.y}`;
+    });
+    return `M${pts.join(' L')} Z`;
+  };
+
+  return (
+    <article className="hud-panel hud-radar">
+      <div className="hud-panel-title">
+        <span>Operational radar · 8 axes</span>
+        <strong>{radar.series.length} overlays</strong>
+      </div>
+      <div className="hud-radar-body">
+        <svg className="hud-radar-canvas" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <defs>
+            <radialGradient id="radar-bg" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0.16" />
+              <stop offset="55%" stopColor="var(--theme-accent)" stopOpacity="0.04" />
+              <stop offset="100%" stopColor="transparent" />
+            </radialGradient>
+            {radar.series.map((s) => (
+              <radialGradient key={`rg-${s.id}`} id={`radar-fill-${s.id}`} cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor={s.color} stopOpacity="0.35" />
+                <stop offset="100%" stopColor={s.color} stopOpacity="0.04" />
+              </radialGradient>
+            ))}
+          </defs>
+          <circle cx={cx} cy={cy} r={radius + 4} fill="url(#radar-bg)" />
+          {[0.25, 0.5, 0.75, 1].map((f) => (
+            <polygon
+              key={`ring-${f}`}
+              className="hud-radar-ring"
+              points={Array.from({ length: axisCount }).map((_, i) => {
+                const p = axisPoint(i, radius * f);
+                return `${p.x},${p.y}`;
+              }).join(' ')}
+            />
+          ))}
+          {radar.axes.map((axis, i) => {
+            const p = axisPoint(i, radius);
+            const lbl = axisPoint(i, radius + 6);
+            return (
+              <g key={axis}>
+                <line x1={cx} y1={cy} x2={p.x} y2={p.y} className="hud-radar-spoke" />
+                <text
+                  x={lbl.x}
+                  y={lbl.y + 0.8}
+                  textAnchor={lbl.x > cx + 1 ? 'start' : lbl.x < cx - 1 ? 'end' : 'middle'}
+                  className="hud-radar-axis-label"
+                >
+                  {axis}
+                </text>
+              </g>
+            );
+          })}
+          {radar.series.map((s) => (
+            <g key={s.id} className={`hud-radar-series series-${s.id}`}>
+              <path d={seriesPath(s.values)} fill={`url(#radar-fill-${s.id})`} stroke={s.color} strokeWidth="0.45" />
+              {s.values.map((v, i) => {
+                const p = axisPoint(i, (v / 100) * radius);
+                return <circle key={`${s.id}-pt-${i}`} cx={p.x} cy={p.y} r="0.8" fill={s.color} />;
+              })}
+            </g>
+          ))}
+          <text x={cx} y={cy + 0.6} textAnchor="middle" className="hud-radar-center">SCORE</text>
+        </svg>
+        <ul className="hud-radar-legend">
+          {radar.series.map((s) => {
+            const avg = s.values.reduce((a, b) => a + b, 0) / s.values.length;
+            return (
+              <li key={s.id}>
+                <i style={{ background: s.color, boxShadow: `0 0 6px ${s.color}` }} />
+                <strong>{s.label}</strong>
+                <b style={{ color: s.color }}>{avg.toFixed(0)}</b>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </article>
+  );
+}
+
+/* ============================================================================
+   11. StreamgraphPanel — stacked-area workload class share over time
+   ============================================================================ */
+
+export function StreamgraphPanel({ telemetry }: CommonProps) {
+  const w = 100;
+  const h = 60;
+  const length = stream[0].values.length;
+  const playhead = telemetry ? telemetry.tick % length : Math.floor(length * 0.7);
+
+  // Compute baseline-centered stack (streamgraph layout).
+  const stacked = useMemo(() => {
+    const sums = Array.from({ length }, (_, i) =>
+      stream.reduce((acc, s) => acc + s.values[i], 0),
+    );
+    const max = Math.max(...sums);
+    const layers: { id: string; label: string; color: string; top: number[]; bot: number[] }[] = [];
+    for (let i = 0; i < length; i += 1) {
+      const total = sums[i];
+      let cursor = (h / 2) - ((total / max) * h * 0.45);
+      for (let li = 0; li < stream.length; li += 1) {
+        if (!layers[li]) {
+          layers[li] = { id: stream[li].id, label: stream[li].label, color: stream[li].color, top: [], bot: [] };
+        }
+        const slice = (stream[li].values[i] / max) * h * 0.9;
+        layers[li].top[i] = cursor;
+        layers[li].bot[i] = cursor + slice;
+        cursor += slice;
+      }
+    }
+    return layers;
+  }, [length]);
+
+  return (
+    <article className="hud-panel hud-stream">
+      <div className="hud-panel-title">
+        <span>Workload class stream · 60 ticks</span>
+        <strong>{stream.length} layers</strong>
+      </div>
+      <svg className="hud-stream-canvas" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          {stacked.map((layer) => (
+            <linearGradient key={`stg-${layer.id}`} id={`stg-${layer.id}`} x1="0%" x2="0%" y1="0%" y2="100%">
+              <stop offset="0%" stopColor={layer.color} stopOpacity="0.95" />
+              <stop offset="100%" stopColor={layer.color} stopOpacity="0.6" />
+            </linearGradient>
+          ))}
+        </defs>
+        {/* gridlines */}
+        {[h * 0.25, h * 0.5, h * 0.75].map((y) => (
+          <line key={`g-${y}`} x1="0" y1={y} x2={w} y2={y} className="hud-stream-grid" />
+        ))}
+        {stacked.map((layer) => {
+          const top = layer.top.map((y, i) => `${(i / (length - 1)) * w},${y}`).join(' ');
+          const bot = layer.bot.map((y, i) => `${(i / (length - 1)) * w},${y}`).reverse().join(' ');
+          return (
+            <polygon
+              key={layer.id}
+              className="hud-stream-layer"
+              points={`${top} ${bot}`}
+              fill={`url(#stg-${layer.id})`}
+              stroke={layer.color}
+              strokeWidth="0.18"
+              strokeOpacity="0.85"
+            />
+          );
+        })}
+        {/* playhead */}
+        <line
+          x1={(playhead / (length - 1)) * w}
+          y1="0"
+          x2={(playhead / (length - 1)) * w}
+          y2={h}
+          className="hud-stream-playhead"
+        />
+      </svg>
+      <ul className="hud-stream-legend">
+        {stream.map((s) => {
+          const now = s.values[playhead] ?? s.values[s.values.length - 1];
+          return (
+            <li key={s.id}>
+              <i style={{ background: s.color, boxShadow: `0 0 6px ${s.color}` }} />
+              <strong>{s.label}</strong>
+              <b>{now}</b>
+            </li>
+          );
+        })}
+      </ul>
+    </article>
+  );
+}
+
+/* ============================================================================
+   12. BubblePackPanel — service overview bubbles sized by RPS, colored by err%
+   ============================================================================ */
+
+interface PackedBubble {
+  cx: number;
+  cy: number;
+  r: number;
+  s: typeof bubbles[number];
+}
+
+function packBubbles(items: typeof bubbles, width = 100, height = 60): PackedBubble[] {
+  // Simple non-overlap packer: place bubbles greedily in a deterministic spiral.
+  const maxR = Math.max(...items.map((b) => b.rps));
+  const sorted = [...items].sort((a, b) => b.rps - a.rps);
+  const placed: PackedBubble[] = [];
+  const radiusFor = (rps: number): number => 2.4 + Math.sqrt(rps / maxR) * 7;
+
+  for (const item of sorted) {
+    const r = radiusFor(item.rps);
+    let placedOk = false;
+    // Cluster preferred quadrant.
+    const clusterHome: Record<string, { x: number; y: number }> = {
+      frontend: { x: width * 0.25, y: height * 0.3 },
+      core:     { x: width * 0.55, y: height * 0.55 },
+      data:     { x: width * 0.78, y: height * 0.35 },
+      platform: { x: width * 0.5,  y: height * 0.78 },
+    };
+    const home = clusterHome[item.cluster] ?? { x: width / 2, y: height / 2 };
+    for (let step = 0; step < 280 && !placedOk; step += 1) {
+      const angle = step * 0.55;
+      const dist = step * 0.32;
+      const cx = home.x + Math.cos(angle) * dist;
+      const cy = home.y + Math.sin(angle) * dist;
+      if (cx - r < 1 || cx + r > width - 1 || cy - r < 1 || cy + r > height - 1) continue;
+      const collides = placed.some((p) => {
+        const dx = p.cx - cx;
+        const dy = p.cy - cy;
+        return Math.sqrt(dx * dx + dy * dy) < p.r + r + 0.4;
+      });
+      if (!collides) {
+        placed.push({ cx, cy, r, s: item });
+        placedOk = true;
+      }
+    }
+    if (!placedOk) {
+      // fallback at home center
+      placed.push({ cx: home.x, cy: home.y, r, s: item });
+    }
+  }
+  return placed;
+}
+
+function errColor(pct: number): string {
+  if (pct < 0.5) return '#36d399';
+  if (pct < 1.5) return '#75ff6a';
+  if (pct < 2.5) return '#ffd166';
+  if (pct < 3.5) return '#ff9a44';
+  return '#ff4a60';
+}
+
+const clusterAccent: Record<string, string> = {
+  frontend: '#33f7ff',
+  core:     '#a4f9ff',
+  data:     '#7c3bff',
+  platform: '#ff4af7',
+};
+
+export function BubblePackPanel(_props: CommonProps) {
+  const packed = useMemo(() => packBubbles(bubbles), []);
+  return (
+    <article className="hud-panel hud-bubbles">
+      <div className="hud-panel-title">
+        <span>Service density · RPS × error%</span>
+        <strong>{bubbles.length} services</strong>
+      </div>
+      <svg className="hud-bubbles-canvas" viewBox="0 0 100 60" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <radialGradient id="bubbles-bg" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="transparent" />
+          </radialGradient>
+        </defs>
+        <rect x="0" y="0" width="100" height="60" fill="url(#bubbles-bg)" />
+        {packed.map((p, i) => {
+          const color = errColor(p.s.errorPct);
+          const ring = clusterAccent[p.s.cluster];
+          return (
+            <g key={p.s.id} className="hud-bubble" style={{ animationDelay: `${i * 45}ms` } as CSSProperties}>
+              <circle cx={p.cx} cy={p.cy} r={p.r + 0.6} className="hud-bubble-ring" stroke={ring} />
+              <circle cx={p.cx} cy={p.cy} r={p.r} fill={color} fillOpacity={0.75} stroke={color} strokeWidth="0.3" />
+              {p.r > 4 && (
+                <>
+                  <text x={p.cx} y={p.cy - 0.4} textAnchor="middle" className="hud-bubble-label">{p.s.label}</text>
+                  <text x={p.cx} y={p.cy + 2.4} textAnchor="middle" className="hud-bubble-sub">{p.s.rps}</text>
+                </>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      <ul className="hud-bubbles-legend">
+        {Object.entries(clusterAccent).map(([k, c]) => (
+          <li key={k}><i style={{ background: c, boxShadow: `0 0 6px ${c}` }} />{k}</li>
+        ))}
+        <li className="hud-bubbles-scale">
+          <span>err</span>
+          {[0.2, 1.0, 2.0, 3.0, 4.5].map((v) => (
+            <em key={v} style={{ background: errColor(v) }} />
+          ))}
+        </li>
+      </ul>
+    </article>
+  );
+}
+
+/* ============================================================================
+   13. IsometricRackPanel — isometric 3D-look rack with colored 1U units
+   ============================================================================ */
+
+function rackStatusColor(status: RackUnit['status']): string {
+  switch (status) {
+    case 'ok':   return '#36d399';
+    case 'warn': return '#ffd166';
+    case 'crit': return '#ff4a60';
+    case 'idle': return '#5b8bff';
+  }
+}
+
+function rackKindGradient(kind: RackUnit['kind']): string {
+  switch (kind) {
+    case 'vm-host': return 'linear-gradient(135deg, rgba(51,247,255,0.4), rgba(20,40,80,0.6))';
+    case 'storage': return 'linear-gradient(135deg, rgba(117,255,106,0.35), rgba(20,60,30,0.6))';
+    case 'gpu':     return 'linear-gradient(135deg, rgba(255,74,247,0.4), rgba(60,10,80,0.6))';
+    case 'switch':  return 'linear-gradient(135deg, rgba(255,209,102,0.35), rgba(80,40,10,0.6))';
+    case 'control': return 'linear-gradient(135deg, rgba(164,249,255,0.35), rgba(20,40,60,0.6))';
+    case 'empty':   return 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))';
+  }
+}
+
+export function IsometricRackPanel({ telemetry }: CommonProps) {
+  const blink = telemetry ? telemetry.tick % 6 : 0;
+  return (
+    <article className="hud-panel hud-rack">
+      <div className="hud-panel-title">
+        <span>Rack elevation · isometric</span>
+        <strong>{racks.length} racks · {racks.reduce((s, r) => s + r.units.length, 0)} units</strong>
+      </div>
+      <div className="hud-rack-row">
+        {racks.map((rack) => (
+          <div key={rack.id} className="hud-rack-card">
+            <div className="hud-rack-frame">
+              <div className="hud-rack-top" />
+              <div className="hud-rack-side" />
+              <div className="hud-rack-units">
+                {rack.units.map((u, idx) => {
+                  const ledColor = rackStatusColor(u.status);
+                  const ledActive = (idx + blink) % 3 !== 0;
+                  return (
+                    <div
+                      key={`${rack.id}-${u.slot}-${u.label}`}
+                      className={`hud-rack-unit kind-${u.kind} status-${u.status}`}
+                      style={{
+                        height: `${u.height * 22}px`,
+                        background: rackKindGradient(u.kind),
+                      } as CSSProperties}
+                    >
+                      <div className="hud-rack-unit-faceplate">
+                        <span className="hud-rack-led" style={{
+                          background: ledColor,
+                          boxShadow: ledActive ? `0 0 6px ${ledColor}` : 'none',
+                          opacity: ledActive ? 1 : 0.35,
+                        }} />
+                        <span className="hud-rack-led" style={{
+                          background: ledColor,
+                          opacity: u.kind === 'empty' ? 0 : 0.7,
+                        }} />
+                        <strong>{u.label}</strong>
+                        {u.kind !== 'empty' && (
+                          <div className="hud-rack-unit-bar">
+                            <i style={{ width: `${u.load}%`, background: ledColor }} />
+                          </div>
+                        )}
+                        {u.kind !== 'empty' && <b>{u.load}%</b>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="hud-rack-caption">{rack.label}</div>
+          </div>
+        ))}
+      </div>
+      <ul className="hud-rack-legend">
+        <li><i style={{ background: rackStatusColor('ok') }} />ok</li>
+        <li><i style={{ background: rackStatusColor('warn') }} />warn</li>
+        <li><i style={{ background: rackStatusColor('crit') }} />crit</li>
+        <li><i style={{ background: rackStatusColor('idle') }} />idle</li>
+      </ul>
+    </article>
+  );
+}
+
+/* ============================================================================
+   14. PolarBarPanel — 24-spoke circular bar chart of hourly request rate
+   ============================================================================ */
+
+export function PolarBarPanel({ telemetry }: CommonProps) {
+  const cx = 50;
+  const cy = 50;
+  const innerR = 12;
+  const maxR = 38;
+  const max = Math.max(...polarProfile.map((p) => p.rps));
+  const liveHour = telemetry ? telemetry.tick % 24 : new Date().getHours();
+  const polarColor: Record<string, string> = {
+    ok:   '#33f7ff',
+    warn: '#ffd166',
+    crit: '#ff4a60',
+  };
+
+  return (
+    <article className="hud-panel hud-polar">
+      <div className="hud-panel-title">
+        <span>Diurnal request profile · 24h</span>
+        <strong>peak {max} rps</strong>
+      </div>
+      <svg className="hud-polar-canvas" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <radialGradient id="polar-bg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="transparent" />
+          </radialGradient>
+        </defs>
+        <circle cx={cx} cy={cy} r={maxR + 5} fill="url(#polar-bg)" />
+        {[0.33, 0.66, 1].map((f) => (
+          <circle key={`pr-${f}`} cx={cx} cy={cy} r={innerR + (maxR - innerR) * f} className="hud-polar-ring" />
+        ))}
+        {polarProfile.map((p) => {
+          const angleStart = (p.hour / 24) * Math.PI * 2 - Math.PI / 2;
+          const angleEnd = ((p.hour + 1) / 24) * Math.PI * 2 - Math.PI / 2;
+          const outerR = innerR + (p.rps / max) * (maxR - innerR);
+          const x1 = cx + Math.cos(angleStart) * innerR;
+          const y1 = cy + Math.sin(angleStart) * innerR;
+          const x2 = cx + Math.cos(angleEnd) * innerR;
+          const y2 = cy + Math.sin(angleEnd) * innerR;
+          const x3 = cx + Math.cos(angleEnd) * outerR;
+          const y3 = cy + Math.sin(angleEnd) * outerR;
+          const x4 = cx + Math.cos(angleStart) * outerR;
+          const y4 = cy + Math.sin(angleStart) * outerR;
+          const color = polarColor[p.status];
+          const isLive = p.hour === liveHour;
+          return (
+            <path
+              key={`pol-${p.hour}`}
+              d={`M${x1} ${y1} L${x4} ${y4} A${outerR} ${outerR} 0 0 1 ${x3} ${y3} L${x2} ${y2} A${innerR} ${innerR} 0 0 0 ${x1} ${y1} Z`}
+              fill={color}
+              fillOpacity={isLive ? 0.95 : 0.6}
+              stroke={color}
+              strokeWidth={isLive ? 0.6 : 0.2}
+              className={`hud-polar-wedge ${isLive ? 'is-live' : ''}`}
+              style={{ animationDelay: `${p.hour * 35}ms` } as CSSProperties}
+            />
+          );
+        })}
+        {[0, 6, 12, 18].map((h) => {
+          const angle = (h / 24) * Math.PI * 2 - Math.PI / 2;
+          const x = cx + Math.cos(angle) * (maxR + 4);
+          const y = cy + Math.sin(angle) * (maxR + 4);
+          return (
+            <text key={`hl-${h}`} x={x} y={y + 0.8} textAnchor="middle" className="hud-polar-hour">{h}h</text>
+          );
+        })}
+        <circle cx={cx} cy={cy} r={innerR - 1.5} className="hud-polar-core" />
+        <text x={cx} y={cy - 1.5} textAnchor="middle" className="hud-polar-center-label">NOW</text>
+        <text x={cx} y={cy + 2.6} textAnchor="middle" className="hud-polar-center-value">
+          {polarProfile[liveHour].rps}
+        </text>
+        <text x={cx} y={cy + 5} textAnchor="middle" className="hud-polar-center-sub">rps</text>
+      </svg>
+      <ul className="hud-polar-legend">
+        <li><i style={{ background: polarColor.ok }} />ok</li>
+        <li><i style={{ background: polarColor.warn }} />warn</li>
+        <li><i style={{ background: polarColor.crit }} />crit</li>
+      </ul>
+    </article>
+  );
+}
+
+/* ============================================================================
    Combined section that the HudDashboard mounts
    ============================================================================ */
 
@@ -681,7 +1173,9 @@ export function HudDataVizSection({ telemetry }: { telemetry?: EnvironmentSnapsh
         <h2>Complex telemetry surfaces</h2>
         <p>
           Live geo edge fabric, Sankey flow, service-mesh chord, activity heatmap, accelerator thermals,
-          per-service latency violins, capacity treemap, hex compute fabric, and a multi-track pipeline timeline.
+          per-service latency violins, capacity treemap, hex compute fabric, pipeline timeline,
+          operational radar, workload streamgraph, service bubble pack, isometric rack elevation,
+          and a circular request profile.
         </p>
       </header>
 
@@ -695,6 +1189,11 @@ export function HudDataVizSection({ telemetry }: { telemetry?: EnvironmentSnapsh
         <StorageTreemapPanel telemetry={telemetry} />
         <HexFabricPanel telemetry={telemetry} />
         <TimelinePanel telemetry={telemetry} />
+        <RadarMatrixPanel telemetry={telemetry} />
+        <StreamgraphPanel telemetry={telemetry} />
+        <BubblePackPanel telemetry={telemetry} />
+        <IsometricRackPanel telemetry={telemetry} />
+        <PolarBarPanel telemetry={telemetry} />
       </div>
     </section>
   );
