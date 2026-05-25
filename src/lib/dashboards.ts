@@ -352,6 +352,66 @@ export interface AccelerationDashboard {
   spdkLanes: { lane: string; queueDepth: number; latencyMicros: number; throughputGiBs: number }[];
 }
 
+export interface EnvironmentZone {
+  id: string;
+  label: string;
+  rack: string;
+  thermalC: number;
+  humidityPercent: number;
+  airflowCfm: number;
+  powerKw: number;
+  x: number;
+  y: number;
+  status: 'nominal' | 'watch' | 'hot';
+}
+
+export interface EnvironmentEvent {
+  time: string;
+  label: string;
+  detail: string;
+  severity: 'info' | 'watch' | 'critical';
+}
+
+export interface EnvironmentDashboard {
+  id: 'environment';
+  title: 'Environment Intelligence';
+  totals: { label: string; value: number; unit: string; trend: string }[];
+  zones: EnvironmentZone[];
+  activity: EnvironmentEvent[];
+  backdropVectors: number[];
+}
+
+export interface ActivitySignal {
+  label: string;
+  value: number;
+  unit: string;
+  trend: string;
+}
+
+export interface ActivityLane {
+  id: string;
+  label: string;
+  queued: number;
+  running: number;
+  completed: number;
+  failed: number;
+  saturationPercent: number;
+}
+
+export interface ActivityBurst {
+  label: string;
+  samples: number[];
+}
+
+export interface ActivityDashboard {
+  id: 'activity';
+  title: 'Activity Command';
+  signals: ActivitySignal[];
+  lanes: ActivityLane[];
+  bursts: ActivityBurst[];
+  timeline: EnvironmentEvent[];
+}
+
 export type DashboardAny =
   | NetworkingDashboard
   | StorageDashboard
@@ -359,7 +419,9 @@ export type DashboardAny =
   | ProcessorMemoryDashboard
   | OperationsDashboard
   | PolyComputeDashboard
-  | AccelerationDashboard;
+  | AccelerationDashboard
+  | EnvironmentDashboard
+  | ActivityDashboard;
 
 export function buildNetworkingDashboard(): NetworkingDashboard {
   const nodes: RouteNode[] = [
@@ -711,6 +773,64 @@ export function buildAccelerationDashboard(): AccelerationDashboard {
       { lane: 'NVMe-oF RDMA // userspace queue', queueDepth: 256, latencyMicros: 7, throughputGiBs: 18.2 },
       { lane: 'Vitastor RBD bridge', queueDepth: 64, latencyMicros: 12, throughputGiBs: 9.8 },
       { lane: 'Ceph SPDK accel', queueDepth: 128, latencyMicros: 22, throughputGiBs: 6.2 },
+    ],
+  };
+}
+
+export function buildEnvironmentDashboard(): EnvironmentDashboard {
+  return {
+    id: 'environment',
+    title: 'Environment Intelligence',
+    totals: [
+      { label: 'Thermal average', value: 28.4, unit: 'C', trend: '-1.8 C after airflow rebalance' },
+      { label: 'Power draw', value: 41.8, unit: 'kW', trend: '+4.2 kW AI pool active' },
+      { label: 'Rack airflow', value: 128, unit: 'kCFM', trend: '+12% fan curve' },
+      { label: 'Humidity', value: 43, unit: '%', trend: 'inside ASHRAE band' },
+    ],
+    zones: [
+      { id: 'z-1', label: 'cold aisle A', rack: 'rack-a01/a04', thermalC: 22, humidityPercent: 42, airflowCfm: 18400, powerKw: 8.4, x: 18, y: 28, status: 'nominal' },
+      { id: 'z-2', label: 'compute spine', rack: 'rack-b01/b06', thermalC: 31, humidityPercent: 44, airflowCfm: 24400, powerKw: 16.8, x: 48, y: 38, status: 'watch' },
+      { id: 'z-3', label: 'gpu island', rack: 'rack-c02/c05', thermalC: 36, humidityPercent: 39, airflowCfm: 31800, powerKw: 22.6, x: 76, y: 54, status: 'hot' },
+      { id: 'z-4', label: 'storage fabric', rack: 'rack-d01/d03', thermalC: 27, humidityPercent: 46, airflowCfm: 21400, powerKw: 11.2, x: 34, y: 72, status: 'nominal' },
+      { id: 'z-5', label: 'edge ingress', rack: 'rack-e01/e02', thermalC: 25, humidityPercent: 41, airflowCfm: 12000, powerKw: 4.9, x: 68, y: 78, status: 'nominal' },
+    ],
+    activity: [
+      { time: '02:44', label: 'fan curve raised', detail: 'gpu island +9% airflow for H100 training burst', severity: 'watch' },
+      { time: '02:39', label: 'rack b03 balanced', detail: 'thermal delta dropped below 4 C across compute spine', severity: 'info' },
+      { time: '02:31', label: 'power cap guarded', detail: 'scheduler delayed two inference pods until draw normalized', severity: 'info' },
+      { time: '02:18', label: 'humidity drift', detail: 'cold aisle A trending dry but still inside band', severity: 'watch' },
+    ],
+    backdropVectors: [18, 42, 31, 64, 58, 76, 48, 88, 69, 82, 56, 74],
+  };
+}
+
+export function buildActivityDashboard(): ActivityDashboard {
+  return {
+    id: 'activity',
+    title: 'Activity Command',
+    signals: [
+      { label: 'Apply throughput', value: 284, unit: 'ops/h', trend: '+18% vs previous window' },
+      { label: 'Queue latency', value: 42, unit: 's', trend: '-16 s after runner scale-out' },
+      { label: 'Automation health', value: 97, unit: '%', trend: 'all critical lanes green' },
+      { label: 'Human approvals', value: 12, unit: 'open', trend: '4 waiting security review' },
+    ],
+    lanes: [
+      { id: 'manifest', label: 'Manifest apply', queued: 8, running: 12, completed: 184, failed: 1, saturationPercent: 71 },
+      { id: 'migration', label: 'Live migration', queued: 3, running: 5, completed: 38, failed: 0, saturationPercent: 64 },
+      { id: 'backup', label: 'Backup verify', queued: 14, running: 4, completed: 96, failed: 2, saturationPercent: 58 },
+      { id: 'security', label: 'Security scan', queued: 19, running: 7, completed: 142, failed: 3, saturationPercent: 82 },
+      { id: 'cluster', label: 'Cluster reconcile', queued: 5, running: 9, completed: 211, failed: 0, saturationPercent: 76 },
+    ],
+    bursts: [
+      { label: 'API activity', samples: [32, 48, 62, 44, 78, 69, 88, 72, 94, 81, 76, 91] },
+      { label: 'Storage jobs', samples: [28, 35, 54, 61, 47, 72, 66, 83, 58, 74, 68, 79] },
+      { label: 'Security scans', samples: [18, 24, 46, 38, 58, 64, 72, 69, 84, 77, 88, 93] },
+    ],
+    timeline: [
+      { time: '02:45', label: 'argocd sync', detail: 'platform/observability reached desired state', severity: 'info' },
+      { time: '02:42', label: 'migration lane', detail: 'payments-vm-02 memory stream crossed 64%', severity: 'info' },
+      { time: '02:36', label: 'approval gate', detail: 'gpu-passthrough manifest waiting for security owner', severity: 'watch' },
+      { time: '02:27', label: 'backup verify failed', detail: 'pbs-secondary verify drift on compute-01', severity: 'critical' },
     ],
   };
 }

@@ -14,7 +14,8 @@ Highlights:
 - **Universal Storage Fabric** — every storage backend in the catalog is wired to Nexus's CSI / direct-host integration paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath volume driver for RWX shares.
 - **Acceleration & Hardware Pass-Through dashboard** — SPDK userspace NVMe-oF queues, DPDK polled-mode ring buffers, vhost-user fast paths, topology-aware NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
 - **Machine Wizard 2.0** — extends the install YAML with `poly_compute` and `hardware_acceleration` blocks and adds boot-parameter switches such as `nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, and `nexus.acceleration.gpu_passthrough=true`. Validation refuses a config that turns off every runtime or enables GPU pass-through without NUMA pinning.
-- **Themable cockpit** — three switchable themes (Route Grid, Emerald Console, Solar Flare) so all 2.0 dashboards adapt to operator preference. Theme selection persists in `localStorage`.
+- **Themable cockpit** — six switchable themes (Route Grid, Emerald Console, Solar Flare, Arctic Hologram, Violet Nebula, Noir Radar) so all 2.0 dashboards adapt to operator preference. Theme selection persists in `localStorage`.
+- **Geometric glass cockpit expansion** — additional theme profiles, redesigned instrument widgets, environment intelligence, and activity command dashboards for transparent control-room mockups.
 
 ## Overview
 
@@ -27,7 +28,7 @@ Nexus is the updated Harvester fork with:
 - GitOps support: ArgoCD, Flux, Jenkins X integration manifests.
 - Multi-cluster provisioning: federated deployment templates and cluster targeting.
 
-## What is included
+## Features
 
 - In-tree Harvester platform source under `platform/harvester` so Nexus is tracked as a standalone system instead of a UI-only add-on.
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
@@ -38,6 +39,12 @@ Nexus is the updated Harvester fork with:
 - Service mesh integration support for Istio, Linkerd, and Cilium.
 - CodeMirror YAML editor preview with dark mode styling.
 - Live-adapter operation planning for Kubernetes API validation, `kubectl` apply/test runs, `vcluster` workflows, and CSI templates sourced from the imported Harvester tree.
+- Environment Intelligence and Activity Command dashboards for facility telemetry, automation queues, approvals, migrations, backups, and security scan activity.
+- Kubernetes validation and live preview now combine local structural prechecks with Nexus live-adapter endpoints and server-side dry-run command generation.
+- Manifest apply / test runner commands are generated for `kubectl auth can-i`, server-side dry-run, diff, apply, and rollout status.
+- Virtual cluster support generates `vcluster` create/connect operations from multi-cluster targets.
+- Editor enhancements are implemented with CodeMirror YAML editing.
+- Storage backend templates include CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester source references under `platform/harvester/deploy/charts/harvester`.
 
 ## Quick start
 
@@ -83,10 +90,3 @@ The updated Nexus version is available on the `nexus` branch in the forked repos
 
 A pull request can be created from this branch to merge Nexus back into the main repository.
 
-## Completed next steps
-
-- Kubernetes validation and live preview now combine local structural prechecks with Nexus live-adapter endpoints and server-side dry-run command generation.
-- Manifest apply / test runner commands are generated for `kubectl auth can-i`, server-side dry-run, diff, apply, and rollout status.
-- Virtual cluster support generates `vcluster` create/connect operations from multi-cluster targets.
-- Editor enhancements are implemented with CodeMirror YAML editing.
-- Storage backend templates include CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester source references under `platform/harvester/deploy/charts/harvester`.

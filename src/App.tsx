@@ -15,6 +15,8 @@ import { UnifiedSetupWizard } from './components/UnifiedSetupWizard';
 import { YamlEditor } from './components/YamlEditor';
 import {
   AccelerationDashboardView,
+  ActivityDashboardView,
+  EnvironmentDashboardView,
   MachinesDashboardView,
   NetworkingDashboardView,
   OperationsDashboardView,
@@ -46,6 +48,8 @@ type CockpitView =
   | 'processor-memory'
   | 'poly-compute'
   | 'acceleration'
+  | 'environment'
+  | 'activity'
   | 'operations'
   | 'resource-monitoring'
   | 'cluster'
@@ -141,6 +145,12 @@ function App() {
           <button className={cockpitView === 'acceleration' ? 'active' : ''} onClick={() => setCockpitView('acceleration')}>
             Acceleration
           </button>
+          <button className={cockpitView === 'environment' ? 'active' : ''} onClick={() => setCockpitView('environment')}>
+            Environment Intelligence
+          </button>
+          <button className={cockpitView === 'activity' ? 'active' : ''} onClick={() => setCockpitView('activity')}>
+            Activity Command
+          </button>
           <button className={cockpitView === 'operations' ? 'active' : ''} onClick={() => setCockpitView('operations')}>
             Operations &amp; Compliance
           </button>
@@ -168,6 +178,8 @@ function App() {
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView />}
         {cockpitView === 'poly-compute' && <PolyComputeDashboardView />}
         {cockpitView === 'acceleration' && <AccelerationDashboardView />}
+        {cockpitView === 'environment' && <EnvironmentDashboardView />}
+        {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'operations' && <OperationsDashboardView />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (

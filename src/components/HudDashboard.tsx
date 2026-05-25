@@ -7,6 +7,12 @@ const linePoints = telemetry.lineSeries
   .map((value, index) => `${(index / (telemetry.lineSeries.length - 1)) * 100},${100 - value}`)
   .join(' ');
 
+function buildWidgetPoints(samples: number[]): string {
+  return samples
+    .map((value, index) => `${(index / Math.max(1, samples.length - 1)) * 100},${100 - value}`)
+    .join(' ');
+}
+
 interface HudDashboardProps {
   activeTheme: ThemeId;
 }
@@ -80,27 +86,79 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
       </div>
 
       <div className="hud-widget-drawer hud-panel">
-        {telemetry.graphWidgets.map((widget, index) => (
-          <article className={`hud-drawn-widget widget-${widget.renderMode}`} key={widget.label} style={{ animationDelay: `${widget.drawDelayMs}ms` }}>
-            <div className="hud-panel-title">
-              <span>{widget.renderMode}</span>
-              <strong>{widget.label}</strong>
-            </div>
-            {widget.renderMode === 'matrix' ? (
-              <div className="hud-widget-matrix">
-                {widget.samples.map((sample, sampleIndex) => (
-                  <i className={sample ? 'is-lit' : ''} key={`${widget.label}-${sampleIndex}`} />
-                ))}
+        {telemetry.graphWidgets.map((widget, index) => {
+          const peak = Math.max(...widget.samples);
+          const average = Math.round(widget.samples.reduce((sum, sample) => sum + sample, 0) / widget.samples.length);
+          const widgetPoints = buildWidgetPoints(widget.samples);
+
+          return (
+            <article className={`hud-drawn-widget widget-${widget.renderMode}`} key={widget.label} style={{ animationDelay: `${widget.drawDelayMs}ms` }}>
+              <div className="hud-widget-chrome" aria-hidden="true">
+                <span />
+                <span />
+                <span />
               </div>
-            ) : (
-              <div className="hud-widget-graph">
-                {widget.samples.map((sample, sampleIndex) => (
-                  <span key={`${widget.label}-${sampleIndex}`} style={{ '--sample': `${sample}%`, animationDelay: `${(index + sampleIndex) * 45}ms` } as CSSProperties} />
-                ))}
+              <div className="hud-panel-title">
+                <span>{widget.renderMode}</span>
+                <strong>{widget.label}</strong>
               </div>
-            )}
-          </article>
-        ))}
+              <div className="hud-widget-readout">
+                <b>{peak}</b>
+                <span>peak</span>
+                <em>{average} avg</em>
+              </div>
+              {widget.renderMode === 'line' && (
+                <svg className="hud-widget-scope" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id={`${widget.label.replace(/\s+/g, '-')}-gradient`} x1="0%" x2="100%">
+                      <stop offset="0%" stopColor="var(--theme-good)" />
+                      <stop offset="100%" stopColor="var(--theme-accent)" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M0 100 L100 100 L100 0" />
+                  <polyline points={widgetPoints} />
+                  {widget.samples.map((sample, sampleIndex) => (
+                    <circle
+                      key={`${widget.label}-node-${sampleIndex}`}
+                      cx={(sampleIndex / Math.max(1, widget.samples.length - 1)) * 100}
+                      cy={100 - sample}
+                      r="1.9"
+                    />
+                  ))}
+                </svg>
+              )}
+              {widget.renderMode === 'bars' && (
+                <div className="hud-widget-graph hud-widget-segments">
+                  {widget.samples.map((sample, sampleIndex) => (
+                    <span key={`${widget.label}-${sampleIndex}`} style={{ '--sample': `${sample}%`, animationDelay: `${(index + sampleIndex) * 45}ms` } as CSSProperties} />
+                  ))}
+                </div>
+              )}
+              {widget.renderMode === 'radial' && (
+                <div className="hud-widget-radials">
+                  {widget.samples.slice(0, 6).map((sample, sampleIndex) => (
+                    <span
+                      key={`${widget.label}-radial-${sampleIndex}`}
+                      style={{
+                        '--sample-deg': `${sample * 3.6}deg`,
+                        animationDelay: `${(index + sampleIndex) * 70}ms`,
+                      } as CSSProperties}
+                    >
+                      <i>{sample}</i>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {widget.renderMode === 'matrix' && (
+                <div className="hud-widget-matrix">
+                  {widget.samples.map((sample, sampleIndex) => (
+                    <i className={sample ? 'is-lit' : ''} key={`${widget.label}-${sampleIndex}`} />
+                  ))}
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
 
       <div className="hud-control-surfaces hud-panel" aria-label="Animated expandable dashboard controls">

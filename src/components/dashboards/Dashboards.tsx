@@ -1,5 +1,7 @@
 import {
   buildAccelerationDashboard,
+  buildActivityDashboard,
+  buildEnvironmentDashboard,
   buildMachinesDashboard,
   buildNetworkingDashboard,
   buildOperationsDashboard,
@@ -16,6 +18,8 @@ const procmem = buildProcessorMemoryDashboard();
 const ops = buildOperationsDashboard();
 const poly = buildPolyComputeDashboard();
 const accel = buildAccelerationDashboard();
+const environment = buildEnvironmentDashboard();
+const activity = buildActivityDashboard();
 
 function svgPathBetween(ax: number, ay: number, bx: number, by: number): string {
   const dx = bx - ax;
@@ -887,6 +891,167 @@ export function AccelerationDashboardView() {
             </li>
           ))}
         </ul>
+      </article>
+    </section>
+  );
+}
+
+export function EnvironmentDashboardView() {
+  const { totals, zones, activity, backdropVectors } = environment;
+  const vectorPoints = backdropVectors.map((value, index) => `${(index / (backdropVectors.length - 1)) * 100},${100 - value}`).join(' ');
+
+  return (
+    <section className="dash dash-environment" aria-label="Environment intelligence dashboard">
+      <header className="dash-header">
+        <div>
+          <span className="dash-kicker">ENVIRONMENT // FACILITY</span>
+          <h2>{environment.title}</h2>
+          <p>Thermals, airflow, humidity, power draw, and facility events rendered as a transparent spatial command layer.</p>
+        </div>
+        <div className="dash-vip">
+          <span>Status</span>
+          <strong>{zones.filter((zone) => zone.status !== 'nominal').length} watch zones</strong>
+          <small>{zones.length} zones monitored</small>
+        </div>
+      </header>
+
+      <div className="environment-kpi-grid">
+        {totals.map((total) => (
+          <article className="environment-kpi" key={total.label}>
+            <span>{total.label}</span>
+            <strong>{total.value}<small>{total.unit}</small></strong>
+            <p>{total.trend}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel environment-map-panel">
+          <div className="panel-title"><span>Spatial thermal map</span><strong>transparent rack geometry</strong></div>
+          <div className="environment-map">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <polyline points={vectorPoints} />
+              <polygon points="8,20 38,8 88,24 78,82 28,92 12,62" />
+            </svg>
+            {zones.map((zone) => (
+              <span className={`environment-zone zone-${zone.status}`} key={zone.id} style={{ left: `${zone.x}%`, top: `${zone.y}%` }}>
+                <b>{zone.thermalC}C</b>
+                <small>{zone.label}</small>
+              </span>
+            ))}
+          </div>
+        </article>
+
+        <article className="dash-panel">
+          <div className="panel-title"><span>Facility event rail</span><strong>{activity.length} live events</strong></div>
+          <ul className="environment-event-list">
+            {activity.map((event) => (
+              <li className={`event-${event.severity}`} key={`${event.time}-${event.label}`}>
+                <span>{event.time}</span>
+                <strong>{event.label}</strong>
+                <p>{event.detail}</p>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
+      <article className="dash-panel">
+        <div className="panel-title"><span>Zone telemetry strips</span><strong>thermal · humidity · airflow · power</strong></div>
+        <div className="environment-zone-grid">
+          {zones.map((zone) => (
+            <div className={`environment-zone-card zone-${zone.status}`} key={zone.id}>
+              <div><span>{zone.rack}</span><strong>{zone.label}</strong></div>
+              <div className="env-meter"><span>Thermal</span><i style={{ width: `${Math.min(100, zone.thermalC * 2.3)}%` }} /><b>{zone.thermalC}C</b></div>
+              <div className="env-meter"><span>Humidity</span><i style={{ width: `${zone.humidityPercent}%` }} /><b>{zone.humidityPercent}%</b></div>
+              <div className="env-meter"><span>Airflow</span><i style={{ width: `${Math.min(100, zone.airflowCfm / 320)}%` }} /><b>{Math.round(zone.airflowCfm / 1000)}k CFM</b></div>
+              <div className="env-meter"><span>Power</span><i style={{ width: `${Math.min(100, zone.powerKw * 4)}%` }} /><b>{zone.powerKw} kW</b></div>
+            </div>
+          ))}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+export function ActivityDashboardView() {
+  const { signals, lanes, bursts, timeline } = activity;
+
+  return (
+    <section className="dash dash-activity" aria-label="Activity command dashboard">
+      <header className="dash-header">
+        <div>
+          <span className="dash-kicker">ACTIVITY // COMMAND</span>
+          <h2>{activity.title}</h2>
+          <p>Automation queues, approvals, apply operations, migrations, backups, and security scans in one operator surface.</p>
+        </div>
+        <div className="dash-vip">
+          <span>Queue</span>
+          <strong>{lanes.reduce((sum, lane) => sum + lane.queued, 0)} pending</strong>
+          <small>{lanes.reduce((sum, lane) => sum + lane.running, 0)} running</small>
+        </div>
+      </header>
+
+      <div className="activity-signal-grid">
+        {signals.map((signal) => (
+          <article className="activity-signal" key={signal.label}>
+            <span>{signal.label}</span>
+            <strong>{signal.value}<small>{signal.unit}</small></strong>
+            <p>{signal.trend}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <div className="panel-title"><span>Automation lanes</span><strong>{lanes.length} live queues</strong></div>
+          <div className="activity-lane-grid">
+            {lanes.map((lane) => (
+              <div className="activity-lane" key={lane.id}>
+                <div>
+                  <strong>{lane.label}</strong>
+                  <span>{lane.saturationPercent}% saturated</span>
+                </div>
+                <div className="activity-lane-stack">
+                  <i style={{ width: `${lane.completed / (lane.completed + lane.running + lane.queued + lane.failed) * 100}%` }} />
+                  <i style={{ width: `${lane.running / (lane.completed + lane.running + lane.queued + lane.failed) * 100}%` }} />
+                  <i style={{ width: `${lane.queued / (lane.completed + lane.running + lane.queued + lane.failed) * 100}%` }} />
+                  <i style={{ width: `${lane.failed / (lane.completed + lane.running + lane.queued + lane.failed) * 100}%` }} />
+                </div>
+                <small>{lane.completed} done · {lane.running} running · {lane.queued} queued · {lane.failed} failed</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="dash-panel">
+          <div className="panel-title"><span>Command timeline</span><strong>{timeline.length} recent signals</strong></div>
+          <ul className="environment-event-list activity-timeline">
+            {timeline.map((event) => (
+              <li className={`event-${event.severity}`} key={`${event.time}-${event.label}`}>
+                <span>{event.time}</span>
+                <strong>{event.label}</strong>
+                <p>{event.detail}</p>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
+      <article className="dash-panel">
+        <div className="panel-title"><span>Signal burst scopes</span><strong>animated samples</strong></div>
+        <div className="activity-burst-grid">
+          {bursts.map((burst) => (
+            <div className="activity-burst" key={burst.label}>
+              <strong>{burst.label}</strong>
+              <div>
+                {burst.samples.map((sample, index) => (
+                  <i key={`${burst.label}-${index}`} style={{ height: `${sample}%`, animationDelay: `${index * 70}ms` }} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </article>
     </section>
   );
