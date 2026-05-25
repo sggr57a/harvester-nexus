@@ -969,8 +969,8 @@ interface ThreatIntelMapProps {
 const SEVERITY_TONE: Record<ThreatActor['severity'], string> = {
   low: 'var(--theme-good)',
   medium: 'var(--theme-accent-2)',
-  high: 'var(--theme-warn)',
-  critical: 'var(--theme-danger)',
+  high: '#ff7a3d',  // amber-red for high
+  critical: '#ff2d4a', // hard scarlet red for critical (matches attack trajectories)
 };
 
 const ACTION_LABEL: Record<ThreatActor['action'], string> = {
@@ -1028,6 +1028,94 @@ const CITY_LIGHTS: { x: number; y: number; r: number; bright: boolean }[] = (() 
   }
   return lights;
 })();
+
+/** Catalogue of well-known city locations across the globe. These show up as
+ * small DIM hollow dots on the map (passive — not currently communicating).
+ * When a TrafficSource or threat hotspot lands on the same coordinates, the
+ * widget highlights that location while the rest stay quietly visible. */
+const PASSIVE_LOCATIONS: { city: string; country: string; lat: number; lng: number }[] = [
+  { city: 'Anchorage', country: 'US', lat: 61.2, lng: -149.9 },
+  { city: 'Vancouver', country: 'CA', lat: 49.3, lng: -123.1 },
+  { city: 'Seattle', country: 'US', lat: 47.6, lng: -122.3 },
+  { city: 'Portland', country: 'US', lat: 45.5, lng: -122.7 },
+  { city: 'Salt Lake City', country: 'US', lat: 40.8, lng: -111.9 },
+  { city: 'Denver', country: 'US', lat: 39.7, lng: -105.0 },
+  { city: 'Phoenix', country: 'US', lat: 33.4, lng: -112.1 },
+  { city: 'Los Angeles', country: 'US', lat: 34.1, lng: -118.2 },
+  { city: 'San Diego', country: 'US', lat: 32.7, lng: -117.2 },
+  { city: 'Houston', country: 'US', lat: 29.8, lng: -95.4 },
+  { city: 'Dallas', country: 'US', lat: 32.8, lng: -96.8 },
+  { city: 'Atlanta', country: 'US', lat: 33.7, lng: -84.4 },
+  { city: 'Miami', country: 'US', lat: 25.8, lng: -80.2 },
+  { city: 'Chicago', country: 'US', lat: 41.9, lng: -87.7 },
+  { city: 'Detroit', country: 'US', lat: 42.3, lng: -83.0 },
+  { city: 'Boston', country: 'US', lat: 42.4, lng: -71.1 },
+  { city: 'Washington', country: 'US', lat: 38.9, lng: -77.0 },
+  { city: 'Montreal', country: 'CA', lat: 45.5, lng: -73.6 },
+  { city: 'Mexico City', country: 'MX', lat: 19.4, lng: -99.1 },
+  { city: 'Lima', country: 'PE', lat: -12.0, lng: -77.0 },
+  { city: 'Bogotá', country: 'CO', lat: 4.7, lng: -74.1 },
+  { city: 'Caracas', country: 'VE', lat: 10.5, lng: -66.9 },
+  { city: 'Buenos Aires', country: 'AR', lat: -34.6, lng: -58.4 },
+  { city: 'Rio', country: 'BR', lat: -22.9, lng: -43.2 },
+  { city: 'Brasília', country: 'BR', lat: -15.8, lng: -47.9 },
+  { city: 'Santiago', country: 'CL', lat: -33.5, lng: -70.7 },
+  { city: 'Reykjavik', country: 'IS', lat: 64.1, lng: -21.9 },
+  { city: 'Dublin', country: 'IE', lat: 53.3, lng: -6.3 },
+  { city: 'Edinburgh', country: 'UK', lat: 55.9, lng: -3.2 },
+  { city: 'Madrid', country: 'ES', lat: 40.4, lng: -3.7 },
+  { city: 'Lisbon', country: 'PT', lat: 38.7, lng: -9.1 },
+  { city: 'Barcelona', country: 'ES', lat: 41.4, lng: 2.2 },
+  { city: 'Paris', country: 'FR', lat: 48.9, lng: 2.3 },
+  { city: 'Amsterdam', country: 'NL', lat: 52.4, lng: 4.9 },
+  { city: 'Brussels', country: 'BE', lat: 50.8, lng: 4.4 },
+  { city: 'Copenhagen', country: 'DK', lat: 55.7, lng: 12.6 },
+  { city: 'Oslo', country: 'NO', lat: 59.9, lng: 10.8 },
+  { city: 'Stockholm', country: 'SE', lat: 59.3, lng: 18.1 },
+  { city: 'Helsinki', country: 'FI', lat: 60.2, lng: 24.9 },
+  { city: 'Berlin', country: 'DE', lat: 52.5, lng: 13.4 },
+  { city: 'Munich', country: 'DE', lat: 48.1, lng: 11.6 },
+  { city: 'Vienna', country: 'AT', lat: 48.2, lng: 16.4 },
+  { city: 'Prague', country: 'CZ', lat: 50.1, lng: 14.4 },
+  { city: 'Warsaw', country: 'PL', lat: 52.2, lng: 21.0 },
+  { city: 'Rome', country: 'IT', lat: 41.9, lng: 12.5 },
+  { city: 'Athens', country: 'GR', lat: 38.0, lng: 23.7 },
+  { city: 'Istanbul', country: 'TR', lat: 41.0, lng: 29.0 },
+  { city: 'Moscow', country: 'RU', lat: 55.8, lng: 37.6 },
+  { city: 'Saint Petersburg', country: 'RU', lat: 59.9, lng: 30.3 },
+  { city: 'Kiev', country: 'UA', lat: 50.5, lng: 30.5 },
+  { city: 'Tel Aviv', country: 'IL', lat: 32.1, lng: 34.8 },
+  { city: 'Cairo', country: 'EG', lat: 30.0, lng: 31.2 },
+  { city: 'Riyadh', country: 'SA', lat: 24.7, lng: 46.7 },
+  { city: 'Tehran', country: 'IR', lat: 35.7, lng: 51.4 },
+  { city: 'Karachi', country: 'PK', lat: 24.9, lng: 67.0 },
+  { city: 'Delhi', country: 'IN', lat: 28.6, lng: 77.2 },
+  { city: 'Bangalore', country: 'IN', lat: 13.0, lng: 77.6 },
+  { city: 'Chennai', country: 'IN', lat: 13.1, lng: 80.3 },
+  { city: 'Bangkok', country: 'TH', lat: 13.7, lng: 100.5 },
+  { city: 'Kuala Lumpur', country: 'MY', lat: 3.1, lng: 101.7 },
+  { city: 'Jakarta', country: 'ID', lat: -6.2, lng: 106.9 },
+  { city: 'Manila', country: 'PH', lat: 14.6, lng: 121.0 },
+  { city: 'Hanoi', country: 'VN', lat: 21.0, lng: 105.8 },
+  { city: 'Hong Kong', country: 'HK', lat: 22.3, lng: 114.2 },
+  { city: 'Taipei', country: 'TW', lat: 25.0, lng: 121.5 },
+  { city: 'Shanghai', country: 'CN', lat: 31.2, lng: 121.5 },
+  { city: 'Beijing', country: 'CN', lat: 39.9, lng: 116.4 },
+  { city: 'Pyongyang', country: 'KP', lat: 39.0, lng: 125.7 },
+  { city: 'Seoul', country: 'KR', lat: 37.6, lng: 126.9 },
+  { city: 'Osaka', country: 'JP', lat: 34.7, lng: 135.5 },
+  { city: 'Auckland', country: 'NZ', lat: -36.8, lng: 174.8 },
+  { city: 'Perth', country: 'AU', lat: -31.9, lng: 115.9 },
+  { city: 'Brisbane', country: 'AU', lat: -27.5, lng: 153.0 },
+  { city: 'Melbourne', country: 'AU', lat: -37.8, lng: 145.0 },
+  { city: 'Lagos', country: 'NG', lat: 6.5, lng: 3.4 },
+  { city: 'Nairobi', country: 'KE', lat: -1.3, lng: 36.8 },
+  { city: 'Addis Ababa', country: 'ET', lat: 9.0, lng: 38.7 },
+  { city: 'Dakar', country: 'SN', lat: 14.7, lng: -17.4 },
+  { city: 'Johannesburg', country: 'ZA', lat: -26.2, lng: 28.0 },
+  { city: 'Casablanca', country: 'MA', lat: 33.6, lng: -7.6 },
+  { city: 'Algiers', country: 'DZ', lat: 36.7, lng: 3.1 },
+];
 
 /** Pre-defined inter-DC network paths (cyan trade-route lines) — densely
  * cross-connected so the map looks like a real global ops backbone, not just
@@ -1219,8 +1307,8 @@ export function ThreatIntelMap({
               <path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--theme-grid)" strokeWidth="0.18" />
             </pattern>
             <radialGradient id="tim-threat-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="var(--theme-danger)" stopOpacity="0.6" />
-              <stop offset="80%" stopColor="var(--theme-danger)" stopOpacity="0" />
+              <stop offset="0%" stopColor="#ff2d4a" stopOpacity="0.7" />
+              <stop offset="80%" stopColor="#ff2d4a" stopOpacity="0" />
             </radialGradient>
             <radialGradient id="tim-light-glow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="var(--theme-warn)" stopOpacity="0.7" />
@@ -1294,22 +1382,75 @@ export function ThreatIntelMap({
             <text y="-3.4" textAnchor="middle" className="tim-home-label">{SYSTEM_HOME.city}</text>
             <text y="6.4" textAnchor="middle" className="tim-home-coord">VIP · {SYSTEM_HOME.country}</text>
           </g>
-          {/* Threat hotspots — orange flares */}
+          {/* Passive locations — every major city shown as a dim hollow dot.
+              These stay quiet unless they coincide with an active source / threat. */}
+          {PASSIVE_LOCATIONS.map((loc, idx) => {
+            const [px, py] = projectGeo(loc.lat, loc.lng);
+            return (
+              <g key={`loc-${idx}`} className="tim-passive">
+                <circle cx={px} cy={py} r="0.55" fill="none" stroke="var(--theme-text-dim)" strokeWidth="0.18" opacity="0.55" />
+                <circle cx={px} cy={py} r="0.18" fill="var(--theme-text-dim)" opacity="0.45" />
+              </g>
+            );
+          })}
+
+          {/* RED ATTACK TRAJECTORIES — each threat draws an angry red arc
+              from its country to the Frankfurt VIP. Always visible (every
+              tick), separate from kind-coloured legitimate-traffic arcs.
+              Hard-coded scarlet red so it stays "red" across every theme
+              regardless of the theme's `--theme-danger` token shade. */}
+          {projectedThreats.map(({ t, point }, idx) => {
+            const [x1, y1] = point;
+            const [x2, y2] = homeProj;
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const bow = Math.min(46, dist * 0.4);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2 - bow;
+            const path = `M${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
+            const ATTACK_RED = '#ff2d4a';
+            return (
+              <g key={`atk-${t.id}`} className={`tim-attack sev-${t.severity}`}>
+                <path d={path} stroke={ATTACK_RED} strokeWidth="0.32" fill="none" opacity="0.55" />
+                <path
+                  d={path}
+                  stroke={ATTACK_RED}
+                  strokeWidth="0.6"
+                  fill="none"
+                  strokeDasharray="3 5"
+                  opacity="0.92"
+                  style={{ filter: `drop-shadow(0 0 2px ${ATTACK_RED}) drop-shadow(0 0 6px ${ATTACK_RED})` }}
+                >
+                  <animate attributeName="stroke-dashoffset" values="0;-16" dur={`${1.2 + (idx % 3) * 0.3}s`} repeatCount="indefinite" />
+                </path>
+                {/* Two travelling red threat blobs */}
+                <circle r="1.2" fill={ATTACK_RED} style={{ filter: `drop-shadow(0 0 4px ${ATTACK_RED}) drop-shadow(0 0 9px ${ATTACK_RED})` }}>
+                  <animateMotion dur={`${1.5 + (idx % 4) * 0.28}s`} repeatCount="indefinite" path={path} begin={`${(idx * 0.08) % 0.6}s`} />
+                </circle>
+                <circle r="0.75" fill={ATTACK_RED} opacity="0.75">
+                  <animateMotion dur={`${1.5 + (idx % 4) * 0.28}s`} repeatCount="indefinite" path={path} begin={`${0.4 + (idx * 0.08) % 0.6}s`} />
+                </circle>
+              </g>
+            );
+          })}
+
+          {/* Threat hotspots — RED flares marking the attack origins */}
           {projectedThreats.map(({ t, point }, idx) => {
             const [tx, ty] = point;
-            const tone = SEVERITY_TONE[t.severity];
+            const ATTACK_RED = '#ff2d4a';
             return (
               <g key={t.id} className={`tim-threat-flare sev-${t.severity}`}>
-                <circle cx={tx} cy={ty} r="6" fill="url(#tim-threat-glow)" opacity="0.55">
-                  <animate attributeName="r" values="3;7;3" dur={`${1.6 + (idx % 4) * 0.3}s`} repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.65;0;0.65" dur={`${1.6 + (idx % 4) * 0.3}s`} repeatCount="indefinite" />
+                <circle cx={tx} cy={ty} r="6" fill="url(#tim-threat-glow)" opacity="0.65">
+                  <animate attributeName="r" values="3;7;3" dur={`${1.4 + (idx % 4) * 0.25}s`} repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.75;0;0.75" dur={`${1.4 + (idx % 4) * 0.25}s`} repeatCount="indefinite" />
                 </circle>
-                <circle cx={tx} cy={ty} r="1.6" fill={tone} style={{ filter: `drop-shadow(0 0 3px ${tone}) drop-shadow(0 0 8px ${tone})` }} />
-                <line x1={tx} y1={ty - 4} x2={tx} y2={ty - 8} stroke={tone} strokeWidth="0.4" opacity="0.85" />
-                <line x1={tx + 4} y1={ty} x2={tx + 8} y2={ty} stroke={tone} strokeWidth="0.4" opacity="0.85" />
-                <line x1={tx - 4} y1={ty} x2={tx - 8} y2={ty} stroke={tone} strokeWidth="0.4" opacity="0.85" />
-                <text x={tx} y={ty - 9.5} textAnchor="middle" className="tim-threat-label" style={{ fill: tone }}>{t.actor.split(' ')[0]}</text>
-                <text x={tx} y={ty + 11} textAnchor="middle" className="tim-threat-cve" style={{ fill: tone }}>{t.cve}</text>
+                <circle cx={tx} cy={ty} r="1.7" fill={ATTACK_RED} style={{ filter: `drop-shadow(0 0 3px ${ATTACK_RED}) drop-shadow(0 0 9px ${ATTACK_RED})` }} />
+                <line x1={tx} y1={ty - 4} x2={tx} y2={ty - 8} stroke={ATTACK_RED} strokeWidth="0.4" opacity="0.92" />
+                <line x1={tx + 4} y1={ty} x2={tx + 8} y2={ty} stroke={ATTACK_RED} strokeWidth="0.4" opacity="0.92" />
+                <line x1={tx - 4} y1={ty} x2={tx - 8} y2={ty} stroke={ATTACK_RED} strokeWidth="0.4" opacity="0.92" />
+                <text x={tx} y={ty - 9.5} textAnchor="middle" className="tim-threat-label" style={{ fill: ATTACK_RED }}>{t.actor.split(' ')[0]}</text>
+                <text x={tx} y={ty + 11} textAnchor="middle" className="tim-threat-cve" style={{ fill: ATTACK_RED }}>{t.cve}</text>
               </g>
             );
           })}
