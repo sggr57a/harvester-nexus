@@ -10610,3 +10610,236 @@ select option {
 @media (max-width: 720px) {
   .dash-mission .mission-grid > .dash-panel { grid-column: auto !important; }
 }
+
+/* ============================================================
+   v6 — World traffic globe (Networking dashboard hero panel)
+   2D world map with shooting trajectories from country sources
+   to the Frankfurt VIP, with Iron-Man-style unfolding info
+   panels for each active source.
+   ============================================================ */
+.world-traffic-globe {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 6px;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 50%, rgba(0,0,0,0.4), rgba(0,0,0,0.85) 90%),
+    var(--theme-panel);
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+.world-traffic-globe svg {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  display: block;
+}
+.world-source-label {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2.4px;
+  fill: var(--theme-accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 4px rgba(0,0,0,0.85);
+}
+.world-home-label {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2.6px;
+  fill: var(--theme-text);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.world-home-coord {
+  font-family: var(--theme-mono, monospace);
+  font-size: 2.2px;
+  fill: var(--theme-warn);
+  letter-spacing: 0.06em;
+}
+.continent {
+  filter: drop-shadow(0 0 2px var(--theme-accent));
+}
+
+/* Iron Man unfold panels overlay */
+.world-panels {
+  position: absolute;
+  inset: 0.55rem;
+  pointer-events: none;
+  z-index: 5;
+}
+.world-panel {
+  position: absolute;
+  transform: translate(-50%, -110%);
+  min-width: 178px;
+  padding: 0.45rem 0.55rem 0.4rem;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.06), transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4)),
+    var(--theme-panel);
+  border: 1px solid var(--theme-accent);
+  border-radius: 4px;
+  font-family: var(--theme-mono, monospace);
+  color: var(--theme-text);
+  pointer-events: auto;
+  box-shadow:
+    0 0 0 1px var(--theme-panel-border),
+    0 14px 40px rgba(0, 0, 0, 0.85),
+    0 0 16px var(--theme-accent-soft);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  animation: world-panel-unfold 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+@keyframes world-panel-unfold {
+  0% { opacity: 0; transform: translate(-50%, -90%) scaleX(0.2) scaleY(0.6); filter: blur(4px); }
+  60% { opacity: 1; transform: translate(-50%, -110%) scaleX(1.05) scaleY(1); filter: blur(0); }
+  100% { opacity: 1; transform: translate(-50%, -110%) scale(1); filter: blur(0); }
+}
+/* Connector arrow from panel to source */
+.world-panel::before {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 12px;
+  background: var(--theme-accent);
+  box-shadow: 0 0 4px var(--theme-accent);
+}
+.world-panel::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  box-shadow: 0 0 6px var(--theme-accent), 0 0 12px var(--theme-accent);
+}
+.world-panel-bracket {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, var(--theme-accent) 0 12px, transparent 12px) top left / 12px 1px no-repeat,
+    linear-gradient(to bottom, var(--theme-accent) 0 12px, transparent 12px) top left / 1px 12px no-repeat,
+    linear-gradient(to left, var(--theme-accent) 0 12px, transparent 12px) top right / 12px 1px no-repeat,
+    linear-gradient(to bottom, var(--theme-accent) 0 12px, transparent 12px) top right / 1px 12px no-repeat,
+    linear-gradient(to right, var(--theme-accent) 0 12px, transparent 12px) bottom left / 12px 1px no-repeat,
+    linear-gradient(to top, var(--theme-accent) 0 12px, transparent 12px) bottom left / 1px 12px no-repeat,
+    linear-gradient(to left, var(--theme-accent) 0 12px, transparent 12px) bottom right / 12px 1px no-repeat,
+    linear-gradient(to top, var(--theme-accent) 0 12px, transparent 12px) bottom right / 1px 12px no-repeat;
+  filter: drop-shadow(0 0 4px var(--theme-accent));
+}
+.world-panel header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding-bottom: 0.32rem;
+  margin-bottom: 0.32rem;
+  border-bottom: 1px dashed var(--theme-panel-border);
+}
+.world-panel-flag {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  padding: 0.12rem 0.32rem;
+  border: 1px solid var(--theme-accent);
+  border-radius: 2px;
+  background: rgba(0,0,0,0.6);
+  color: var(--theme-accent);
+  text-shadow: 0 0 4px var(--theme-accent);
+}
+.world-panel header strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  color: var(--theme-text);
+  text-shadow: 0 0 4px var(--theme-accent-soft);
+}
+.world-panel header em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 0.56rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--theme-text-dim);
+}
+.world-panel dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.6rem;
+  row-gap: 0.18rem;
+}
+.world-panel dl > div {
+  display: contents;
+}
+.world-panel dt {
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--theme-accent);
+  text-shadow: 0 0 3px var(--theme-accent);
+}
+.world-panel dd {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--theme-text);
+  letter-spacing: 0.04em;
+  word-break: break-all;
+}
+.world-panel dd.status-good { color: var(--theme-good); text-shadow: 0 0 4px var(--theme-good); }
+.world-panel dd.status-warn { color: var(--theme-warn); text-shadow: 0 0 4px var(--theme-warn); }
+.world-panel dd.status-info { color: var(--theme-accent-2); text-shadow: 0 0 4px var(--theme-accent-2); }
+.world-panel dd.status-danger { color: var(--theme-danger); text-shadow: 0 0 4px var(--theme-danger); }
+.world-panel.tone-warn { border-color: var(--theme-warn); }
+.world-panel.tone-danger { border-color: var(--theme-danger); }
+
+/* Legend strip */
+.world-traffic-legend {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.32rem 0.5rem;
+  border: 1px dashed var(--theme-panel-border);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: var(--theme-text-dim);
+  align-items: center;
+}
+.world-traffic-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.32rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.4);
+}
+.world-traffic-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 4px;
+  border-radius: 1px;
+}
+.world-traffic-legend .leg-ingress i { background: var(--theme-accent); box-shadow: 0 0 4px var(--theme-accent); }
+.world-traffic-legend .leg-auth i { background: var(--theme-warn); box-shadow: 0 0 4px var(--theme-warn); }
+.world-traffic-legend .leg-replication i { background: var(--theme-good); box-shadow: 0 0 4px var(--theme-good); }
+.world-traffic-legend .leg-sync i { background: var(--theme-accent-2); box-shadow: 0 0 4px var(--theme-accent-2); }
+.world-traffic-legend .leg-backup i { background: var(--theme-channel-gitops, var(--theme-accent-2)); box-shadow: 0 0 4px var(--theme-channel-gitops, var(--theme-accent-2)); }
+.world-traffic-legend .leg-meta { margin-left: auto; }
+
+/* Hero panel — let the globe occupy full viewport width on the network dash */
+.dash-networking .network-globe-panel {
+  margin-bottom: 0.7rem;
+  padding: 0.7rem;
+}

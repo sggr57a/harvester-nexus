@@ -682,6 +682,240 @@ export function FlowDiagram({ nodes, links, height = 200 }: FlowDiagramProps) {
   );
 }
 
+/* -------------------- World traffic map: shooting trajectories + Iron Man info panels -------------------- */
+
+interface TrafficSource {
+  id: string;
+  city: string;
+  country: string;
+  lat: number;
+  lng: number;
+  ip: string;
+  host: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'CONNECT';
+  status: 200 | 201 | 204 | 301 | 401 | 403 | 404 | 500 | 502;
+  bytes: number;
+  rps: number;
+  kind: 'ingress' | 'auth' | 'replication' | 'sync' | 'scan' | 'backup';
+}
+
+const DEFAULT_SOURCES: TrafficSource[] = [
+  { id: 'tokyo', city: 'Tokyo', country: 'JP', lat: 35.7, lng: 139.7, ip: '203.0.113.18', host: 'api.payments.nexus.local', method: 'POST', status: 201, bytes: 18420, rps: 482, kind: 'ingress' },
+  { id: 'nyc', city: 'New York', country: 'US', lat: 40.7, lng: -74.0, ip: '198.51.100.42', host: 'console.nexus.local', method: 'GET', status: 200, bytes: 9120, rps: 234, kind: 'ingress' },
+  { id: 'london', city: 'London', country: 'UK', lat: 51.5, lng: -0.1, ip: '203.0.113.84', host: 'argocd.nexus.local', method: 'POST', status: 200, bytes: 12480, rps: 38, kind: 'sync' },
+  { id: 'mumbai', city: 'Mumbai', country: 'IN', lat: 19.1, lng: 72.9, ip: '198.51.100.219', host: 'metrics.nexus.local', method: 'GET', status: 200, bytes: 4860, rps: 96, kind: 'scan' },
+  { id: 'sydney', city: 'Sydney', country: 'AU', lat: -33.9, lng: 151.2, ip: '203.0.113.140', host: 'edge-b.nexus.local', method: 'CONNECT', status: 200, bytes: 64280, rps: 12, kind: 'replication' },
+  { id: 'sao_paulo', city: 'São Paulo', country: 'BR', lat: -23.5, lng: -46.6, ip: '198.51.100.7', host: 'api.payments.nexus.local', method: 'POST', status: 401, bytes: 2240, rps: 18, kind: 'auth' },
+  { id: 'sg', city: 'Singapore', country: 'SG', lat: 1.4, lng: 103.8, ip: '203.0.113.22', host: 'api.fraud.nexus.local', method: 'POST', status: 200, bytes: 8420, rps: 142, kind: 'ingress' },
+  { id: 'dubai', city: 'Dubai', country: 'AE', lat: 25.3, lng: 55.3, ip: '198.51.100.198', host: 'console.nexus.local', method: 'GET', status: 403, bytes: 1120, rps: 4, kind: 'auth' },
+  { id: 'toronto', city: 'Toronto', country: 'CA', lat: 43.7, lng: -79.4, ip: '203.0.113.61', host: 'pbs.nexus.local', method: 'PUT', status: 200, bytes: 128420, rps: 6, kind: 'backup' },
+  { id: 'capetown', city: 'Cape Town', country: 'ZA', lat: -33.9, lng: 18.4, ip: '198.51.100.151', host: 'edge-a.nexus.local', method: 'CONNECT', status: 200, bytes: 38420, rps: 8, kind: 'replication' },
+];
+
+// Frankfurt — system VIP / cluster home
+const SYSTEM_HOME = { city: 'FRANKFURT', country: 'DE', lat: 50.1, lng: 8.7 };
+
+/** Equirectangular projection: lng/lat -> SVG coords (viewBox 0 0 360 180). */
+function projectGeo(lat: number, lng: number): [number, number] {
+  const x = ((lng + 180) / 360) * 360;
+  const y = ((90 - lat) / 180) * 180;
+  return [x, y];
+}
+
+/** Simplified world continents — purposely low-detail outlines for the HUD aesthetic.
+ * Equirectangular, viewBox 0 0 360 180. Drawn as polygon point lists for speed. */
+const CONTINENT_PATHS: { id: string; d: string }[] = [
+  // North America
+  { id: 'n-america', d: 'M 24 48 L 38 36 L 56 30 L 72 32 L 80 38 L 90 38 L 96 44 L 96 52 L 102 60 L 104 70 L 100 78 L 88 86 L 80 96 L 76 110 L 70 120 L 62 122 L 56 116 L 50 116 L 44 110 L 36 102 L 30 92 L 28 80 L 22 70 L 18 56 Z' },
+  // Greenland (small detail)
+  { id: 'greenland', d: 'M 100 32 L 110 32 L 116 38 L 116 48 L 108 52 L 100 50 L 96 42 Z' },
+  // South America
+  { id: 's-america', d: 'M 96 110 L 108 108 L 118 116 L 122 130 L 126 140 L 128 154 L 122 166 L 114 166 L 106 154 L 100 142 L 96 128 Z' },
+  // Europe
+  { id: 'europe', d: 'M 168 50 L 178 44 L 188 40 L 200 42 L 210 48 L 212 56 L 206 62 L 196 64 L 184 64 L 174 60 L 168 56 Z' },
+  // Africa
+  { id: 'africa', d: 'M 178 68 L 192 64 L 208 64 L 216 72 L 222 84 L 224 96 L 224 110 L 218 124 L 210 134 L 200 138 L 192 134 L 184 124 L 178 110 L 174 92 L 174 76 Z' },
+  // Asia
+  { id: 'asia', d: 'M 212 36 L 232 30 L 252 28 L 272 30 L 290 34 L 304 42 L 314 50 L 316 60 L 308 66 L 296 70 L 282 70 L 272 76 L 260 78 L 252 86 L 244 96 L 236 96 L 228 90 L 220 80 L 216 70 L 212 56 Z' },
+  // SE Asia / India peninsula
+  { id: 'india', d: 'M 244 76 L 256 76 L 260 86 L 256 98 L 248 100 L 244 92 Z' },
+  // Australia
+  { id: 'australia', d: 'M 286 124 L 308 122 L 320 130 L 322 140 L 314 146 L 298 146 L 286 138 Z' },
+  // Antarctica band
+  { id: 'antarctica', d: 'M 0 174 L 360 174 L 360 180 L 0 180 Z' },
+];
+
+interface WorldTrafficGlobeProps {
+  snapshot?: EnvironmentSnapshot;
+  sources?: TrafficSource[];
+  /** Number of source panels to keep visible at any moment. */
+  visiblePanels?: number;
+  height?: number;
+}
+
+const KIND_COLORS: Record<TrafficSource['kind'], string> = {
+  ingress: 'var(--theme-accent)',
+  auth: 'var(--theme-warn)',
+  replication: 'var(--theme-good)',
+  sync: 'var(--theme-accent-2)',
+  scan: 'var(--theme-channel-mesh, var(--theme-accent-2))',
+  backup: 'var(--theme-channel-gitops, var(--theme-accent-2))',
+};
+
+const STATUS_TONE = (status: number) =>
+  status >= 500 ? 'danger' : status >= 400 ? 'warn' : status >= 300 ? 'info' : 'good';
+
+/** Big animated world traffic map. Each second, a rolling sub-set of country
+ * sources is "active" — their info panel unfolds with IP / host / method /
+ * status / bytes / RPS (Iron Man HUD style), and an animated trajectory arcs
+ * from the country to the system center (Frankfurt). Travelling glow particles
+ * along each arc give the live feel. */
+export function WorldTrafficGlobe({
+  snapshot,
+  sources = DEFAULT_SOURCES,
+  visiblePanels = 5,
+  height = 360,
+}: WorldTrafficGlobeProps) {
+  const seed = snapshot?.tick ?? 0;
+  const homeProj = projectGeo(SYSTEM_HOME.lat, SYSTEM_HOME.lng);
+  // Cycle which sources have a panel unfolded — uses the live tick for rotation
+  const activeIds = useMemo(() => {
+    const ids: string[] = [];
+    for (let i = 0; i < visiblePanels; i += 1) {
+      ids.push(sources[(seed + i * 3) % sources.length].id);
+    }
+    return new Set(ids);
+  }, [seed, sources, visiblePanels]);
+
+  // Project all sources once
+  const projected = useMemo(
+    () => sources.map((src) => ({ src, point: projectGeo(src.lat, src.lng) })),
+    [sources],
+  );
+
+  return (
+    <div className="world-traffic-globe" style={{ height }}>
+      <svg viewBox="0 0 360 180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <radialGradient id="world-bg-glow" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="var(--theme-accent-soft)" stopOpacity="0.4" />
+            <stop offset="60%" stopColor="var(--theme-accent-soft)" stopOpacity="0.06" />
+            <stop offset="100%" stopColor="var(--theme-accent-soft)" stopOpacity="0" />
+          </radialGradient>
+          <pattern id="world-graticule" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="var(--theme-grid)" strokeWidth="0.25" />
+          </pattern>
+        </defs>
+        {/* Background glow + graticule */}
+        <rect x="0" y="0" width="360" height="180" fill="url(#world-bg-glow)" />
+        <rect x="0" y="0" width="360" height="180" fill="url(#world-graticule)" opacity="0.55" />
+        {/* Equator line */}
+        <line x1="0" y1="90" x2="360" y2="90" stroke="var(--theme-accent)" strokeWidth="0.3" strokeDasharray="2 3" opacity="0.4" />
+        {/* Continents */}
+        {CONTINENT_PATHS.map((c) => (
+          <g key={c.id} className={`continent continent-${c.id}`}>
+            <path d={c.d} fill="var(--theme-accent-soft)" fillOpacity="0.4" stroke="var(--theme-accent)" strokeWidth="0.4" opacity="0.7" />
+            <path d={c.d} fill="none" stroke="var(--theme-accent)" strokeWidth="0.25" opacity="0.5" style={{ filter: 'drop-shadow(0 0 3px var(--theme-accent))' }} />
+          </g>
+        ))}
+        {/* System home halo (Frankfurt VIP) */}
+        <g className="world-home" transform={`translate(${homeProj[0]} ${homeProj[1]})`}>
+          <circle r="6" fill="none" stroke="var(--theme-accent)" strokeWidth="0.4" opacity="0.6">
+            <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.7;0;0.7" dur="2.4s" repeatCount="indefinite" />
+          </circle>
+          <circle r="2.2" fill="var(--theme-accent)" style={{ filter: 'drop-shadow(0 0 4px var(--theme-accent)) drop-shadow(0 0 10px var(--theme-accent))' }} />
+          <circle r="1" fill="var(--theme-text)" />
+          <text y="-3.4" textAnchor="middle" className="world-home-label">{SYSTEM_HOME.city}</text>
+          <text y="6.4" textAnchor="middle" className="world-home-coord">VIP · {SYSTEM_HOME.country}</text>
+        </g>
+        {/* Trajectory arcs — every source aims at the home */}
+        {projected.map(({ src, point }, idx) => {
+          const color = KIND_COLORS[src.kind];
+          const [x1, y1] = point;
+          const [x2, y2] = homeProj;
+          const midX = (x1 + x2) / 2;
+          // Curve upward (negative y bow) for visual drama
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const bow = Math.min(40, dist * 0.35);
+          const midY = (y1 + y2) / 2 - bow;
+          const path = `M${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
+          const animActive = activeIds.has(src.id);
+          return (
+            <g key={src.id} className={`world-traj ${animActive ? 'is-active' : ''} kind-${src.kind}`}>
+              <path d={path} stroke={color} strokeWidth="0.28" fill="none" opacity={animActive ? 0.7 : 0.25} />
+              {animActive && (
+                <>
+                  <path d={path} stroke={color} strokeWidth="0.5" fill="none" strokeDasharray="3 6" style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 5px ${color})` }}>
+                    <animate attributeName="stroke-dashoffset" values="0;-18" dur="1.6s" repeatCount="indefinite" />
+                  </path>
+                  <circle r="1.1" fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }}>
+                    <animateMotion dur="2.2s" repeatCount="indefinite" path={path} begin={`${(idx * 0.1) % 0.8}s`} />
+                  </circle>
+                  <circle r="0.7" fill={color} opacity="0.7">
+                    <animateMotion dur="2.2s" repeatCount="indefinite" path={path} begin={`${0.4 + (idx * 0.1) % 0.6}s`} />
+                  </circle>
+                </>
+              )}
+              {/* Source dot */}
+              <circle cx={x1} cy={y1} r="1.4" fill={color} style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 5px ${color})` }} />
+              <circle cx={x1} cy={y1} r="2.6" fill="none" stroke={color} strokeWidth="0.3" opacity="0.55">
+                <animate attributeName="r" values="2.6;5;2.6" dur="2.2s" repeatCount="indefinite" begin={`${idx * 0.13}s`} />
+                <animate attributeName="opacity" values="0.55;0;0.55" dur="2.2s" repeatCount="indefinite" begin={`${idx * 0.13}s`} />
+              </circle>
+              <text x={x1} y={y1 - 2.2} textAnchor="middle" className="world-source-label">{src.country}</text>
+            </g>
+          );
+        })}
+      </svg>
+      {/* Iron Man unfold panels — one per active source, positioned absolutely on top of the SVG */}
+      <div className="world-panels">
+        {projected
+          .filter(({ src }) => activeIds.has(src.id))
+          .map(({ src, point }, idx) => {
+            const [px, py] = point;
+            // Convert SVG coords (0..360, 0..180) to percentages relative to the SVG canvas.
+            const left = `${(px / 360) * 100}%`;
+            const top = `${(py / 180) * 100}%`;
+            const tone = STATUS_TONE(src.status);
+            return (
+              <div
+                key={src.id}
+                className={`world-panel tone-${tone} kind-${src.kind}`}
+                style={{ left, top, animationDelay: `${idx * 80}ms` }}
+              >
+                <div className="world-panel-bracket" />
+                <header>
+                  <span className="world-panel-flag">{src.country}</span>
+                  <strong>{src.city}</strong>
+                  <em>{src.kind}</em>
+                </header>
+                <dl>
+                  <div><dt>IP</dt><dd>{src.ip}</dd></div>
+                  <div><dt>HOST</dt><dd>{src.host}</dd></div>
+                  <div><dt>{src.method}</dt><dd className={`status-${tone}`}>{src.status}</dd></div>
+                  <div><dt>RPS</dt><dd>{src.rps}/s</dd></div>
+                  <div><dt>BYTES</dt><dd>{src.bytes >= 1024 ? `${(src.bytes / 1024).toFixed(1)} KB` : `${src.bytes} B`}</dd></div>
+                </dl>
+              </div>
+            );
+          })}
+      </div>
+      {/* Bottom legend */}
+      <div className="world-traffic-legend">
+        <span className="leg-ingress"><i />ingress</span>
+        <span className="leg-auth"><i />auth</span>
+        <span className="leg-replication"><i />replication</span>
+        <span className="leg-sync"><i />sync</span>
+        <span className="leg-backup"><i />backup</span>
+        <span className="leg-meta">tick #{seed} · {sources.length} sources · {activeIds.size} live</span>
+      </div>
+    </div>
+  );
+}
+
 /* -------------------- 3D isometric cluster map (city-skyline style) -------------------- */
 
 interface City3DNode {

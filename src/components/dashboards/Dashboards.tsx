@@ -12,6 +12,7 @@ import {
   type CpuCore,
 } from '../../lib/dashboards';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
+import { WidgetTitle, WorldTrafficGlobe } from './Widgets';
 
 const networking = buildNetworkingDashboard();
 const storage = buildStorageDashboard();
@@ -112,7 +113,7 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
         <div>
           <span className="dash-kicker">CHANNEL // NETWORK</span>
           <h2>{networking.title}</h2>
-          <p>Vector route topology, ingress mesh, VLAN lanes, NIC bonds, and policy fabric.</p>
+          <p>Geo-traffic globe, vector route topology, ingress mesh, VLAN lanes, NIC bonds, and policy fabric.</p>
         </div>
         <div className="dash-vip">
           <span>VIP</span>
@@ -120,6 +121,15 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
           <small>{vip.mode} · {vip.floating ? 'floating' : 'pinned'}</small>
         </div>
       </header>
+
+      <article className="dash-panel network-globe-panel">
+        <WidgetTitle
+          kicker="GEO-TRAFFIC"
+          title="World traffic map · live trajectories"
+          trailing={<span className="osc-readout">Frankfurt VIP · {networking.vip.address}</span>}
+        />
+        <WorldTrafficGlobe snapshot={telemetry} visiblePanels={5} height={420} />
+      </article>
 
       <article className="dash-panel topology-panel">
         <div className="panel-title">
