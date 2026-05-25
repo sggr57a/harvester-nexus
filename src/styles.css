@@ -5284,3 +5284,348 @@ select option {
   }
 }
 
+/* ============================================================
+   Transparent geometric setup and backdrop treatment
+   ============================================================ */
+:root {
+  --geometry-line: color-mix(in srgb, var(--theme-accent) 42%, transparent);
+  --geometry-fill: color-mix(in srgb, var(--theme-accent) 10%, transparent);
+  --geometry-fill-strong: color-mix(in srgb, var(--theme-good) 14%, transparent);
+}
+
+.setup-wizard-shell {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 1rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: calc(var(--theme-radius) + 20px);
+  background:
+    radial-gradient(circle at 18% 12%, var(--theme-body-glow-a), transparent 24rem),
+    radial-gradient(circle at 84% 72%, var(--theme-body-glow-b), transparent 22rem),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.035), transparent 32%),
+    color-mix(in srgb, var(--theme-bg-0) 82%, transparent) !important;
+  box-shadow: var(--theme-panel-glow);
+  isolation: isolate;
+}
+
+.setup-wizard-shell::before,
+.hud-dashboard::before,
+.dash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 0 16%, var(--geometry-line) 16.1% 16.3%, transparent 16.4% 47%, var(--geometry-line) 47.1% 47.3%, transparent 47.4%),
+    linear-gradient(62deg, transparent 0 58%, var(--geometry-line) 58.1% 58.3%, transparent 58.4%),
+    radial-gradient(circle at 18% 18%, var(--geometry-fill), transparent 18rem),
+    radial-gradient(circle at 78% 72%, var(--geometry-fill-strong), transparent 20rem);
+  clip-path: polygon(0 0, 100% 0, 100% 88%, 92% 100%, 0 100%);
+  opacity: 0.72;
+  z-index: 0;
+}
+
+.setup-geometry-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.setup-geometry-backdrop span {
+  position: absolute;
+  border: 1px solid var(--geometry-line);
+  background: linear-gradient(135deg, var(--geometry-fill), transparent 62%);
+  backdrop-filter: blur(16px);
+  animation: hud-float 10s ease-in-out infinite alternate;
+}
+
+.setup-geometry-backdrop span:nth-child(1) {
+  width: 16rem;
+  height: 16rem;
+  left: -4rem;
+  top: 7rem;
+  clip-path: polygon(12% 0, 100% 22%, 78% 100%, 0 76%);
+}
+
+.setup-geometry-backdrop span:nth-child(2) {
+  width: 20rem;
+  height: 12rem;
+  right: -5rem;
+  top: 3rem;
+  clip-path: polygon(0 18%, 84% 0, 100% 72%, 22% 100%);
+  animation-delay: -2s;
+}
+
+.setup-geometry-backdrop span:nth-child(3) {
+  width: 22rem;
+  height: 14rem;
+  right: 8%;
+  bottom: -5rem;
+  clip-path: polygon(18% 0, 100% 0, 82% 100%, 0 74%);
+  animation-delay: -4s;
+}
+
+.setup-wizard-hero,
+.setup-phase-grid,
+.setup-wizard-shell > .machine-wizard,
+.manifest-setup-embed {
+  position: relative;
+  z-index: 1;
+}
+
+.setup-wizard-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: end;
+  padding: 1.2rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: calc(var(--theme-radius) + 14px);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 38%),
+    color-mix(in srgb, var(--theme-panel) 72%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: var(--theme-panel-glow);
+}
+
+.setup-wizard-hero h2 {
+  margin: 0.25rem 0 0.35rem;
+  color: var(--theme-text);
+  font-family: var(--theme-font-stack);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.setup-wizard-hero p,
+.manifest-setup-header p,
+.manifest-setup-placeholder p,
+.setup-phase-grid p {
+  margin: 0;
+  color: var(--theme-text-dim);
+}
+
+.setup-wizard-status {
+  min-width: 9rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--theme-control-border);
+  border-radius: var(--theme-radius);
+  background:
+    linear-gradient(145deg, var(--geometry-fill-strong), transparent),
+    rgba(0, 0, 0, 0.36);
+  text-align: right;
+}
+
+.setup-wizard-status strong {
+  display: block;
+  color: var(--theme-good);
+  font-size: 1.35rem;
+  text-transform: uppercase;
+}
+
+.setup-wizard-status span {
+  color: var(--theme-text-dim);
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.setup-phase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.setup-phase-grid article,
+.manifest-setup-placeholder {
+  position: relative;
+  overflow: hidden;
+  min-height: 7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: calc(var(--theme-radius) + 10px);
+  background:
+    linear-gradient(132deg, var(--geometry-fill), transparent 54%),
+    color-mix(in srgb, var(--theme-panel) 70%, transparent);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--theme-panel-glow);
+  clip-path: polygon(0 0, calc(100% - 1.1rem) 0, 100% 1.1rem, 100% 100%, 1.1rem 100%, 0 calc(100% - 1.1rem));
+}
+
+.setup-phase-grid article.is-active {
+  border-color: var(--theme-good);
+  box-shadow: var(--theme-route-glow), var(--theme-panel-glow);
+}
+
+.setup-phase-grid span {
+  color: var(--theme-accent);
+  font-family: var(--theme-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+}
+
+.setup-phase-grid strong {
+  display: block;
+  margin: 0.35rem 0;
+  color: var(--theme-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.manifest-setup-embed {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: calc(var(--theme-radius) + 16px);
+  padding: 1rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.04), transparent 40%),
+    color-mix(in srgb, var(--theme-panel) 74%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+.manifest-setup-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.manifest-setup-header h3 {
+  margin: 0.25rem 0;
+  color: var(--theme-text);
+  font-family: var(--theme-font-stack);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.manifest-setup-toggle {
+  display: flex;
+  align-items: center;
+  grid-template-columns: none;
+  gap: 0.7rem;
+  min-width: 13rem;
+  padding: 0.75rem;
+  border: 1px solid var(--theme-control-border);
+  border-radius: calc(var(--theme-radius) + 10px);
+  background: var(--theme-control-bg);
+  cursor: pointer;
+}
+
+.manifest-setup-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--theme-good);
+}
+
+.manifest-setup-toggle span {
+  display: grid;
+  gap: 0.1rem;
+  color: var(--theme-text-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.manifest-setup-toggle b {
+  color: var(--theme-good);
+  font-size: 0.8rem;
+}
+
+.manifest-step-rail {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.manifest-step-rail button {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 4.2rem;
+  border-radius: var(--theme-radius);
+  text-align: left;
+}
+
+.manifest-step-rail button span {
+  color: var(--theme-accent);
+  font-family: var(--theme-mono);
+  font-size: 0.65rem;
+}
+
+.manifest-step-rail button.is-active {
+  border-color: var(--theme-good) !important;
+  box-shadow: var(--theme-route-glow) !important;
+}
+
+.manifest-setup-placeholder {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.manifest-setup-placeholder strong {
+  color: var(--theme-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.placeholder-orbit {
+  position: relative;
+  height: 7rem;
+}
+
+.placeholder-orbit i {
+  position: absolute;
+  inset: 50%;
+  border: 1px solid var(--theme-control-border);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: hud-spin 14s linear infinite;
+}
+
+.placeholder-orbit i:nth-child(1) {
+  width: 6rem;
+  height: 6rem;
+}
+
+.placeholder-orbit i:nth-child(2) {
+  width: 4rem;
+  height: 4rem;
+  border-color: var(--theme-good);
+  animation-direction: reverse;
+}
+
+.placeholder-orbit i:nth-child(3) {
+  width: 1.2rem;
+  height: 1.2rem;
+  background: var(--theme-good);
+  box-shadow: var(--theme-route-glow);
+}
+
+.setup-wizard-shell .machine-wizard {
+  border-color: var(--theme-panel-border) !important;
+  background:
+    linear-gradient(140deg, var(--geometry-fill), transparent 44%),
+    color-mix(in srgb, var(--theme-panel) 74%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+@media (max-width: 1180px) {
+  .setup-wizard-hero,
+  .setup-phase-grid,
+  .manifest-setup-header,
+  .manifest-step-rail,
+  .manifest-setup-placeholder {
+    grid-template-columns: 1fr;
+  }
+
+  .manifest-setup-header {
+    display: grid;
+  }
+}
+

@@ -10,9 +10,8 @@ import { ResourceMonitoringPage } from './components/ActiveWorkPage';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
-import { NexusMachineWizard } from './components/NexusMachineWizard';
 import { ThemePicker } from './components/ThemePicker';
-import { Wizard } from './components/Wizard';
+import { UnifiedSetupWizard } from './components/UnifiedSetupWizard';
 import { YamlEditor } from './components/YamlEditor';
 import {
   AccelerationDashboardView,
@@ -50,8 +49,7 @@ type CockpitView =
   | 'operations'
   | 'resource-monitoring'
   | 'cluster'
-  | 'machine'
-  | 'wizard';
+  | 'setup';
 
 function readStoredTheme(): ThemeId {
   if (typeof window === 'undefined') return DEFAULT_THEME_ID;
@@ -68,6 +66,7 @@ function App() {
   const [cockpitView, setCockpitView] = useState<CockpitView>('dashboard');
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
+  const [includeManifestSetup, setIncludeManifestSetup] = useState(false);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -151,37 +150,11 @@ function App() {
           <button className={cockpitView === 'cluster' ? 'active' : ''} onClick={() => setCockpitView('cluster')}>
             Cluster Console
           </button>
-          <button className={cockpitView === 'machine' ? 'active' : ''} onClick={() => setCockpitView('machine')}>
-            Machine Wizard
-          </button>
-          <button className={cockpitView === 'wizard' ? 'active' : ''} onClick={() => setCockpitView('wizard')}>
-            Manifest Wizard
+          <button className={cockpitView === 'setup' ? 'active' : ''} onClick={() => setCockpitView('setup')}>
+            Setup Wizard
           </button>
         </div>
         <ThemePicker active={theme} onSelect={setTheme} />
-        <div className="step-list manifest-step-list">
-          <button className={step === 1 ? 'active' : ''} onClick={() => setStep(1)}>
-            1. Workload
-          </button>
-          <button className={step === 2 ? 'active' : ''} onClick={() => setStep(2)}>
-            2. Storage
-          </button>
-          <button className={step === 3 ? 'active' : ''} onClick={() => setStep(3)}>
-            3. Networking
-          </button>
-          <button className={step === 4 ? 'active' : ''} onClick={() => setStep(4)}>
-            4. Security
-          </button>
-          <button className={step === 5 ? 'active' : ''} onClick={() => setStep(5)}>
-            5. Monitoring
-          </button>
-          <button className={step === 6 ? 'active' : ''} onClick={() => setStep(6)}>
-            6. GitOps
-          </button>
-          <button className={step === 7 ? 'active' : ''} onClick={() => setStep(7)}>
-            7. Review
-          </button>
-        </div>
         <div className="storage-summary">
           <h2>Storage template</h2>
           <p>{STORAGE_TEMPLATES[config.storage.storageType]}</p>
@@ -208,8 +181,19 @@ function App() {
             config={config}
           />
         )}
-        {cockpitView === 'machine' && <NexusMachineWizard config={machineConfig} plan={machinePlan} onChange={setMachineConfig} />}
-        {cockpitView === 'wizard' && <Wizard currentStep={step} config={config} onChange={setConfig} onNext={() => setStep(Math.min(step + 1, 7))} onBack={() => setStep(Math.max(step - 1, 1))} />}
+        {cockpitView === 'setup' && (
+          <UnifiedSetupWizard
+            machineConfig={machineConfig}
+            machinePlan={machinePlan}
+            onMachineChange={setMachineConfig}
+            manifestConfig={config}
+            onManifestChange={setConfig}
+            manifestStep={step}
+            onManifestStepChange={setStep}
+            includeManifestSetup={includeManifestSetup}
+            onIncludeManifestSetupChange={setIncludeManifestSetup}
+          />
+        )}
         <section className="manifest-panel">
           <div className="panel-header">
             <h2>Generated manifest</h2>
