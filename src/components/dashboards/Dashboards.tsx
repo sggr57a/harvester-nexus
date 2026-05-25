@@ -14,16 +14,20 @@ import {
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 import {
   ChordDiagram,
+  ChordWithStats,
   FlameGraph,
   GeoNodeMap,
   HeatmapMatrix,
   RadialBarChart,
+  RichBarRows,
   SankeyFlow,
   ScatterPlot,
   StreamGraph,
   TreemapTiles,
+  type ChordTrafficLink,
   type GeoArc,
   type GeoSite,
+  type RichBarRow,
   type SankeyFlowLink,
   type SankeyStage,
 } from './AdvancedWidgets';
@@ -133,17 +137,17 @@ const VLAN_CHORD_GROUPS = [
   { label: 'edge-dmz', color: 'var(--theme-danger)' },
 ];
 
-const VLAN_CHORD_LINKS = [
-  { source: 0, target: 2, value: 18 },
-  { source: 0, target: 4, value: 12 },
-  { source: 1, target: 2, value: 22 },
-  { source: 1, target: 3, value: 16 },
-  { source: 2, target: 3, value: 28 },
-  { source: 2, target: 5, value: 14 },
-  { source: 3, target: 5, value: 18 },
-  { source: 4, target: 0, value: 10 },
-  { source: 4, target: 2, value: 14 },
-  { source: 5, target: 0, value: 11 },
+const VLAN_CHORD_LINKS: ChordTrafficLink[] = [
+  { source: 0, target: 2, value: 18, rate: '482 Mb/s', label: 'mgmt → mesh' },
+  { source: 0, target: 4, value: 12, rate: '328 Mb/s', label: 'mgmt → gitops' },
+  { source: 1, target: 2, value: 22, rate: '1.18 Gb/s', label: 'storage → mesh' },
+  { source: 1, target: 3, value: 16, rate: '742 Mb/s', label: 'storage → vm-net' },
+  { source: 2, target: 3, value: 28, rate: '1.42 Gb/s', label: 'mesh → vm-net' },
+  { source: 2, target: 5, value: 14, rate: '364 Mb/s', label: 'mesh → edge-dmz' },
+  { source: 3, target: 5, value: 18, rate: '612 Mb/s', label: 'vm-net → edge-dmz' },
+  { source: 4, target: 0, value: 10, rate: '184 Mb/s', label: 'gitops → mgmt' },
+  { source: 4, target: 2, value: 14, rate: '280 Mb/s', label: 'gitops → mesh' },
+  { source: 5, target: 0, value: 11, rate: '212 Mb/s', label: 'edge-dmz → mgmt' },
 ];
 
 export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) {
@@ -248,12 +252,21 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
 
         <article className="dash-panel">
           <div className="panel-title">
-            <span>VLAN chord · inter-fabric traffic</span>
-            <strong>{VLAN_CHORD_GROUPS.length} channels</strong>
+            <span>VLAN chord · live inter-fabric traffic</span>
+            <strong>{VLAN_CHORD_GROUPS.length} channels · {VLAN_CHORD_LINKS.length} flows</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <ChordDiagram groups={VLAN_CHORD_GROUPS} links={VLAN_CHORD_LINKS} size={260} tick={telemetry?.tick ?? 0} />
-          </div>
+          <ChordWithStats
+            groups={VLAN_CHORD_GROUPS}
+            links={VLAN_CHORD_LINKS}
+            size={240}
+            tick={telemetry?.tick ?? 0}
+            summary={[
+              { label: 'east-west bw', value: `${((telemetry?.ingressMbps ?? 78_000) / 14).toFixed(0)} Mb/s`, tone: 'good' },
+              { label: 'east-west p95', value: '14ms', tone: 'good' },
+              { label: 'top vlan', value: 'mesh → vm-net 1.42Gb/s' },
+              { label: 'denied', value: '12 / 5min', tone: 'warn' },
+            ]}
+          />
         </article>
       </div>
 
@@ -514,6 +527,30 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
           />
         </article>
       </div>
+
+      <article className="dash-panel">
+        <div className="panel-title">
+          <span>Top volumes · stacked I/O + sparkline</span>
+          <strong>read · write · queue depth</strong>
+        </div>
+        <RichBarRows
+          rows={(() => {
+            const seed = telemetry?.tick ?? 0;
+            const buildSpark = (offset: number, base: number) =>
+              Array.from({ length: 24 }, (_, i) => Math.max(2, base + Math.sin((seed + i + offset) / 2.4) * (base * 0.18) + Math.sin((seed + i + offset) / 1.2) * (base * 0.08)));
+            return [
+              { label: 'pvc-payments-pri', segments: [{ value: 9_400, label: 'reads' }, { value: 5_420, label: 'writes' }, { value: 320, label: 'queue' }], spark: buildSpark(0, 14_000), total: 15_140, unit: ' IOPS', delta: 240, badges: [{ text: 'rbd', tone: 'good' }, { text: 'p99 132µs', tone: 'good' }, { text: 'rwo' }, { text: '128 GiB' }] },
+              { label: 'pvc-redis-cache', segments: [{ value: 8_200, label: 'reads' }, { value: 4_440, label: 'writes' }], spark: buildSpark(3, 12_000), total: 12_640, unit: ' IOPS', delta: -82, badges: [{ text: 'longhorn' }, { text: 'p99 88µs', tone: 'good' }, { text: 'rwo' }, { text: '64 GiB' }] },
+              { label: 'pvc-kafka-broker', segments: [{ value: 6_300, label: 'produce' }, { value: 3_540, label: 'consume' }], spark: buildSpark(6, 9_500), total: 9_840, unit: ' IOPS', delta: 412, badges: [{ text: 'nvme-of', tone: 'good' }, { text: 'p99 64µs', tone: 'good' }, { text: 'rwo' }, { text: '512 GiB' }] },
+              { label: 'pvc-minio-cdn', segments: [{ value: 4_400, label: 'reads' }, { value: 2_920, label: 'writes' }], spark: buildSpark(9, 7_500), total: 7_320, unit: ' IOPS', delta: -34, badges: [{ text: 'rbd' }, { text: 'p99 154µs', tone: 'warn' }, { text: 'rwx' }, { text: '2 TiB' }] },
+              { label: 'pvc-pg-billing', segments: [{ value: 3_200, label: 'reads' }, { value: 2_010, label: 'writes' }], spark: buildSpark(12, 5_400), total: 5_210, unit: ' IOPS', delta: 18, badges: [{ text: 'zfs' }, { text: 'p99 188µs', tone: 'warn' }, { text: 'rwo' }, { text: '256 GiB' }] },
+              { label: 'pvc-opensearch', segments: [{ value: 2_800, label: 'queries' }, { value: 1_640, label: 'index' }], spark: buildSpark(15, 4_500), total: 4_440, unit: ' IOPS', delta: 64, badges: [{ text: 'longhorn' }, { text: 'p99 142µs' }, { text: 'rwo' }, { text: '128 GiB' }] },
+              { label: 'pvc-mongo-primary', segments: [{ value: 2_200, label: 'finds' }, { value: 1_320, label: 'updates' }, { value: 280, label: 'inserts' }], spark: buildSpark(18, 3_800), total: 3_800, unit: ' IOPS', delta: -12, badges: [{ text: 'longhorn' }, { text: 'p99 96µs', tone: 'good' }, { text: 'rwo' }, { text: '256 GiB' }] },
+              { label: 'pvc-clickhouse', segments: [{ value: 1_800, label: 'queries' }, { value: 1_120, label: 'merges' }], spark: buildSpark(21, 3_000), total: 2_920, unit: ' IOPS', delta: 88, badges: [{ text: 'nvme-of', tone: 'good' }, { text: 'p99 78µs', tone: 'good' }, { text: 'rwo' }, { text: '1 TiB' }] },
+            ] as RichBarRow[];
+          })()}
+        />
+      </article>
 
       <div className="storage-backend-grid">
         {liveBackends.map((backend) => {

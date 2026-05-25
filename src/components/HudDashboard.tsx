@@ -3,9 +3,7 @@ import { useLiveTelemetry } from '../lib/liveTelemetry';
 import { getTheme, type ThemeId } from '../lib/themes';
 import {
   AnnotatedFft,
-  AnnotatedOscilloscope,
   DialGauge,
-  HorizontalBarCluster,
   LiveEventFeed,
   MultiRingGauge,
   PercentileBar,
@@ -15,20 +13,26 @@ import {
   useRollingSeries,
 } from './dashboards/Widgets';
 import {
-  ChordDiagram,
+  ChordWithStats,
   FlameGraph,
   GeoNodeMap,
   HeatmapMatrix,
   RadialBarChart,
+  RichBarRows,
   SankeyFlow,
   ScatterPlot,
   StreamGraph,
+  SuperScope,
   TreemapTiles,
+  type ChordTrafficLink,
   type FlameNode,
   type GeoArc,
   type GeoSite,
+  type RichBarRow,
   type SankeyFlowLink,
   type SankeyStage,
+  type SuperScopeChannel,
+  type SuperScopeMarker,
 } from './dashboards/AdvancedWidgets';
 
 interface HudDashboardProps {
@@ -55,20 +59,26 @@ const CHORD_GROUPS = [
   { label: 'GPU', color: 'var(--theme-warn)' },
   { label: 'Edge', color: 'var(--theme-danger)' },
   { label: 'GitOps', color: 'var(--theme-accent)' },
+  { label: 'Auth', color: 'var(--theme-accent-2)' },
+  { label: 'Cache', color: 'var(--theme-good)' },
 ];
 
-const CHORD_LINKS = [
-  { source: 0, target: 1, value: 18 },
-  { source: 1, target: 2, value: 24 },
-  { source: 2, target: 3, value: 16 },
-  { source: 3, target: 0, value: 12 },
-  { source: 0, target: 4, value: 22 },
-  { source: 4, target: 1, value: 19 },
-  { source: 5, target: 0, value: 14 },
-  { source: 5, target: 2, value: 11 },
-  { source: 1, target: 4, value: 9 },
-  { source: 3, target: 4, value: 7 },
-  { source: 2, target: 5, value: 8 },
+const CHORD_LINKS: ChordTrafficLink[] = [
+  { source: 0, target: 1, value: 18, rate: '482 Mb/s', label: 'api → mesh' },
+  { source: 1, target: 2, value: 24, rate: '1.18 Gb/s', label: 'mesh → csi' },
+  { source: 2, target: 3, value: 16, rate: '742 Mb/s', label: 'csi → gpu' },
+  { source: 3, target: 0, value: 12, rate: '364 Mb/s', label: 'gpu → api' },
+  { source: 0, target: 4, value: 22, rate: '894 Mb/s', label: 'api → edge' },
+  { source: 4, target: 1, value: 19, rate: '612 Mb/s', label: 'edge → mesh' },
+  { source: 5, target: 0, value: 14, rate: '241 Mb/s', label: 'gitops → api' },
+  { source: 5, target: 2, value: 11, rate: '184 Mb/s', label: 'gitops → csi' },
+  { source: 1, target: 4, value: 9, rate: '162 Mb/s', label: 'mesh → edge' },
+  { source: 3, target: 4, value: 7, rate: '108 Mb/s', label: 'gpu → edge' },
+  { source: 2, target: 5, value: 8, rate: '124 Mb/s', label: 'csi → gitops' },
+  { source: 6, target: 0, value: 16, rate: '420 Mb/s', label: 'auth → api' },
+  { source: 6, target: 1, value: 12, rate: '286 Mb/s', label: 'auth → mesh' },
+  { source: 7, target: 0, value: 14, rate: '358 Mb/s', label: 'cache → api' },
+  { source: 7, target: 2, value: 9, rate: '138 Mb/s', label: 'cache → csi' },
 ];
 
 const SANKEY_STAGES: SankeyStage[] = [
@@ -246,11 +256,43 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
   const telemetry = useLiveTelemetry(1600);
   const themeDef = getTheme(activeTheme);
 
-  const cpuSeries = useRollingSeries(telemetry.cpuPercent, 56, telemetry.tick);
-  const ramSeries = useRollingSeries(telemetry.ramPercent, 56, telemetry.tick);
-  const ingressSeries = useRollingSeries(telemetry.ingressMbps / 1100, 56, telemetry.tick);
-  const egressSeries = useRollingSeries(telemetry.egressMbps / 1100, 56, telemetry.tick);
-  const wattsSeries = useRollingSeries(telemetry.watts / 30, 56, telemetry.tick);
+  /* Wide superimposed scope: 8 channels, 96 sample points each.
+     Built from real live metrics where possible, with synthetic
+     wave overlays on derived channels so the graph stays "busy". */
+  const cpuSeries = useRollingSeries(telemetry.cpuPercent, 96, telemetry.tick);
+  const ramSeries = useRollingSeries(telemetry.ramPercent, 96, telemetry.tick);
+  const ingressSeries = useRollingSeries(Math.min(98, (telemetry.ingressMbps / 1100)), 96, telemetry.tick);
+  const egressSeries = useRollingSeries(Math.min(98, (telemetry.egressMbps / 1100)), 96, telemetry.tick);
+  const iopsSeries = useRollingSeries(Math.min(98, (telemetry.totalIops / 18_000)), 96, telemetry.tick);
+  const wattsPercentSeries = useRollingSeries(Math.min(98, (telemetry.watts / 32)), 96, telemetry.tick);
+  /* Two synthetic-but-decorative series so the graph is a busy 8-track. */
+  const gpuSeries = useMemo(() => {
+    const seed = telemetry.tick;
+    const base = telemetry.activeMigrations * 6 + telemetry.cpuPercent * 0.4 + 22;
+    return Array.from({ length: 96 }, (_, i) => Math.max(8, Math.min(96, base + Math.sin((seed + i) / 4.2) * 18 + Math.cos((seed + i) / 2.4) * 9 + (i % 7 === 0 ? 6 : 0))));
+  }, [telemetry.tick, telemetry.activeMigrations, telemetry.cpuPercent]);
+  const meshSeries = useMemo(() => {
+    const seed = telemetry.tick;
+    const base = telemetry.ingressMbps / 2200 + telemetry.egressMbps / 2400 + 14;
+    return Array.from({ length: 96 }, (_, i) => Math.max(6, Math.min(96, base + Math.sin((seed + i) / 3.1 + 1.3) * 22 + Math.sin((seed + i) / 1.8 + 0.4) * 8)));
+  }, [telemetry.tick, telemetry.ingressMbps, telemetry.egressMbps]);
+
+  const scopeChannels: SuperScopeChannel[] = useMemo(() => ([
+    { label: 'cpu',   unit: '%',    series: cpuSeries,           color: 'var(--theme-accent)',   emphasis: 'primary' },
+    { label: 'dram',  unit: '%',    series: ramSeries,           color: 'var(--theme-accent-2)', emphasis: 'primary' },
+    { label: 'iops',  unit: '%',    series: iopsSeries,          color: 'var(--theme-good)',     emphasis: 'secondary' },
+    { label: 'in',    unit: 'gbps', series: ingressSeries.map((v) => v * 100), color: 'var(--theme-warn)', emphasis: 'secondary' },
+    { label: 'out',   unit: 'gbps', series: egressSeries.map((v) => v * 100),  color: 'var(--theme-danger)', emphasis: 'secondary' },
+    { label: 'gpu',   unit: '%',    series: gpuSeries,           color: 'var(--theme-accent)',   emphasis: 'subtle' },
+    { label: 'mesh',  unit: 'mb/s', series: meshSeries,          color: 'var(--theme-accent-2)', emphasis: 'subtle' },
+    { label: 'watts', unit: '%',    series: wattsPercentSeries,  color: 'var(--theme-good)',     emphasis: 'subtle' },
+  ]), [cpuSeries, ramSeries, iopsSeries, ingressSeries, egressSeries, gpuSeries, meshSeries, wattsPercentSeries]);
+
+  const scopeMarkers: SuperScopeMarker[] = useMemo(() => ([
+    { index: 24, label: 'apply', severity: 'info' },
+    { index: 56, label: 'sync ok', severity: 'good' },
+    { index: 78, label: 'spike', severity: 'warn' },
+  ]), []);
 
   const cpuStats = useMemo(() => computeStats(cpuSeries), [cpuSeries]);
   const ramStats = useMemo(() => computeStats(ramSeries), [ramSeries]);
@@ -304,13 +346,21 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
     { from: 85, to: 100, color: 'var(--theme-danger)' },
   ];
 
-  const horizBars = useMemo(() => ([
-    { label: 'pg-payments', value: 14820, unit: ' IOPS', delta: 240, detail: 'rbd-0 · p99 132µs', status: 'good' as const },
-    { label: 'redis-mesh', value: 12640, unit: ' IOPS', delta: -82, detail: 'longhorn · p99 88µs' },
-    { label: 'kafka-stream', value: 9840, unit: ' IOPS', delta: 412, detail: 'nvme-of · p99 64µs', status: 'good' as const },
-    { label: 'minio-cdn', value: 7320, unit: ' IOPS', delta: -34, detail: 'rbd-1 · p99 154µs', status: 'warn' as const },
-    { label: 'pg-billing', value: 5210, unit: ' IOPS', delta: 18, detail: 'zfs-0 · p99 188µs', status: 'warn' as const },
-  ]), []);
+  const richTenantRows = useMemo<RichBarRow[]>(() => {
+    const seed = telemetry.tick;
+    const buildSpark = (offset: number, base: number) =>
+      Array.from({ length: 24 }, (_, i) => Math.max(2, base + Math.sin((seed + i + offset) / 2.4) * (base * 0.18) + Math.sin((seed + i + offset) / 1.2) * (base * 0.08)));
+    return [
+      { label: 'pg-payments', segments: [{ value: 9_400, label: 'reads' }, { value: 5_420, label: 'writes' }], spark: buildSpark(0, 14_000), total: 14_820, unit: ' IOPS', delta: 240, badges: [{ text: 'rbd-0', tone: 'good' }, { text: 'p99 132µs', tone: 'good' }, { text: 'lat 0.4ms' }] },
+      { label: 'redis-mesh', segments: [{ value: 8_200, label: 'gets' }, { value: 4_440, label: 'sets' }], spark: buildSpark(3, 12_000), total: 12_640, unit: ' IOPS', delta: -82, badges: [{ text: 'longhorn' }, { text: 'p99 88µs', tone: 'good' }, { text: 'hit 96%' }] },
+      { label: 'kafka-stream', segments: [{ value: 6_300, label: 'produce' }, { value: 3_540, label: 'consume' }], spark: buildSpark(6, 9_500), total: 9_840, unit: ' IOPS', delta: 412, badges: [{ text: 'nvme-of', tone: 'good' }, { text: 'p99 64µs', tone: 'good' }, { text: 'lag 22ms' }] },
+      { label: 'minio-cdn', segments: [{ value: 4_400, label: 'gets' }, { value: 2_920, label: 'lists' }], spark: buildSpark(9, 7_500), total: 7_320, unit: ' IOPS', delta: -34, badges: [{ text: 'rbd-1' }, { text: 'p99 154µs', tone: 'warn' }, { text: 'cache 78%' }] },
+      { label: 'pg-billing', segments: [{ value: 3_200, label: 'reads' }, { value: 2_010, label: 'writes' }], spark: buildSpark(12, 5_400), total: 5_210, unit: ' IOPS', delta: 18, badges: [{ text: 'zfs-0' }, { text: 'p99 188µs', tone: 'warn' }, { text: 'arc 88%' }] },
+      { label: 'opensearch', segments: [{ value: 2_800, label: 'queries' }, { value: 1_640, label: 'index' }], spark: buildSpark(15, 4_500), total: 4_440, unit: ' IOPS', delta: 64, badges: [{ text: 'longhorn' }, { text: 'p99 142µs' }, { text: 'shards 12' }] },
+      { label: 'mongodb-svc', segments: [{ value: 2_200, label: 'finds' }, { value: 1_320, label: 'updates' }, { value: 280, label: 'inserts' }], spark: buildSpark(18, 3_800), total: 3_800, unit: ' IOPS', delta: -12, badges: [{ text: 'longhorn' }, { text: 'p99 96µs', tone: 'good' }, { text: 'rep-set 3' }] },
+      { label: 'clickhouse', segments: [{ value: 1_800, label: 'queries' }, { value: 1_120, label: 'merges' }], spark: buildSpark(21, 3_000), total: 2_920, unit: ' IOPS', delta: 88, badges: [{ text: 'nvme-of', tone: 'good' }, { text: 'p99 78µs', tone: 'good' }, { text: 'merges 4' }] },
+    ];
+  }, [telemetry.tick]);
 
   const meterBank = useMemo(() => ([
     { label: 'NIC-A', value: Math.min(100, (telemetry.ingressMbps / 60_000) * 100), unit: '%', threshold: 80 },
@@ -437,35 +487,38 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
         <i className="section-corner corner-bl" />
         <i className="section-corner corner-br" />
         <div className="section-title">
-          <h3>Service mesh chord</h3>
-          <span className="section-meta"><i />east-west</span>
+          <h3>Service mesh chord · live east-west</h3>
+          <span className="section-meta"><i />{CHORD_GROUPS.length} services · {CHORD_LINKS.length} flows</span>
         </div>
-        <ChordDiagram groups={CHORD_GROUPS} links={CHORD_LINKS} size={280} tick={telemetry.tick} />
+        <ChordWithStats
+          groups={CHORD_GROUPS}
+          links={CHORD_LINKS}
+          size={240}
+          tick={telemetry.tick}
+          summary={[
+            { label: 'east-west bw', value: `${(telemetry.ingressMbps / 18).toFixed(1)} Mb/s`, tone: 'good' },
+            { label: 'east-west p95', value: '14ms', tone: 'good' },
+            { label: 'top link', value: 'mesh → csi · 1.18 Gb/s' },
+            { label: 'rate of change', value: telemetry.deltas.ingressMbps > 0 ? `+${telemetry.deltas.ingressMbps}` : `${telemetry.deltas.ingressMbps}`, tone: telemetry.deltas.ingressMbps < 0 ? 'warn' : 'good' },
+          ]}
+        />
       </section>
 
-      {/* === ROW 3: Oscilloscope + FFT === */}
-      <section className="hud-v4-section span-7">
+      {/* === ROW 3: Wide superimposed line scope (full row) === */}
+      <section className="hud-v4-section span-12">
         <i className="section-corner corner-tl" />
         <i className="section-corner corner-tr" />
         <i className="section-corner corner-bl" />
         <i className="section-corner corner-br" />
         <div className="section-title">
-          <h3>Multi-channel oscilloscope · CPU / DRAM / NIC</h3>
-          <span className="section-meta"><i />t-9 → t-0 · 1.6 s/div</span>
+          <h3>SuperScope · 8-channel superimposed line trace</h3>
+          <span className="section-meta"><i />t-{96} → t-0 · 0.5 s/div · {scopeChannels.length} channels</span>
         </div>
-        <AnnotatedOscilloscope
-          channels={[
-            { label: 'cpu %', series: cpuSeries, unit: '%', color: 'var(--theme-accent)' },
-            { label: 'dram %', series: ramSeries, unit: '%', color: 'var(--theme-accent-2)' },
-            { label: 'net ingress', series: ingressSeries.map((v) => Math.min(98, v * 100)), unit: 'gbps', color: 'var(--theme-good)' },
-            { label: 'net egress', series: egressSeries.map((v) => Math.min(98, v * 100)), unit: 'gbps', color: 'var(--theme-warn)' },
-          ]}
-          snapshot={telemetry}
-          height={250}
-        />
+        <SuperScope channels={scopeChannels} markers={scopeMarkers} height={300} tick={telemetry.tick} />
       </section>
 
-      <section className="hud-v4-section span-5">
+      {/* === ROW 3b: FFT spectrum + (room for more) === */}
+      <section className="hud-v4-section span-12">
         <i className="section-corner corner-tl" />
         <i className="section-corner corner-tr" />
         <i className="section-corner corner-bl" />
@@ -474,7 +527,7 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
           <h3>Storage fabric spectrum · FFT</h3>
           <span className="section-meta"><i />bw 200 MHz · sample 62.5 ms/pt</span>
         </div>
-        <AnnotatedFft snapshot={telemetry} bars={56} height={250} />
+        <AnnotatedFft snapshot={telemetry} bars={96} height={200} />
       </section>
 
       {/* === ROW 4: Heatmap + Radial bar === */}
@@ -607,10 +660,10 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
         <i className="section-corner corner-bl" />
         <i className="section-corner corner-br" />
         <div className="section-title">
-          <h3>Top tenants by I/O</h3>
-          <span className="section-meta"><i />5-min · IOPS</span>
+          <h3>Top tenants by I/O · stacked + sparkline</h3>
+          <span className="section-meta"><i />5-min · IOPS · {richTenantRows.length} tenants</span>
         </div>
-        <HorizontalBarCluster bars={horizBars} />
+        <RichBarRows rows={richTenantRows} />
       </section>
 
       <section className="hud-v4-section span-3">
@@ -633,7 +686,7 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
         <i className="section-corner corner-br" />
         <div className="section-title">
           <h3>Operational stat grid · 8-tile</h3>
-          <span className="section-meta"><i />MIN {cpuStats.min.toFixed(1)}% · AVG {cpuStats.avg.toFixed(1)}% · MAX {cpuStats.max.toFixed(1)}% · NOW {cpuStats.current.toFixed(1)}% · DRAM MAX {ramStats.max.toFixed(1)}% · WATTS {Math.round(wattsSeries[wattsSeries.length - 1] * 30)}</span>
+          <span className="section-meta"><i />MIN {cpuStats.min.toFixed(1)}% · AVG {cpuStats.avg.toFixed(1)}% · MAX {cpuStats.max.toFixed(1)}% · NOW {cpuStats.current.toFixed(1)}% · DRAM MAX {ramStats.max.toFixed(1)}% · WATTS {telemetry.watts}</span>
         </div>
         <StatGrid items={statTiles} columns={4} />
       </section>

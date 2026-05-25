@@ -25,9 +25,9 @@ const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-sh
 const context = await browser.newContext({ viewport: { width: 1600, height: 1100 }, deviceScaleFactor: 1.25 });
 const page = await context.newPage();
 await page.goto('http://localhost:4173/', { waitUntil: 'networkidle' });
-await page.getByPlaceholder('USER').fill('admin');
-await page.getByPlaceholder('PASSWORD').fill('demo');
-await page.getByRole('button', { name: /enter/i }).click();
+await page.locator('#username').fill('admin');
+await page.locator('#password').fill('demo');
+await page.locator('#password').press('Enter');
 await page.waitForSelector('.app-shell', { timeout: 20000 });
 await page.waitForTimeout(1100);
 

@@ -847,6 +847,422 @@ export function ScatterPlot({ points, xLabel, yLabel, xMax, yMax, height = 240, 
   );
 }
 
+/* -------------------- RichBarRows (busy horizontal bars) --------------------
+   Each row shows: label + chip badges + stacked-segment bar + per-row
+   sparkline + headline value + delta. Designed to densely pack a lot
+   of activity into a single panel. */
+
+export interface RichBarSegment {
+  value: number;
+  color?: string;
+  label?: string;
+}
+
+export interface RichBarRow {
+  label: string;
+  segments: RichBarSegment[];
+  /** Tiny inline sparkline source. */
+  spark: number[];
+  /** Headline value displayed at the right. */
+  total: number;
+  unit?: string;
+  delta?: number;
+  /** Status-coloured chip text, e.g. "p99 132µs". */
+  badges?: { text: string; tone?: 'good' | 'warn' | 'danger' | 'neutral' }[];
+}
+
+interface RichBarRowsProps {
+  rows: RichBarRow[];
+  scale?: number;
+}
+
+export function RichBarRows({ rows, scale }: RichBarRowsProps) {
+  const inferredScale = scale ?? Math.max(...rows.map((r) => r.segments.reduce((a, s) => a + s.value, 0)));
+  return (
+    <ul className="rich-bar-rows">
+      {rows.map((row, rowIdx) => {
+        const total = row.segments.reduce((a, s) => a + s.value, 0);
+        const widthPct = Math.max(2, Math.min(100, (total / inferredScale) * 100));
+        const sparkValues = row.spark;
+        const sparkMin = sparkValues.length ? Math.min(...sparkValues) : 0;
+        const sparkMax = sparkValues.length ? Math.max(...sparkValues) : 1;
+        const sparkRange = Math.max(1, sparkMax - sparkMin);
+        const sparkPath = sparkValues
+          .map((value, idx) => {
+            const x = (idx / Math.max(1, sparkValues.length - 1)) * 100;
+            const y = 24 - ((value - sparkMin) / sparkRange) * 18 - 3;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          })
+          .join(' ');
+        const deltaCls = row.delta === undefined || row.delta === 0 ? '' : row.delta > 0 ? 'delta-up' : 'delta-down';
+        return (
+          <li key={`${row.label}-${rowIdx}`} className={`rich-bar-row ${deltaCls}`}>
+            <div className="rich-bar-head">
+              <strong>{row.label}</strong>
+              {row.badges && (
+                <span className="rich-bar-badges">
+                  {row.badges.map((badge) => (
+                    <span key={badge.text} className={`rich-bar-badge tone-${badge.tone ?? 'neutral'}`}>{badge.text}</span>
+                  ))}
+                </span>
+              )}
+            </div>
+            <div className="rich-bar-body">
+              <div className="rich-bar-track" style={{ width: `${widthPct}%` }}>
+                {row.segments.map((segment, idx) => {
+                  const segPct = (segment.value / total) * 100;
+                  const palette = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)', 'var(--theme-warn)', 'var(--theme-danger)'];
+                  const color = segment.color ?? palette[idx % palette.length];
+                  return (
+                    <span
+                      key={`${row.label}-seg-${idx}`}
+                      className="rich-bar-seg"
+                      style={{
+                        flex: `${segPct}`,
+                        background: `linear-gradient(180deg, ${color}, color-mix(in srgb, ${color} 35%, transparent))`,
+                        boxShadow: `0 0 6px ${color}, inset 0 0 0 1px color-mix(in srgb, ${color} 60%, transparent)`,
+                        animationDelay: `${(rowIdx + idx) * 60}ms`,
+                      } as CSSProperties}
+                      title={`${segment.label ?? ''} ${segment.value.toLocaleString()}`}
+                    />
+                  );
+                })}
+              </div>
+              <svg className="rich-bar-spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points={`0,24 ${sparkPath} 100,24`} fill="color-mix(in srgb, var(--theme-accent) 18%, transparent)" stroke="none" />
+                <polyline points={sparkPath} fill="none" stroke="var(--theme-accent)" strokeWidth="0.9" style={{ filter: 'drop-shadow(0 0 2px var(--theme-accent))' }} />
+                <circle
+                  cx="100"
+                  cy={24 - ((sparkValues[sparkValues.length - 1] - sparkMin) / sparkRange) * 18 - 3}
+                  r="1.6"
+                  fill="var(--theme-accent)"
+                  style={{ filter: 'drop-shadow(0 0 2px var(--theme-accent))' }}
+                />
+              </svg>
+              <div className="rich-bar-meta">
+                <b>{row.total.toLocaleString()}{row.unit && <em>{row.unit}</em>}</b>
+                {row.delta !== undefined && row.delta !== 0 && (
+                  <small>{row.delta > 0 ? '▲' : '▼'} {Math.abs(row.delta).toFixed(0)}</small>
+                )}
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* -------------------- ChordWithStats (network mesh w/ side panel) --------------------
+   Wraps the ChordDiagram with a flanking activity rail listing
+   per-link rates so the network mesh visualisation always shows
+   live numeric activity alongside the geometry. */
+
+export interface ChordTrafficLink extends ChordLink {
+  /** displayed inline next to the link, e.g. "182 Mb/s" */
+  rate: string;
+  /** optional label describing the link */
+  label?: string;
+}
+
+interface ChordWithStatsProps {
+  groups: ChordGroup[];
+  links: ChordTrafficLink[];
+  size?: number;
+  tick?: number;
+  /** Right rail summary stats (e.g. total east-west bw, total p95). */
+  summary?: { label: string; value: string; tone?: 'good' | 'warn' | 'danger' }[];
+}
+
+export function ChordWithStats({ groups, links, size = 280, tick = 0, summary }: ChordWithStatsProps) {
+  const palette = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)', 'var(--theme-warn)', 'var(--theme-danger)'];
+  return (
+    <div className="chord-with-stats">
+      <ChordDiagram groups={groups} links={links} size={size} tick={tick} />
+      <div className="chord-stats-rail">
+        {summary && summary.length > 0 && (
+          <div className="chord-stats-summary">
+            {summary.map((row) => (
+              <div key={row.label} className={`chord-stat tone-${row.tone ?? 'neutral'}`}>
+                <span>{row.label}</span>
+                <strong>{row.value}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+        <ul className="chord-link-list">
+          {links.map((link, idx) => {
+            const color = palette[link.source % palette.length];
+            return (
+              <li key={`chord-link-row-${idx}`}>
+                <span className="chord-link-edge" style={{ background: color, boxShadow: `0 0 5px ${color}` }} />
+                <span className="chord-link-pair">
+                  <b style={{ color }}>{groups[link.source]?.label}</b>
+                  <em>→</em>
+                  <b style={{ color: palette[link.target % palette.length] }}>{groups[link.target]?.label}</b>
+                </span>
+                <span className="chord-link-rate">{link.rate}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- SuperScope (wide superimposed scope) --------------------
+   Wide, dense, full-width oscilloscope that renders many
+   channels superimposed inside the SAME plot region (with
+   filled gradient envelopes and bright stroke lines). Designed
+   to fill a full row of the HUD with a single busy line graph
+   instead of many small scopes. Includes:
+   - calibration grid (time / level divisions)
+   - per-channel filled envelope + stroked line
+   - peak / valley markers per channel
+   - cursor crosshair driven by `tick`
+   - inline channel legend with live MIN / AVG / MAX / NOW
+   - optional event markers (vertical guide lines at tick offsets) */
+
+export interface SuperScopeChannel {
+  label: string;
+  unit?: string;
+  /** sample series; renderer normalises against `yMax`. */
+  series: number[];
+  color?: string;
+  emphasis?: 'primary' | 'secondary' | 'subtle';
+}
+
+export interface SuperScopeMarker {
+  /** 0..(seriesLen - 1); position along the X axis. */
+  index: number;
+  label: string;
+  severity?: 'info' | 'good' | 'warn' | 'danger';
+}
+
+interface SuperScopeProps {
+  channels: SuperScopeChannel[];
+  height?: number;
+  yMax?: number;
+  yMin?: number;
+  tick?: number;
+  divisionsX?: number;
+  divisionsY?: number;
+  markers?: SuperScopeMarker[];
+  timeScale?: string;
+  voltScale?: string;
+}
+
+const DEFAULT_SCOPE_PALETTE = [
+  'var(--theme-accent)',
+  'var(--theme-accent-2)',
+  'var(--theme-good)',
+  'var(--theme-warn)',
+  'var(--theme-danger)',
+  'var(--theme-accent)',
+  'var(--theme-accent-2)',
+  'var(--theme-good)',
+];
+
+export function SuperScope({
+  channels,
+  height = 280,
+  yMax = 100,
+  yMin = 0,
+  tick = 0,
+  divisionsX = 16,
+  divisionsY = 8,
+  markers,
+  timeScale = '0.5 s / div',
+  voltScale = '12.5 % / div',
+}: SuperScopeProps) {
+  const range = yMax - yMin;
+  const seriesLen = Math.max(1, ...channels.map((c) => c.series.length));
+  const cursorX = 40 + ((tick * 7) % 760) + 0.001; /* slow sweep */
+  return (
+    <div className="super-scope" style={{ height }}>
+      <svg viewBox="0 0 800 280" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <pattern id="ss-grid" width={800 / divisionsX} height={264 / divisionsY} patternUnits="userSpaceOnUse">
+            <path d={`M ${800 / divisionsX} 0 L 0 0 0 ${264 / divisionsY}`} fill="none" stroke="var(--theme-grid)" strokeWidth="0.6" />
+          </pattern>
+          <pattern id="ss-grid-fine" width={800 / divisionsX / 5} height={264 / divisionsY / 5} patternUnits="userSpaceOnUse">
+            <path d={`M ${800 / divisionsX / 5} 0 L 0 0 0 ${264 / divisionsY / 5}`} fill="none" stroke="var(--theme-grid)" strokeWidth="0.18" opacity="0.5" />
+          </pattern>
+          {channels.map((channel, idx) => {
+            const color = channel.color ?? DEFAULT_SCOPE_PALETTE[idx % DEFAULT_SCOPE_PALETTE.length];
+            return (
+              <linearGradient key={`ss-grad-${idx}`} id={`ss-grad-${idx}`} x1="0%" x2="0%" y1="0%" y2="100%">
+                <stop offset="0%" stopColor={color} stopOpacity="0.42" />
+                <stop offset="60%" stopColor={color} stopOpacity="0.12" />
+                <stop offset="100%" stopColor={color} stopOpacity="0" />
+              </linearGradient>
+            );
+          })}
+        </defs>
+        <rect x="40" y="8" width="760" height="264" fill="url(#ss-grid-fine)" opacity="0.55" />
+        <rect x="40" y="8" width="760" height="264" fill="url(#ss-grid)" opacity="0.85" />
+        {/* major divisions */}
+        {Array.from({ length: divisionsX + 1 }).map((_, idx) => (
+          <line
+            key={`ssvx-${idx}`}
+            x1={40 + (idx / divisionsX) * 760}
+            y1="8"
+            x2={40 + (idx / divisionsX) * 760}
+            y2="272"
+            stroke="var(--theme-accent-soft)"
+            strokeWidth="0.6"
+            strokeDasharray="2 3"
+            opacity="0.65"
+          />
+        ))}
+        {Array.from({ length: divisionsY + 1 }).map((_, idx) => (
+          <line
+            key={`sshy-${idx}`}
+            x1="40"
+            y1={8 + (idx / divisionsY) * 264}
+            x2="800"
+            y2={8 + (idx / divisionsY) * 264}
+            stroke="var(--theme-accent-soft)"
+            strokeWidth="0.6"
+            strokeDasharray="2 3"
+            opacity="0.65"
+          />
+        ))}
+        {/* y-axis labels */}
+        {Array.from({ length: divisionsY + 1 }).map((_, idx) => (
+          <text
+            key={`ssyl-${idx}`}
+            x="36"
+            y={272 - (idx / divisionsY) * 264 + 3.5}
+            className="super-scope-axis-label"
+            textAnchor="end"
+          >
+            {Math.round(yMin + (idx / divisionsY) * range)}
+          </text>
+        ))}
+        {/* x-axis labels (time-from-now) */}
+        {Array.from({ length: divisionsX + 1 }).map((_, idx) => (
+          <text
+            key={`ssxl-${idx}`}
+            x={40 + (idx / divisionsX) * 760}
+            y="280"
+            className="super-scope-axis-label"
+            textAnchor="middle"
+          >
+            t-{(divisionsX - idx)}
+          </text>
+        ))}
+        {/* zero line */}
+        <line x1="40" y1="140" x2="800" y2="140" stroke="var(--theme-accent)" strokeWidth="0.6" opacity="0.65" strokeDasharray="3 3" />
+        {/* event markers */}
+        {markers?.map((marker, idx) => {
+          const x = 40 + (marker.index / Math.max(1, seriesLen - 1)) * 760;
+          const color = marker.severity === 'good' ? 'var(--theme-good)' : marker.severity === 'warn' ? 'var(--theme-warn)' : marker.severity === 'danger' ? 'var(--theme-danger)' : 'var(--theme-accent-2)';
+          return (
+            <g key={`ss-mk-${idx}`}>
+              <line x1={x} y1="8" x2={x} y2="272" stroke={color} strokeWidth="0.6" strokeDasharray="2 4" opacity="0.7" />
+              <rect x={x - 14} y="9" width="28" height="9" rx="1.6" fill={color} opacity="0.85" />
+              <text x={x} y="15.5" className="super-scope-marker-label" textAnchor="middle">{marker.label}</text>
+            </g>
+          );
+        })}
+        {/* channels: filled envelope + smooth stroke + peak dot */}
+        {channels.map((channel, idx) => {
+          const color = channel.color ?? DEFAULT_SCOPE_PALETTE[idx % DEFAULT_SCOPE_PALETTE.length];
+          const emphasis = channel.emphasis ?? 'secondary';
+          const points = channel.series
+            .map((value, i) => {
+              const x = 40 + (i / Math.max(1, seriesLen - 1)) * 760;
+              const y = 272 - ((value - yMin) / range) * 264;
+              return `${x.toFixed(2)},${Math.max(8, Math.min(272, y)).toFixed(2)}`;
+            })
+            .join(' ');
+          const last = channel.series[channel.series.length - 1] ?? 0;
+          const lastX = 40 + ((channel.series.length - 1) / Math.max(1, seriesLen - 1)) * 760;
+          const lastY = 272 - ((last - yMin) / range) * 264;
+          const peakValue = Math.max(...channel.series);
+          const peakIdx = channel.series.indexOf(peakValue);
+          const peakX = 40 + (peakIdx / Math.max(1, seriesLen - 1)) * 760;
+          const peakY = 272 - ((peakValue - yMin) / range) * 264;
+          const strokeWidth = emphasis === 'primary' ? 1.6 : emphasis === 'subtle' ? 0.7 : 1.1;
+          const opacity = emphasis === 'primary' ? 1 : emphasis === 'subtle' ? 0.55 : 0.85;
+          return (
+            <g key={`ssc-${idx}`} className={`super-scope-channel chan-${idx} emphasis-${emphasis}`}>
+              {/* filled envelope */}
+              <polyline points={`40,272 ${points} ${lastX},272`} fill={`url(#ss-grad-${idx})`} stroke="none" />
+              {/* glow underlay */}
+              <polyline points={points} fill="none" stroke={color} strokeWidth={strokeWidth + 1.4} opacity="0.18" style={{ filter: 'blur(2px)' }} />
+              {/* main stroke */}
+              <polyline
+                points={points}
+                fill="none"
+                stroke={color}
+                strokeWidth={strokeWidth}
+                opacity={opacity}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 5px ${color})` }}
+              />
+              {/* peak marker */}
+              <g>
+                <circle cx={peakX} cy={peakY} r="2.4" fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />
+                <text x={peakX} y={peakY - 4} className="super-scope-peak-label" textAnchor="middle" fill={color}>
+                  ▲ {peakValue.toFixed(0)}{channel.unit}
+                </text>
+              </g>
+              {/* leading dot */}
+              <circle cx={lastX} cy={lastY} r="1.8" fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }}>
+                <animate attributeName="r" values="1.6;2.6;1.6" dur="1.4s" repeatCount="indefinite" />
+              </circle>
+            </g>
+          );
+        })}
+        {/* sweep cursor */}
+        <line x1={cursorX} y1="8" x2={cursorX} y2="272" stroke="var(--theme-accent)" strokeWidth="0.6" opacity="0.55" />
+        <circle cx={cursorX} cy="14" r="1.5" fill="var(--theme-accent)" />
+      </svg>
+      <div className="super-scope-meta">
+        <span>TIME · {timeScale}</span>
+        <span>VOLT · {voltScale}</span>
+        <span>CHAN · {channels.length}</span>
+        <span>SAMP · {seriesLen} pt</span>
+        <span>BW · 200 MHz</span>
+      </div>
+      <div className="super-scope-legend">
+        {channels.map((channel, idx) => {
+          const color = channel.color ?? DEFAULT_SCOPE_PALETTE[idx % DEFAULT_SCOPE_PALETTE.length];
+          const stats = (() => {
+            if (channel.series.length === 0) return { min: 0, max: 0, avg: 0, current: 0 };
+            const sum = channel.series.reduce((a, b) => a + b, 0);
+            return {
+              min: Math.min(...channel.series),
+              max: Math.max(...channel.series),
+              avg: sum / channel.series.length,
+              current: channel.series[channel.series.length - 1],
+            };
+          })();
+          const fmt = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
+          return (
+            <div key={`ssleg-${idx}`} className={`super-scope-legend-row emphasis-${channel.emphasis ?? 'secondary'}`} style={{ borderLeftColor: color }}>
+              <header>
+                <i style={{ background: color, boxShadow: `0 0 5px ${color}` }} />
+                <strong style={{ color }}>CH{idx + 1} · {channel.label}</strong>
+              </header>
+              <dl>
+                <div><dt>MIN</dt><dd>{fmt(stats.min)}{channel.unit}</dd></div>
+                <div><dt>AVG</dt><dd>{fmt(stats.avg)}{channel.unit}</dd></div>
+                <div><dt>MAX</dt><dd>{fmt(stats.max)}{channel.unit}</dd></div>
+                <div><dt>NOW</dt><dd style={{ color }}>{fmt(stats.current)}{channel.unit}</dd></div>
+              </dl>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* -------------------- Light-weight ticker hook --------------------
    Returns a monotonically increasing tick that updates on a
    configurable interval, useful for retiming widgets that do

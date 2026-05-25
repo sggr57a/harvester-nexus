@@ -47,13 +47,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <input
               id="username"
               type="text"
+              autoComplete="username"
               aria-label="Username"
               value={username}
               onChange={(e) => {
                 setUsername(e.target.value);
                 setError('');
               }}
-              placeholder="USER"
               required
             />
           </div>
@@ -62,33 +62,30 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               aria-label="Password"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
                 setError('');
               }}
-              placeholder="PASSWORD"
               required
             />
           </div>
 
           {error && <div className="login-error" role="alert">{error}</div>}
 
-          <button
-            type="submit"
-            className="login-btn"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <div className="spinner-small"></div>
-                Elevating...
-              </>
-            ) : (
-              'Enter'
-            )}
-          </button>
+          {isLoading && (
+            <div className="login-loading" aria-live="polite">
+              <div className="spinner-small" aria-hidden="true" />
+              <span>Elevating&hellip;</span>
+            </div>
+          )}
+
+          {/* No visible submit button — pressing Enter inside the form still submits.
+              `type="submit"` with `hidden` is required so the form has an implicit
+              submitter for keyboard activation. */}
+          <button type="submit" className="login-submit-hidden" tabIndex={-1} aria-hidden="true" />
         </form>
       </div>
     </div>
