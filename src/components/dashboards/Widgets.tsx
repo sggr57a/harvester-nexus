@@ -985,17 +985,27 @@ const ACTION_LABEL: Record<ThreatActor['action'], string> = {
  * continent. Stable across re-renders so the lights don't strobe randomly. */
 const CITY_LIGHTS: { x: number; y: number; r: number; bright: boolean }[] = (() => {
   const lights: { x: number; y: number; r: number; bright: boolean }[] = [];
-  // Hand-picked clusters within continent bounding boxes
+  // Hand-picked clusters within continent bounding boxes — denser than v1
   const clusters = [
-    { cx: 60, cy: 70, n: 32 },   // North America east coast
-    { cx: 38, cy: 76, n: 14 },   // North America west coast
-    { cx: 110, cy: 130, n: 18 }, // South America east coast
-    { cx: 188, cy: 56, n: 26 },  // Europe
-    { cx: 200, cy: 100, n: 16 }, // Africa
-    { cx: 252, cy: 60, n: 28 },  // Asia
-    { cx: 290, cy: 76, n: 14 },  // East Asia
-    { cx: 256, cy: 88, n: 12 },  // SE Asia
-    { cx: 304, cy: 134, n: 10 }, // Australia
+    { cx: 60, cy: 70, n: 80 },   // North America east coast
+    { cx: 38, cy: 76, n: 42 },   // North America west coast
+    { cx: 50, cy: 60, n: 28 },   // North America Canada
+    { cx: 96, cy: 80, n: 16 },   // Caribbean
+    { cx: 110, cy: 130, n: 48 }, // South America east coast
+    { cx: 100, cy: 150, n: 24 }, // South America southern cone
+    { cx: 188, cy: 56, n: 70 },  // Europe core
+    { cx: 178, cy: 50, n: 26 },  // UK / Ireland
+    { cx: 208, cy: 50, n: 22 },  // Scandinavia
+    { cx: 222, cy: 60, n: 28 },  // Eastern Europe / Russia west
+    { cx: 195, cy: 78, n: 28 },  // North Africa / Mediterranean
+    { cx: 200, cy: 100, n: 38 }, // Sub-Saharan Africa
+    { cx: 210, cy: 132, n: 18 }, // Southern Africa
+    { cx: 252, cy: 50, n: 56 },  // Russia / Central Asia
+    { cx: 244, cy: 76, n: 36 },  // India
+    { cx: 290, cy: 70, n: 60 },  // East Asia / China / Korea / Japan
+    { cx: 256, cy: 92, n: 42 },  // SE Asia
+    { cx: 304, cy: 134, n: 22 }, // Australia
+    { cx: 318, cy: 150, n: 8 },  // New Zealand
   ];
   let s = 17;
   for (const cl of clusters) {
@@ -1019,37 +1029,119 @@ const CITY_LIGHTS: { x: number; y: number; r: number; bright: boolean }[] = (() 
   return lights;
 })();
 
-/** Pre-defined inter-DC network paths (cyan trade-route lines) */
+/** Pre-defined inter-DC network paths (cyan trade-route lines) — densely
+ * cross-connected so the map looks like a real global ops backbone, not just
+ * a hub-and-spoke. Generated programmatically so the line count scales with
+ * the city list. */
 const NETWORK_PATHS: { a: [number, number]; b: [number, number]; channel: 'mgmt' | 'storage' | 'mesh' }[] = (() => {
   const cities: Record<string, [number, number]> = {
     frankfurt: projectGeo(50.1, 8.7),
     london: projectGeo(51.5, -0.1),
+    paris: projectGeo(48.9, 2.3),
+    amsterdam: projectGeo(52.4, 4.9),
+    stockholm: projectGeo(59.3, 18.1),
+    moscow: projectGeo(55.8, 37.6),
     nyc: projectGeo(40.7, -74.0),
+    chicago: projectGeo(41.9, -87.7),
+    dallas: projectGeo(32.8, -96.8),
     sj: projectGeo(37.3, -121.9),
+    losangeles: projectGeo(34.1, -118.2),
+    seattle: projectGeo(47.6, -122.3),
+    miami: projectGeo(25.8, -80.2),
     tokyo: projectGeo(35.7, 139.7),
+    osaka: projectGeo(34.7, 135.5),
+    seoul: projectGeo(37.6, 126.9),
+    beijing: projectGeo(39.9, 116.4),
+    shanghai: projectGeo(31.2, 121.5),
+    hk: projectGeo(22.3, 114.2),
     sg: projectGeo(1.4, 103.8),
     sydney: projectGeo(-33.9, 151.2),
+    auckland: projectGeo(-36.8, 174.8),
     dubai: projectGeo(25.3, 55.3),
+    riyadh: projectGeo(24.7, 46.7),
     saopaulo: projectGeo(-23.5, -46.6),
+    rio: projectGeo(-22.9, -43.2),
+    buenosaires: projectGeo(-34.6, -58.4),
+    mexicocity: projectGeo(19.4, -99.1),
     capetown: projectGeo(-33.9, 18.4),
+    lagos: projectGeo(6.5, 3.4),
+    cairo: projectGeo(30.0, 31.2),
+    nairobi: projectGeo(-1.3, 36.8),
     mumbai: projectGeo(19.1, 72.9),
+    bangalore: projectGeo(13.0, 77.6),
+    delhi: projectGeo(28.6, 77.2),
     toronto: projectGeo(43.7, -79.4),
+    montreal: projectGeo(45.5, -73.6),
   };
-  return [
-    { a: cities.frankfurt, b: cities.london, channel: 'mgmt' as const },
-    { a: cities.frankfurt, b: cities.nyc, channel: 'mesh' as const },
-    { a: cities.nyc, b: cities.sj, channel: 'storage' as const },
-    { a: cities.frankfurt, b: cities.dubai, channel: 'mgmt' as const },
-    { a: cities.dubai, b: cities.mumbai, channel: 'mesh' as const },
-    { a: cities.mumbai, b: cities.sg, channel: 'storage' as const },
-    { a: cities.sg, b: cities.tokyo, channel: 'mesh' as const },
-    { a: cities.sg, b: cities.sydney, channel: 'storage' as const },
-    { a: cities.frankfurt, b: cities.toronto, channel: 'mgmt' as const },
-    { a: cities.toronto, b: cities.nyc, channel: 'mesh' as const },
-    { a: cities.nyc, b: cities.saopaulo, channel: 'storage' as const },
-    { a: cities.saopaulo, b: cities.capetown, channel: 'mesh' as const },
-    { a: cities.capetown, b: cities.frankfurt, channel: 'mgmt' as const },
+  const channels: ('mgmt' | 'storage' | 'mesh')[] = ['mgmt', 'storage', 'mesh'];
+  // Major hub cross-connects (Frankfurt-centric since that's the VIP)
+  const hubLinks: [string, string][] = [
+    ['frankfurt', 'london'],
+    ['frankfurt', 'paris'],
+    ['frankfurt', 'amsterdam'],
+    ['frankfurt', 'stockholm'],
+    ['frankfurt', 'moscow'],
+    ['frankfurt', 'nyc'],
+    ['frankfurt', 'toronto'],
+    ['frankfurt', 'dubai'],
+    ['frankfurt', 'mumbai'],
+    ['frankfurt', 'capetown'],
+    ['frankfurt', 'cairo'],
+    ['frankfurt', 'seoul'],
+    ['frankfurt', 'tokyo'],
+    ['london', 'amsterdam'],
+    ['london', 'paris'],
+    ['london', 'nyc'],
+    ['amsterdam', 'stockholm'],
+    ['paris', 'capetown'],
+    ['nyc', 'chicago'],
+    ['nyc', 'toronto'],
+    ['nyc', 'miami'],
+    ['nyc', 'sj'],
+    ['nyc', 'dallas'],
+    ['chicago', 'sj'],
+    ['chicago', 'dallas'],
+    ['sj', 'seattle'],
+    ['sj', 'losangeles'],
+    ['losangeles', 'tokyo'],
+    ['seattle', 'tokyo'],
+    ['tokyo', 'osaka'],
+    ['tokyo', 'seoul'],
+    ['seoul', 'beijing'],
+    ['beijing', 'shanghai'],
+    ['shanghai', 'hk'],
+    ['hk', 'sg'],
+    ['sg', 'mumbai'],
+    ['sg', 'bangalore'],
+    ['sg', 'sydney'],
+    ['sg', 'auckland'],
+    ['sg', 'tokyo'],
+    ['mumbai', 'bangalore'],
+    ['mumbai', 'delhi'],
+    ['mumbai', 'dubai'],
+    ['dubai', 'riyadh'],
+    ['dubai', 'cairo'],
+    ['cairo', 'lagos'],
+    ['cairo', 'nairobi'],
+    ['lagos', 'capetown'],
+    ['nairobi', 'capetown'],
+    ['miami', 'mexicocity'],
+    ['miami', 'saopaulo'],
+    ['miami', 'rio'],
+    ['saopaulo', 'rio'],
+    ['saopaulo', 'buenosaires'],
+    ['saopaulo', 'capetown'],
+    ['toronto', 'montreal'],
+    ['toronto', 'chicago'],
+    ['montreal', 'london'],
+    ['sydney', 'auckland'],
+    ['sydney', 'tokyo'],
   ];
+  return hubLinks.map(([from, to], idx) => ({
+    a: cities[from],
+    b: cities[to],
+    channel: channels[idx % channels.length],
+  }));
 })();
 
 export function ThreatIntelMap({
@@ -1103,35 +1195,17 @@ export function ThreatIntelMap({
     }));
   }, [threats, seed]);
 
+  // DEFCON-style overall posture
+  const defcon = useMemo(() => {
+    const critCount = threats.filter((t) => t.severity === 'critical').length;
+    if (critCount >= 3) return { level: 1, label: 'DEFCON 1', tone: 'danger' };
+    if (critCount >= 2) return { level: 2, label: 'DEFCON 2', tone: 'warn' };
+    if (critCount >= 1) return { level: 3, label: 'DEFCON 3', tone: 'warn' };
+    return { level: 4, label: 'DEFCON 4', tone: 'good' };
+  }, [threats]);
+
   return (
     <div className="threat-intel-map" style={{ height }}>
-      {/* Left side — ACTIVE THREATS panel */}
-      <aside className="tim-side tim-left" aria-label="Active threats">
-        <header>
-          <span className="tim-kicker">XDR · ACTIVE THREATS</span>
-          <strong>{threats.length}</strong>
-        </header>
-        <ul className="tim-threats">
-          {visibleThreats.map((t) => (
-            <li key={t.id} className={`tim-threat sev-${t.severity}`}>
-              <header>
-                <span className="tim-flag">{t.country}</span>
-                <strong>{t.actor}</strong>
-                <em className="tim-action">{ACTION_LABEL[t.action]}</em>
-              </header>
-              <dl>
-                <div><dt>CVE</dt><dd>{t.cve}</dd></div>
-                <div><dt>MAL</dt><dd>{t.malware}</dd></div>
-                <div><dt>TTP</dt><dd>{t.tactic}</dd></div>
-                <div><dt>IP</dt><dd>{t.ip}</dd></div>
-                <div><dt>IOC</dt><dd>{t.iocCount}</dd></div>
-              </dl>
-              <i className="tim-threat-pulse" style={{ background: SEVERITY_TONE[t.severity] }} />
-            </li>
-          ))}
-        </ul>
-      </aside>
-
       {/* Center — the big map */}
       <div className="tim-canvas">
         <svg viewBox="0 0 360 180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -1321,60 +1395,465 @@ export function ThreatIntelMap({
             );
           })}
         </div>
+
+        {/* Top-left overlay: ACTIVE THREATS list (floats over the map) */}
+        <aside className="tim-overlay tim-overlay-tl" aria-label="Active threats">
+          <header>
+            <span className="tim-kicker">XDR · ACTIVE THREATS</span>
+            <strong>{threats.length}</strong>
+          </header>
+          <ul className="tim-threats">
+            {visibleThreats.map((t) => (
+              <li key={t.id} className={`tim-threat sev-${t.severity}`}>
+                <header>
+                  <span className="tim-flag">{t.country}</span>
+                  <strong>{t.actor}</strong>
+                  <em className="tim-action">{ACTION_LABEL[t.action]}</em>
+                </header>
+                <dl>
+                  <div><dt>CVE</dt><dd>{t.cve}</dd></div>
+                  <div><dt>MAL</dt><dd>{t.malware}</dd></div>
+                  <div><dt>TTP</dt><dd>{t.tactic}</dd></div>
+                  <div><dt>IP</dt><dd>{t.ip}</dd></div>
+                  <div><dt>IOC</dt><dd>{t.iocCount}</dd></div>
+                </dl>
+                <i className="tim-threat-pulse" style={{ background: SEVERITY_TONE[t.severity] }} />
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        {/* Top-right overlay: DEFCON + headline stats */}
+        <aside className="tim-overlay tim-overlay-tr" aria-label="MDR / XDR posture">
+          <div className={`tim-defcon defcon-${defcon.tone}`}>
+            <span>{defcon.label}</span>
+            <strong>{xdrStats.alertsPerMin.toLocaleString()}<em>/min</em></strong>
+            <small>alerts · rolling 1h</small>
+          </div>
+          <div className="tim-stats tim-stats-compact">
+            <div className="tim-stat status-good">
+              <span>BLOCKED 24h</span>
+              <strong>{xdrStats.blocked24h.toLocaleString()}</strong>
+            </div>
+            <div className="tim-stat status-warn">
+              <span>ESCALATED</span>
+              <strong>{xdrStats.escalated24h}</strong>
+            </div>
+            <div className="tim-stat status-danger">
+              <span>ISOLATED</span>
+              <strong>{xdrStats.isolatedHosts}</strong>
+            </div>
+            <div className="tim-stat">
+              <span>IOC TODAY</span>
+              <strong>{(xdrStats.iocsToday / 1000).toFixed(1)}K</strong>
+            </div>
+            <div className="tim-stat">
+              <span>MTTD</span>
+              <strong>{xdrStats.mttd}</strong>
+            </div>
+            <div className="tim-stat">
+              <span>MTTR</span>
+              <strong>{xdrStats.mttr}</strong>
+            </div>
+            <div className="tim-stat status-warn">
+              <span>APTs</span>
+              <strong>{xdrStats.activeAPTs}</strong>
+            </div>
+            <div className="tim-stat status-danger">
+              <span>CRIT CVE</span>
+              <strong>{xdrStats.criticalCves}</strong>
+            </div>
+          </div>
+          <div className="tim-scan">
+            <span className="tim-scan-label">LIVE SCAN · {NETWORK_PATHS.length} paths</span>
+            <div className="tim-scan-bar"><i /></div>
+          </div>
+        </aside>
+
+        {/* Bottom-right overlay: rolling activity ribbon */}
+        <aside className="tim-overlay tim-overlay-br" aria-label="Live activity ribbon">
+          <span className="tim-kicker">REAL-TIME · {sources.length} SRC · {activeIds.size} LIVE</span>
+          <ul className="tim-activity-ribbon">
+            {sources.slice(0, 6).map((src) => (
+              <li key={src.id} className={`kind-${src.kind}`}>
+                <span className="tim-flag">{src.country}</span>
+                <strong>{src.method}</strong>
+                <code>{src.host}</code>
+                <b>{src.rps}/s</b>
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        {/* Bottom-left overlay: country source legend */}
+        <aside className="tim-overlay tim-overlay-bl" aria-label="Source legend">
+          <span className="tim-kicker">SOURCES · {sources.length} GEOS</span>
+          <ul className="tim-source-legend">
+            {sources.slice(0, 6).map((src) => {
+              const color = KIND_COLORS[src.kind];
+              return (
+                <li key={src.id}>
+                  <i style={{ background: color, boxShadow: `0 0 4px ${color}` }} />
+                  <span>{src.country}</span>
+                  <strong>{src.city}</strong>
+                  <em>{src.kind}</em>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- Cluster radar (sonar-style concentric tiers) -------------------- */
+
+interface RadarNode {
+  id: string;
+  label: string;
+  /** Tier dictates which concentric ring the node sits on. */
+  tier: 'control' | 'edge' | 'compute' | 'storage' | 'vcluster';
+  /** Health 0..100. */
+  health: number;
+  /** Live RPS / IOPS / equivalent throughput per node */
+  throughput: number;
+  /** Live p95 latency in milliseconds */
+  p95Ms: number;
+  /** Recent error rate percent */
+  errorPct: number;
+  /** Status colour key */
+  status: 'online' | 'syncing' | 'watch' | 'draining';
+}
+
+const DEFAULT_RADAR_NODES: RadarNode[] = [
+  { id: 'cp-1', label: 'control-plane-01', tier: 'control', health: 99, throughput: 412, p95Ms: 8, errorPct: 0.04, status: 'online' },
+  { id: 'cp-2', label: 'control-plane-02', tier: 'control', health: 98, throughput: 388, p95Ms: 9, errorPct: 0.02, status: 'online' },
+  { id: 'edge-a', label: 'edge-a', tier: 'edge', health: 92, throughput: 1820, p95Ms: 24, errorPct: 0.18, status: 'syncing' },
+  { id: 'edge-b', label: 'edge-b', tier: 'edge', health: 95, throughput: 1620, p95Ms: 22, errorPct: 0.12, status: 'online' },
+  { id: 'edge-c', label: 'edge-c', tier: 'edge', health: 88, throughput: 1240, p95Ms: 32, errorPct: 0.42, status: 'watch' },
+  { id: 'cpu-01', label: 'compute-01', tier: 'compute', health: 88, throughput: 920, p95Ms: 14, errorPct: 0.06, status: 'online' },
+  { id: 'cpu-02', label: 'compute-02', tier: 'compute', health: 84, throughput: 880, p95Ms: 18, errorPct: 0.22, status: 'watch' },
+  { id: 'cpu-03', label: 'compute-03', tier: 'compute', health: 90, throughput: 1080, p95Ms: 12, errorPct: 0.04, status: 'online' },
+  { id: 'cpu-04', label: 'compute-04', tier: 'compute', health: 86, throughput: 980, p95Ms: 16, errorPct: 0.08, status: 'online' },
+  { id: 'cpu-05', label: 'compute-05', tier: 'compute', health: 82, throughput: 720, p95Ms: 22, errorPct: 0.16, status: 'online' },
+  { id: 'stor-1', label: 'ceph-rack-01', tier: 'storage', health: 96, throughput: 6420, p95Ms: 6, errorPct: 0.02, status: 'online' },
+  { id: 'stor-2', label: 'ceph-rack-02', tier: 'storage', health: 94, throughput: 6210, p95Ms: 7, errorPct: 0.04, status: 'online' },
+  { id: 'stor-3', label: 'longhorn-rack', tier: 'storage', health: 91, throughput: 1820, p95Ms: 9, errorPct: 0.06, status: 'online' },
+  { id: 'stor-4', label: 'nvme-of', tier: 'storage', health: 97, throughput: 12420, p95Ms: 4, errorPct: 0.01, status: 'online' },
+  { id: 'vcl-1', label: 'vcluster-edge', tier: 'vcluster', health: 91, throughput: 220, p95Ms: 18, errorPct: 0.12, status: 'online' },
+];
+
+const TIER_RADIUS: Record<RadarNode['tier'], number> = {
+  control: 14,
+  edge: 24,
+  compute: 34,
+  storage: 42,
+  vcluster: 18,
+};
+
+const TIER_COLOR: Record<RadarNode['tier'], string> = {
+  control: 'var(--theme-accent-2)',
+  edge: 'var(--theme-good)',
+  compute: 'var(--theme-accent)',
+  storage: 'var(--theme-warn)',
+  vcluster: 'var(--theme-channel-gitops, var(--theme-accent-2))',
+};
+
+const TIER_LABEL: Record<RadarNode['tier'], string> = {
+  control: 'CONTROL PLANE',
+  edge: 'EDGE',
+  compute: 'COMPUTE',
+  storage: 'STORAGE',
+  vcluster: 'VCLUSTER',
+};
+
+interface ClusterRadarProps {
+  nodes?: RadarNode[];
+  snapshot?: EnvironmentSnapshot;
+  height?: number;
+}
+
+/** Sonar-style cluster radar — concentric tier rings (control → edge → compute → storage),
+ * with nodes positioned around their tier's ring, a rotating sweep cursor that pulses
+ * each node as it passes, animated traffic chords between connected nodes, and side
+ * panels showing live RPS / latency / error / health per node. Replaces the flat 2D
+ * curved-edge topology view. */
+export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 460 }: ClusterRadarProps) {
+  const seed = snapshot?.tick ?? 0;
+
+  // Group nodes by tier and assign each one a stable angle around its ring
+  const positionedNodes = useMemo(() => {
+    const groups: Record<string, RadarNode[]> = {};
+    for (const node of nodes) {
+      (groups[node.tier] = groups[node.tier] ?? []).push(node);
+    }
+    const positions: { node: RadarNode; angle: number; x: number; y: number; r: number }[] = [];
+    for (const [tier, list] of Object.entries(groups)) {
+      const r = TIER_RADIUS[tier as RadarNode['tier']];
+      list.forEach((node, idx) => {
+        // Spread evenly around the ring, with a small per-tier offset so different
+        // tier rings don't all line up on the same spokes.
+        const offset = tier === 'control' ? 0 : tier === 'edge' ? 0.3 : tier === 'compute' ? 0.15 : tier === 'storage' ? 0.45 : 0.6;
+        const angle = ((idx / list.length) * Math.PI * 2) - Math.PI / 2 + offset;
+        positions.push({
+          node,
+          angle,
+          x: 50 + Math.cos(angle) * r,
+          y: 50 + Math.sin(angle) * r,
+          r,
+        });
+      });
+    }
+    return positions;
+  }, [nodes]);
+
+  // Programmatically generate connection chords (control ↔ edge, edge ↔ compute, compute ↔ storage)
+  const chords = useMemo(() => {
+    const list: { from: typeof positionedNodes[number]; to: typeof positionedNodes[number]; channel: string }[] = [];
+    const byTier = (tier: string) => positionedNodes.filter((p) => p.node.tier === tier);
+    const ctrl = byTier('control');
+    const edges = byTier('edge');
+    const compute = byTier('compute');
+    const storage = byTier('storage');
+    const vc = byTier('vcluster');
+    // control -> all edges
+    for (const c of ctrl) for (const e of edges) list.push({ from: c, to: e, channel: 'mgmt' });
+    // edges -> all compute (round-robin)
+    edges.forEach((e, ei) => {
+      compute.forEach((cp, ci) => {
+        if ((ci + ei) % 2 === 0) list.push({ from: e, to: cp, channel: 'mesh' });
+      });
+    });
+    // compute -> storage (each compute to two storage)
+    compute.forEach((cp, ci) => {
+      list.push({ from: cp, to: storage[ci % storage.length], channel: 'storage' });
+      list.push({ from: cp, to: storage[(ci + 1) % storage.length], channel: 'storage' });
+    });
+    // vcluster -> control + storage
+    for (const v of vc) {
+      if (ctrl[0]) list.push({ from: v, to: ctrl[0], channel: 'gitops' });
+      if (storage[0]) list.push({ from: v, to: storage[0], channel: 'storage' });
+    }
+    return list;
+  }, [positionedNodes]);
+
+  // Rolling sweep angle (radians)
+  const sweepAngle = ((seed * 0.12) % (Math.PI * 2));
+  const sweepDeg = (sweepAngle * 180) / Math.PI;
+
+  // Determine which nodes are "swept" right now (within ~12° of sweep)
+  const sweptIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const pos of positionedNodes) {
+      let a = pos.angle;
+      // normalise to 0..2π
+      a = (a + Math.PI / 2) % (Math.PI * 2);
+      const sweepNorm = (sweepAngle + Math.PI / 2) % (Math.PI * 2);
+      const diff = Math.abs(a - sweepNorm);
+      const wrap = Math.min(diff, Math.PI * 2 - diff);
+      if (wrap < 0.21) ids.add(pos.node.id);
+    }
+    return ids;
+  }, [positionedNodes, sweepAngle]);
+
+  // Aggregate stats for the side rails
+  const tierStats = useMemo(() => {
+    const tiers: RadarNode['tier'][] = ['control', 'edge', 'compute', 'storage', 'vcluster'];
+    return tiers.map((tier) => {
+      const list = nodes.filter((n) => n.tier === tier);
+      if (list.length === 0) return { tier, count: 0, avgHealth: 0, totalThroughput: 0, avgP95: 0, errors: 0 };
+      const totalThroughput = list.reduce((s, n) => s + n.throughput, 0);
+      const avgHealth = list.reduce((s, n) => s + n.health, 0) / list.length;
+      const avgP95 = list.reduce((s, n) => s + n.p95Ms, 0) / list.length;
+      const errors = list.reduce((s, n) => s + n.errorPct, 0) / list.length;
+      return { tier, count: list.length, avgHealth, totalThroughput, avgP95, errors };
+    });
+  }, [nodes]);
+
+  // Top talkers and flagged nodes for the right-side rail
+  const topTalkers = useMemo(() => {
+    return [...nodes].sort((a, b) => b.throughput - a.throughput).slice(0, 5);
+  }, [nodes]);
+  const flagged = useMemo(() => {
+    return nodes.filter((n) => n.status === 'watch' || n.errorPct > 0.3).slice(0, 4);
+  }, [nodes]);
+
+  return (
+    <div className="cluster-radar" style={{ height }}>
+      {/* Left rail — per-tier infographic */}
+      <aside className="radar-rail radar-rail-left" aria-label="Tier roll-up">
+        <header>
+          <span className="tim-kicker">CLUSTER · TIER ROLL-UP</span>
+          <strong>{nodes.length}</strong>
+        </header>
+        <ul>
+          {tierStats.map((stat) => {
+            const color = TIER_COLOR[stat.tier];
+            return (
+              <li key={stat.tier} className={`radar-tier tier-${stat.tier}`}>
+                <i style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                <div>
+                  <strong>{TIER_LABEL[stat.tier]}</strong>
+                  <small>{stat.count} nodes · {stat.totalThroughput.toLocaleString()} t/s · {stat.avgP95.toFixed(0)} ms p95</small>
+                </div>
+                <b style={{ color }}>{stat.avgHealth.toFixed(0)}%</b>
+              </li>
+            );
+          })}
+        </ul>
+      </aside>
+
+      {/* Center — the radar scope */}
+      <div className="radar-canvas">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <defs>
+            <radialGradient id="radar-bg-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="var(--theme-accent-soft)" stopOpacity="0.5" />
+              <stop offset="60%" stopColor="var(--theme-accent-soft)" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="var(--theme-accent-soft)" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="radar-sweep-grad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="var(--theme-accent)" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          {/* Background glow */}
+          <circle cx="50" cy="50" r="48" fill="url(#radar-bg-glow)" />
+          {/* Concentric tier rings */}
+          {[14, 24, 34, 42, 47].map((r, idx) => (
+            <circle key={r} cx="50" cy="50" r={r} fill="none" stroke="var(--theme-grid)" strokeWidth={idx === 4 ? 0.4 : 0.25} strokeDasharray={idx === 4 ? 'none' : '0.6 1.2'} opacity={idx === 4 ? 0.7 : 0.55} />
+          ))}
+          {/* Cardinal cross-hairs */}
+          <line x1="3" y1="50" x2="97" y2="50" stroke="var(--theme-accent-soft)" strokeWidth="0.2" />
+          <line x1="50" y1="3" x2="50" y2="97" stroke="var(--theme-accent-soft)" strokeWidth="0.2" />
+          {/* Diagonal hairs */}
+          <line x1="14" y1="14" x2="86" y2="86" stroke="var(--theme-accent-soft)" strokeWidth="0.15" strokeDasharray="0.4 0.8" />
+          <line x1="86" y1="14" x2="14" y2="86" stroke="var(--theme-accent-soft)" strokeWidth="0.15" strokeDasharray="0.4 0.8" />
+          {/* Tier labels around */}
+          {[
+            { tier: 'control', angle: -Math.PI / 2, r: 14 },
+            { tier: 'edge', angle: -Math.PI / 2, r: 24 },
+            { tier: 'compute', angle: -Math.PI / 2, r: 34 },
+            { tier: 'storage', angle: -Math.PI / 2, r: 42 },
+          ].map(({ tier, angle, r }) => (
+            <text
+              key={tier}
+              x={50 + Math.cos(angle) * (r - 1.5)}
+              y={50 + Math.sin(angle) * (r - 1.5) + 0.5}
+              textAnchor="middle"
+              className="radar-tier-label"
+              style={{ fill: TIER_COLOR[tier as RadarNode['tier']] }}
+            >
+              {TIER_LABEL[tier as RadarNode['tier']]}
+            </text>
+          ))}
+          {/* Connection chords */}
+          {chords.map((chord, idx) => {
+            const channelColor = `var(--theme-channel-${chord.channel})`;
+            return (
+              <g key={idx} className={`radar-chord channel-${chord.channel}`}>
+                <line x1={chord.from.x} y1={chord.from.y} x2={chord.to.x} y2={chord.to.y} stroke={channelColor} strokeWidth="0.2" opacity="0.32" />
+                <line
+                  x1={chord.from.x}
+                  y1={chord.from.y}
+                  x2={chord.to.x}
+                  y2={chord.to.y}
+                  stroke={channelColor}
+                  strokeWidth="0.4"
+                  strokeDasharray="1 2"
+                  opacity="0.7"
+                  style={{ filter: `drop-shadow(0 0 1.5px ${channelColor})` }}
+                >
+                  <animate attributeName="stroke-dashoffset" values="0;-9" dur={`${2 + (idx % 3) * 0.6}s`} repeatCount="indefinite" />
+                </line>
+                <circle r="0.45" fill={channelColor} style={{ filter: `drop-shadow(0 0 2px ${channelColor})` }}>
+                  <animateMotion
+                    dur={`${2.2 + (idx % 5) * 0.4}s`}
+                    repeatCount="indefinite"
+                    path={`M${chord.from.x} ${chord.from.y} L ${chord.to.x} ${chord.to.y}`}
+                    begin={`${(idx * 0.13) % 1.6}s`}
+                  />
+                </circle>
+              </g>
+            );
+          })}
+          {/* Sweep cone */}
+          <g className="radar-sweep" transform={`rotate(${sweepDeg} 50 50)`}>
+            <path d={`M 50 50 L ${50 + Math.cos(0) * 48} ${50 + Math.sin(0) * 48} A 48 48 0 0 0 ${50 + Math.cos(-0.42) * 48} ${50 + Math.sin(-0.42) * 48} Z`} fill="url(#radar-sweep-grad)" opacity="0.55" />
+            <line x1="50" y1="50" x2={50 + 48} y2="50" stroke="var(--theme-accent)" strokeWidth="0.3" opacity="0.85" style={{ filter: 'drop-shadow(0 0 4px var(--theme-accent))' }} />
+          </g>
+          {/* Center hub */}
+          <circle cx="50" cy="50" r="3.4" fill="var(--theme-accent)" style={{ filter: 'drop-shadow(0 0 4px var(--theme-accent)) drop-shadow(0 0 10px var(--theme-accent))' }} />
+          <circle cx="50" cy="50" r="1.2" fill="var(--theme-text)" />
+          <text x="50" y="56" textAnchor="middle" className="radar-hub-label">VIP · 10.10.40.20</text>
+          {/* Nodes */}
+          {positionedNodes.map((pos) => {
+            const color = TIER_COLOR[pos.node.tier];
+            const swept = sweptIds.has(pos.node.id);
+            const r = 1.4 + (pos.node.health / 100) * 0.7;
+            return (
+              <g key={pos.node.id} className={`radar-node tier-${pos.node.tier} status-${pos.node.status} ${swept ? 'is-swept' : ''}`}>
+                <circle cx={pos.x} cy={pos.y} r={r * 2.2} fill="none" stroke={color} strokeWidth="0.2" opacity={swept ? 0.85 : 0.4}>
+                  {swept && (
+                    <>
+                      <animate attributeName="r" values={`${r * 2.2};${r * 4.4};${r * 2.2}`} dur="1.6s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.85;0;0.85" dur="1.6s" repeatCount="indefinite" />
+                    </>
+                  )}
+                </circle>
+                <circle cx={pos.x} cy={pos.y} r={r} fill={color} style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 5px ${color})` }} />
+                <text x={pos.x} y={pos.y - r - 0.6} textAnchor="middle" className="radar-node-label">{pos.node.label}</text>
+                <text x={pos.x} y={pos.y + r + 1.7} textAnchor="middle" className="radar-node-stat" style={{ fill: color }}>{pos.node.health}%</text>
+              </g>
+            );
+          })}
+        </svg>
+        {/* Center digital readout */}
+        <div className="radar-readout">
+          <span>SWEEP</span>
+          <strong>{Math.round(sweepDeg)}°</strong>
+          <small>{nodes.length} nodes · {chords.length} chords</small>
+        </div>
       </div>
 
-      {/* Right side — XDR / MDR stats */}
-      <aside className="tim-side tim-right" aria-label="MDR / XDR stats">
+      {/* Right rail — top talkers + flagged nodes */}
+      <aside className="radar-rail radar-rail-right" aria-label="Top talkers and flagged nodes">
         <header>
-          <span className="tim-kicker">MDR · XDR PLATFORM</span>
-          <strong className="tim-live">stream live</strong>
+          <span className="tim-kicker">TOP TALKERS</span>
         </header>
-        <div className="tim-stats">
-          <div className="tim-stat status-good">
-            <span>ALERTS / MIN</span>
-            <strong>{xdrStats.alertsPerMin.toLocaleString()}</strong>
-            <small>rolling 1h</small>
-          </div>
-          <div className="tim-stat status-good">
-            <span>BLOCKED 24h</span>
-            <strong>{xdrStats.blocked24h.toLocaleString()}</strong>
-            <small>auto-mitigation</small>
-          </div>
-          <div className="tim-stat status-warn">
-            <span>ESCALATED 24h</span>
-            <strong>{xdrStats.escalated24h}</strong>
-            <small>SOC tier-2 queue</small>
-          </div>
-          <div className="tim-stat status-danger">
-            <span>ISOLATED HOSTS</span>
-            <strong>{xdrStats.isolatedHosts}</strong>
-            <small>quarantined VLANs</small>
-          </div>
-          <div className="tim-stat">
-            <span>IOC TODAY</span>
-            <strong>{xdrStats.iocsToday.toLocaleString()}</strong>
-            <small>hashes · IPs · domains</small>
-          </div>
-          <div className="tim-stat">
-            <span>MTTD / MTTR</span>
-            <strong>{xdrStats.mttd}</strong>
-            <small>{xdrStats.mttr} mean response</small>
-          </div>
-          <div className="tim-stat status-warn">
-            <span>ACTIVE APTs</span>
-            <strong>{xdrStats.activeAPTs}</strong>
-            <small>actors tracked</small>
-          </div>
-          <div className="tim-stat status-danger">
-            <span>CRIT CVES</span>
-            <strong>{xdrStats.criticalCves}</strong>
-            <small>weaponised in-the-wild</small>
-          </div>
-        </div>
-        <div className="tim-scan">
-          <span className="tim-scan-label">LIVE SCAN</span>
-          <div className="tim-scan-bar"><i /></div>
-        </div>
+        <ul>
+          {topTalkers.map((node) => {
+            const color = TIER_COLOR[node.tier];
+            const max = topTalkers[0]?.throughput ?? 1;
+            const pct = (node.throughput / max) * 100;
+            return (
+              <li key={node.id} className={`radar-talker tier-${node.tier}`}>
+                <header>
+                  <strong>{node.label}</strong>
+                  <b style={{ color }}>{node.throughput.toLocaleString()}</b>
+                </header>
+                <div className="radar-bar">
+                  <i style={{ width: `${pct}%`, background: color, boxShadow: `0 0 6px ${color}` }} />
+                </div>
+                <small>p95 {node.p95Ms} ms · err {node.errorPct.toFixed(2)}%</small>
+              </li>
+            );
+          })}
+        </ul>
+        <header style={{ marginTop: '0.4rem' }}>
+          <span className="tim-kicker">FLAGGED · {flagged.length}</span>
+        </header>
+        <ul>
+          {flagged.map((node) => (
+            <li key={node.id} className="radar-flagged">
+              <strong>{node.label}</strong>
+              <em className={node.errorPct > 0.3 ? 'is-warn' : 'is-info'}>
+                {node.errorPct > 0.3 ? `err ${node.errorPct.toFixed(2)}%` : node.status}
+              </em>
+            </li>
+          ))}
+        </ul>
       </aside>
     </div>
   );

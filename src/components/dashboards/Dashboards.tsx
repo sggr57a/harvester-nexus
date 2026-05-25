@@ -12,7 +12,7 @@ import {
   type CpuCore,
 } from '../../lib/dashboards';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
-import { ThreatIntelMap, WidgetTitle } from './Widgets';
+import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
 
 const networking = buildNetworkingDashboard();
 const storage = buildStorageDashboard();
@@ -131,50 +131,13 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
         <ThreatIntelMap snapshot={telemetry} height={560} />
       </article>
 
-      <article className="dash-panel topology-panel">
-        <div className="panel-title">
-          <span>Cluster route topology</span>
-          <strong>{topology.nodes.length} nodes · {topology.edges.length} routes</strong>
-        </div>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="topology-svg" aria-hidden="true">
-          <defs>
-            <pattern id="topo-grid" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
-              <path d="M6 0H0V6" fill="none" />
-            </pattern>
-            <radialGradient id="topo-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopOpacity="0.85" />
-              <stop offset="100%" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <rect x="0" y="0" width="100" height="100" className="topology-grid" fill="url(#topo-grid)" />
-          {topology.edges.map((edge) => {
-            const from = nodeMap.get(edge.from);
-            const to = nodeMap.get(edge.to);
-            if (!from || !to) return null;
-            return (
-              <g key={edge.id} className={`topology-edge channel-${edge.channel}`}>
-                <path d={svgPathBetween(from.x, from.y, to.x, to.y)} className="topology-edge-bg" />
-                <path d={svgPathBetween(from.x, from.y, to.x, to.y)} className="topology-edge-pulse" strokeDasharray="4 8" />
-              </g>
-            );
-          })}
-          {topology.nodes.map((node) => (
-            <g key={node.id} className={`topology-node role-${node.role} status-${node.status}`} transform={`translate(${node.x} ${node.y})`}>
-              <circle r="2.4" className="node-core" />
-              <circle r="4.6" className="node-ring" />
-              <circle r="7" className="node-halo" />
-              <text y="-5.5" textAnchor="middle" className="node-label">{node.label}</text>
-              <text y="9" textAnchor="middle" className="node-health">{node.health}%</text>
-            </g>
-          ))}
-        </svg>
-        <div className="topology-legend">
-          <span className="legend-chip channel-mgmt">mgmt</span>
-          <span className="legend-chip channel-storage">storage</span>
-          <span className="legend-chip channel-mesh">mesh</span>
-          <span className="legend-chip channel-vm">vm/lxc</span>
-          <span className="legend-chip channel-gitops">gitops</span>
-        </div>
+      <article className="dash-panel cluster-radar-panel">
+        <WidgetTitle
+          kicker="CLUSTER · SONAR"
+          title="Cluster radar · live tier roll-up"
+          trailing={<span className="osc-readout">{topology.nodes.length}+ nodes · {topology.edges.length} routes · 5 tiers</span>}
+        />
+        <ClusterRadar snapshot={telemetry} height={460} />
       </article>
 
       <div className="dash-row dash-row-2">
