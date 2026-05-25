@@ -13,6 +13,7 @@ import {
   AnnotatedOscilloscope,
   AnomalyStream,
   ApiRateGauge,
+  Cluster3DMap,
   DialGauge,
   GitOpsSyncBank,
   GpuMemoryGrid,
@@ -22,7 +23,6 @@ import {
   MultiRingGauge,
   PercentileBar,
   RingMeterCluster,
-  RouteMap,
   SparklineGrid,
   StatGrid,
   StatReadouts,
@@ -290,8 +290,8 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
         </article>
 
         <article className="dash-panel mission-map">
-          <WidgetTitle kicker="ROUTE-MAP" title="Spatial cluster map" trailing={<span className="osc-readout">{networking.topology.nodes.length} nodes · {networking.topology.edges.length} routes</span>} />
-          <RouteMap nodes={mapNodes} edges={mapEdges} snapshot={telemetry} />
+          <WidgetTitle kicker="3D-CITY" title="Cluster topology · isometric pillars" trailing={<span className="osc-readout">live activity</span>} />
+          <Cluster3DMap nodes={mapNodes} edges={mapEdges} snapshot={telemetry} height={360} />
         </article>
 
         <article className="dash-panel mission-feed">

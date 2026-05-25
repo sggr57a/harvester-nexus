@@ -497,6 +497,262 @@ export function RouteMap({ nodes, edges, snapshot }: RouteMapProps) {
   );
 }
 
+/* -------------------- 3D isometric cluster map (city-skyline style) -------------------- */
+
+interface City3DNode {
+  id: string;
+  label: string;
+  /** Floor coordinates 0..100 */
+  x: number;
+  y: number;
+  /** Activity / load 0..100 — drives pillar height */
+  load: number;
+  kind: 'control' | 'compute' | 'storage' | 'edge' | 'vcluster';
+  status: 'online' | 'syncing' | 'watch' | 'draining';
+}
+
+interface City3DEdge {
+  from: string;
+  to: string;
+  channel: 'mgmt' | 'storage' | 'mesh' | 'vm' | 'gitops';
+  load: number;
+}
+
+interface Cluster3DMapProps {
+  nodes: City3DNode[];
+  edges: City3DEdge[];
+  snapshot?: EnvironmentSnapshot;
+  height?: number;
+}
+
+/** Project an (x, y, z) point into 2D screen space using a classic isometric
+ * projection. Floor coordinates run 0..100 on both axes; positive z rises
+ * out of the floor toward the viewer. Returns [sx, sy] suitable for an SVG
+ * viewBox of 220 × 130. */
+function projectIso(x: number, y: number, z: number): [number, number] {
+  // Center the floor around (50, 50) so nodes spread evenly
+  const cx = x - 50;
+  const cy = y - 50;
+  const sx = 110 + (cx - cy) * 0.85;
+  const sy = 90 + (cx + cy) * 0.42 - z;
+  return [sx, sy];
+}
+
+/** Draws a 3D pillar (isometric box) representing a node, with a glowing
+ * top cap and a base shadow ring. Pillar height is driven by `node.load`. */
+function IsoPillar({ node, snapshot }: { node: City3DNode; snapshot?: EnvironmentSnapshot }) {
+  const seed = snapshot?.tick ?? 0;
+  const heightUnits = 6 + (node.load / 100) * 32;
+  const pulse = 1 + Math.sin((seed + node.x) / 4) * 0.08;
+  const baseHalf = 3.2;
+  // Bottom-floor corners
+  const a0 = projectIso(node.x - baseHalf, node.y - baseHalf, 0);
+  const b0 = projectIso(node.x + baseHalf, node.y - baseHalf, 0);
+  const c0 = projectIso(node.x + baseHalf, node.y + baseHalf, 0);
+  const d0 = projectIso(node.x - baseHalf, node.y + baseHalf, 0);
+  // Top corners
+  const a1 = projectIso(node.x - baseHalf, node.y - baseHalf, heightUnits);
+  const b1 = projectIso(node.x + baseHalf, node.y - baseHalf, heightUnits);
+  const c1 = projectIso(node.x + baseHalf, node.y + baseHalf, heightUnits);
+  const d1 = projectIso(node.x - baseHalf, node.y + baseHalf, heightUnits);
+  // Center top for label
+  const top = projectIso(node.x, node.y, heightUnits);
+  const base = projectIso(node.x, node.y, 0);
+  const fillBase = node.kind === 'storage' ? 'var(--theme-warn)' : node.kind === 'control' ? 'var(--theme-accent-2)' : node.kind === 'edge' ? 'var(--theme-good)' : node.kind === 'vcluster' ? 'var(--theme-channel-gitops)' : 'var(--theme-accent)';
+  return (
+    <g className={`iso-pillar kind-${node.kind} status-${node.status}`}>
+      {/* Right face */}
+      <polygon points={`${b0[0]},${b0[1]} ${c0[0]},${c0[1]} ${c1[0]},${c1[1]} ${b1[0]},${b1[1]}`} fill={fillBase} fillOpacity="0.18" stroke={fillBase} strokeWidth="0.25" strokeOpacity="0.6" />
+      {/* Front face */}
+      <polygon points={`${a0[0]},${a0[1]} ${b0[0]},${b0[1]} ${b1[0]},${b1[1]} ${a1[0]},${a1[1]}`} fill={fillBase} fillOpacity="0.32" stroke={fillBase} strokeWidth="0.25" strokeOpacity="0.85" />
+      {/* Left face (slightly hidden) */}
+      <polygon points={`${a0[0]},${a0[1]} ${d0[0]},${d0[1]} ${d1[0]},${d1[1]} ${a1[0]},${a1[1]}`} fill={fillBase} fillOpacity="0.1" stroke={fillBase} strokeWidth="0.2" strokeOpacity="0.4" />
+      {/* Top cap */}
+      <polygon points={`${a1[0]},${a1[1]} ${b1[0]},${b1[1]} ${c1[0]},${c1[1]} ${d1[0]},${d1[1]}`} fill={fillBase} fillOpacity="0.7" stroke={fillBase} strokeWidth="0.4" style={{ filter: `drop-shadow(0 0 3px ${fillBase}) drop-shadow(0 0 8px ${fillBase})` }} />
+      {/* Vertical light beam emerging from the top */}
+      <line x1={top[0]} y1={top[1]} x2={top[0]} y2={top[1] - 8 * pulse} stroke={fillBase} strokeWidth="0.6" opacity="0.7" style={{ filter: `drop-shadow(0 0 3px ${fillBase})` }} />
+      <circle cx={top[0]} cy={top[1] - 8 * pulse} r="0.7" fill={fillBase} style={{ filter: `drop-shadow(0 0 3px ${fillBase})` }} />
+      {/* Base ripple ring */}
+      <ellipse cx={base[0]} cy={base[1]} rx={baseHalf * 1.6} ry={baseHalf * 0.8} fill="none" stroke={fillBase} strokeWidth="0.3" opacity="0.7">
+        <animate attributeName="rx" values={`${baseHalf * 1.6};${baseHalf * 3.2};${baseHalf * 1.6}`} dur="3s" repeatCount="indefinite" begin={`${node.x * 0.04}s`} />
+        <animate attributeName="ry" values={`${baseHalf * 0.8};${baseHalf * 1.6};${baseHalf * 0.8}`} dur="3s" repeatCount="indefinite" begin={`${node.x * 0.04}s`} />
+        <animate attributeName="opacity" values="0.7;0;0.7" dur="3s" repeatCount="indefinite" begin={`${node.x * 0.04}s`} />
+      </ellipse>
+      {/* Top label */}
+      <text x={top[0]} y={top[1] - 11} className="iso-node-label" textAnchor="middle">{node.label}</text>
+      <text x={top[0]} y={top[1] - 7} className="iso-node-load" textAnchor="middle">{node.load}%</text>
+    </g>
+  );
+}
+
+/** 3D isometric cluster map — replaces the flat 2D RouteMap with a
+ * city-skyline-style floor of glowing pillars whose heights track each
+ * node's activity. Routes flow as glowing light particles along the floor
+ * between pillars, with periodic activity ripples and a central globe. */
+export function Cluster3DMap({ nodes, edges, snapshot, height = 360 }: Cluster3DMapProps) {
+  const map = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const seed = snapshot?.tick ?? 0;
+
+  // Sort pillars back-to-front so closer pillars overlap distant ones
+  const sortedNodes = useMemo(() => [...nodes].sort((a, b) => a.x + a.y - (b.x + b.y)), [nodes]);
+
+  // Pre-compute floor grid lines
+  const gridLines: { x1: number; y1: number; x2: number; y2: number; major: boolean }[] = useMemo(() => {
+    const lines: { x1: number; y1: number; x2: number; y2: number; major: boolean }[] = [];
+    for (let i = 0; i <= 10; i += 1) {
+      const t = i * 10;
+      const major = i % 5 === 0;
+      // X-direction (constant y)
+      const a = projectIso(0, t, 0);
+      const b = projectIso(100, t, 0);
+      lines.push({ x1: a[0], y1: a[1], x2: b[0], y2: b[1], major });
+      // Y-direction (constant x)
+      const c = projectIso(t, 0, 0);
+      const d = projectIso(t, 100, 0);
+      lines.push({ x1: c[0], y1: c[1], x2: d[0], y2: d[1], major });
+    }
+    return lines;
+  }, []);
+
+  // Compute connection arcs along the floor
+  const connections = useMemo(() => {
+    return edges
+      .map((edge) => {
+        const a = map.get(edge.from);
+        const b = map.get(edge.to);
+        if (!a || !b) return null;
+        const start = projectIso(a.x, a.y, 0);
+        const end = projectIso(b.x, b.y, 0);
+        // Add a slight upward arc for the curve
+        const midX = (a.x + b.x) / 2;
+        const midY = (a.y + b.y) / 2;
+        const mid = projectIso(midX, midY, 4);
+        const path = `M${start[0]} ${start[1]} Q ${mid[0]} ${mid[1]} ${end[0]} ${end[1]}`;
+        return { ...edge, path, start, end };
+      })
+      .filter((edge): edge is NonNullable<typeof edge> => edge !== null);
+  }, [edges, map]);
+
+  // Central globe position (roughly center of floor)
+  const globeCenter = projectIso(50, 50, 18);
+
+  return (
+    <div className="cluster-3d-map" style={{ height }}>
+      <svg viewBox="0 0 220 130" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <radialGradient id="iso-floor-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="var(--theme-accent-soft)" stopOpacity="0.55" />
+            <stop offset="60%" stopColor="var(--theme-accent-soft)" stopOpacity="0.05" />
+            <stop offset="100%" stopColor="var(--theme-accent-soft)" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="iso-horizon" x1="0%" x2="0%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="var(--theme-accent-2)" stopOpacity="0.1" />
+            <stop offset="50%" stopColor="var(--theme-warn)" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="var(--theme-accent)" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="iso-globe" x1="0%" x2="100%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="var(--theme-accent-2)" />
+            <stop offset="50%" stopColor="var(--theme-accent)" />
+            <stop offset="100%" stopColor="var(--theme-warn)" />
+          </linearGradient>
+        </defs>
+        {/* Sky horizon glow (warm amber band like the reference image) */}
+        <rect x="0" y="0" width="220" height="60" fill="url(#iso-horizon)" />
+        {/* Floor radial highlight */}
+        <ellipse cx="110" cy="90" rx="100" ry="40" fill="url(#iso-floor-glow)" />
+        {/* Floor grid */}
+        {gridLines.map((line, idx) => (
+          <line
+            key={idx}
+            x1={line.x1}
+            y1={line.y1}
+            x2={line.x2}
+            y2={line.y2}
+            stroke="var(--theme-grid)"
+            strokeWidth={line.major ? 0.35 : 0.18}
+            opacity={line.major ? 0.7 : 0.45}
+          />
+        ))}
+        {/* Floor edge box */}
+        {(() => {
+          const c1 = projectIso(0, 0, 0);
+          const c2 = projectIso(100, 0, 0);
+          const c3 = projectIso(100, 100, 0);
+          const c4 = projectIso(0, 100, 0);
+          return (
+            <polygon points={`${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${c3[0]},${c3[1]} ${c4[0]},${c4[1]}`} fill="none" stroke="var(--theme-accent)" strokeWidth="0.4" opacity="0.7" />
+          );
+        })()}
+        {/* Connection arcs along the floor */}
+        {connections.map((edge, idx) => {
+          const color = `var(--theme-channel-${edge.channel})`;
+          return (
+            <g key={`${edge.from}-${edge.to}-${idx}`} className={`iso-edge channel-${edge.channel}`}>
+              <path d={edge.path} stroke={color} strokeWidth="0.6" fill="none" opacity="0.35" />
+              <path
+                d={edge.path}
+                stroke={color}
+                strokeWidth="0.7"
+                fill="none"
+                strokeDasharray="2 4"
+                style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 5px ${color})` }}
+              >
+                <animate attributeName="stroke-dashoffset" values="0;-12" dur={`${3 + (idx % 3)}s`} repeatCount="indefinite" />
+              </path>
+              <circle r="0.7" fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }}>
+                <animateMotion dur={`${4 + (idx % 4)}s`} repeatCount="indefinite" path={edge.path} begin={`${idx * 0.3}s`} />
+              </circle>
+              <circle r="0.5" fill={color} opacity="0.6">
+                <animateMotion dur={`${4 + (idx % 4)}s`} repeatCount="indefinite" path={edge.path} begin={`${idx * 0.3 + 0.6}s`} />
+              </circle>
+            </g>
+          );
+        })}
+        {/* Central rotating wireframe globe — floats above the floor */}
+        <g className="iso-globe" transform={`translate(${globeCenter[0]} ${globeCenter[1]})`}>
+          <circle r="6" fill="rgba(0,0,0,0.4)" stroke="url(#iso-globe)" strokeWidth="0.4" />
+          <ellipse cx="0" cy="0" rx="6" ry="2.4" fill="none" stroke="var(--theme-accent)" strokeWidth="0.3" opacity="0.8">
+            <animateTransform attributeName="transform" type="rotate" values="0;360" dur="14s" repeatCount="indefinite" />
+          </ellipse>
+          <ellipse cx="0" cy="0" rx="2.4" ry="6" fill="none" stroke="var(--theme-accent-2)" strokeWidth="0.3" opacity="0.7">
+            <animateTransform attributeName="transform" type="rotate" values="360;0" dur="18s" repeatCount="indefinite" />
+          </ellipse>
+          <ellipse cx="0" cy="0" rx="5" ry="5" fill="none" stroke="var(--theme-warn)" strokeWidth="0.25" opacity="0.4">
+            <animate attributeName="rx" values="4;6;4" dur="3s" repeatCount="indefinite" />
+            <animate attributeName="ry" values="6;4;6" dur="3s" repeatCount="indefinite" />
+          </ellipse>
+          {/* Twinkle dots */}
+          {Array.from({ length: 7 }).map((_, idx) => {
+            const a = (idx / 7) * Math.PI * 2 + seed * 0.01;
+            return (
+              <circle key={idx} cx={Math.cos(a) * 5.5} cy={Math.sin(a) * 2.2} r="0.4" fill="var(--theme-accent)" opacity={0.6 + Math.sin(seed / 3 + idx) * 0.4}>
+                <animate attributeName="opacity" values="0.3;1;0.3" dur={`${2 + idx * 0.3}s`} repeatCount="indefinite" />
+              </circle>
+            );
+          })}
+          <text x="0" y="-9" className="iso-globe-label" textAnchor="middle">CLUSTER CORE</text>
+        </g>
+        {/* Pillars */}
+        {sortedNodes.map((node) => (
+          <IsoPillar key={node.id} node={node} snapshot={snapshot} />
+        ))}
+        {/* Sweep light at the front */}
+        <line x1="20" y1="120" x2="200" y2="120" stroke="var(--theme-accent)" strokeWidth="0.6" opacity="0.6">
+          <animate attributeName="opacity" values="0.2;0.9;0.2" dur="3s" repeatCount="indefinite" />
+        </line>
+      </svg>
+      <div className="cluster-3d-legend">
+        <span className="iso-leg kind-control"><i />control-plane</span>
+        <span className="iso-leg kind-edge"><i />edge</span>
+        <span className="iso-leg kind-compute"><i />compute</span>
+        <span className="iso-leg kind-storage"><i />storage</span>
+        <span className="iso-leg kind-vcluster"><i />vcluster</span>
+        <span className="iso-leg-meta">tick #{snapshot?.tick ?? 0} · {nodes.length} nodes · {edges.length} routes</span>
+      </div>
+    </div>
+  );
+}
+
 /* -------------------- Live event feed (terminal-style log) -------------------- */
 
 interface FeedItem {
