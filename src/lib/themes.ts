@@ -63,9 +63,12 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     tagline: 'Monochrome tactical radar with lime targeting',
     visualStyle: 'black ops scopes, white etched lines, lime radar sweeps',
     swatches: ['#030303', '#151515', '#f8fafc', '#9ca3af', '#a3ff12'],
+  },
+  {
     id: 'holo-quantum',
     name: 'Holo Quantum',
     tagline: 'Violet holographic mesh with cyan accents',
+    visualStyle: 'violet holographic mesh, quantum lattice, cyan edge glow',
     swatches: ['#0a0418', '#1d0a3a', '#7c3bff', '#b86bff', '#36ecff'],
   },
   {
