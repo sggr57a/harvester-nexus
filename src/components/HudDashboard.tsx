@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react';
 import { buildHudTelemetry } from '../lib/hudTelemetry';
 import { getTheme, THEME_CATALOG, type ThemeId } from '../lib/themes';
+import { useLiveTelemetry } from '../lib/liveTelemetry';
+import { AdvancedVisualizationGrid } from './dashboards/AdvancedViz';
 
 const telemetry = buildHudTelemetry();
 const linePoints = telemetry.lineSeries
@@ -19,6 +21,7 @@ interface HudDashboardProps {
 
 export function HudDashboard({ activeTheme }: HudDashboardProps) {
   const activeThemeDefinition = getTheme(activeTheme);
+  const liveSnapshot = useLiveTelemetry(1600);
 
   return (
     <section className="hud-dashboard" aria-label="Animated Nexus cluster dashboard mockup">
@@ -366,6 +369,8 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
           ))}
         </article>
       </div>
+
+      <AdvancedVisualizationGrid telemetry={liveSnapshot} />
     </section>
   );
 }
