@@ -2,8 +2,7 @@ export type ThemeId =
   | 'route-grid'
   | 'arctic-hologram'
   | 'arctic-command'
-  | 'ice-spectrum'
-  | 'plasma-vortex';
+  | 'ice-spectrum';
 
 export interface ThemeDefinition {
   id: ThemeId;
@@ -42,13 +41,6 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     tagline: 'Glacial cobalt panes with prismatic spectrum',
     visualStyle: 'glacial cobalt panes, prismatic spectrum bloom, white-hot accents',
     swatches: ['#02060e', '#06121f', '#8be9ff', '#ffffff', '#b6c8ff'],
-  },
-  {
-    id: 'plasma-vortex',
-    name: 'Plasma Vortex',
-    tagline: 'Magenta-electric plasma over deep void',
-    visualStyle: 'magenta plasma rings, electric cyan accents, deep void backplate',
-    swatches: ['#020108', '#0b0218', '#ff4af7', '#ffd166', '#5bf2ff'],
   },
 ];
 
