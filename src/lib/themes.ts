@@ -1,4 +1,4 @@
-export type ThemeId = 'route-grid' | 'emerald-console' | 'solar-flare';
+export type ThemeId = 'route-grid' | 'emerald-console' | 'solar-flare' | 'void-protocol' | 'arctic-command';
 
 export interface ThemeDefinition {
   id: ThemeId;
@@ -26,12 +26,30 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     tagline: 'Charcoal blueprint with amber contours',
     swatches: ['#0d0a06', '#2a1c08', '#ff8c2a', '#ffd166', '#ffeeb0'],
   },
+  {
+    id: 'void-protocol',
+    name: 'Void Protocol',
+    tagline: 'Neon violet cyberpunk on absolute black',
+    swatches: ['#060010', '#130028', '#7c3aed', '#c084fc', '#e9d5ff'],
+  },
+  {
+    id: 'arctic-command',
+    name: 'Arctic Command',
+    tagline: 'Ice-blue military command center on dark slate',
+    swatches: ['#040d12', '#081c28', '#0ea5e9', '#7dd3fc', '#e0f2fe'],
+  },
 ];
 
 export const DEFAULT_THEME_ID: ThemeId = 'route-grid';
 
 export function isThemeId(value: string | null | undefined): value is ThemeId {
-  return value === 'route-grid' || value === 'emerald-console' || value === 'solar-flare';
+  return (
+    value === 'route-grid' ||
+    value === 'emerald-console' ||
+    value === 'solar-flare' ||
+    value === 'void-protocol' ||
+    value === 'arctic-command'
+  );
 }
 
 export function getTheme(id: ThemeId): ThemeDefinition {

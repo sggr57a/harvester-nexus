@@ -109,6 +109,23 @@ function App() {
     );
   }
 
+  const NAV_ITEMS: { id: CockpitView; label: string; sig: string; group: string }[] = [
+    { id: 'dashboard', label: 'HUD Dashboard', sig: 'TX_001', group: 'MONITOR' },
+    { id: 'networking', label: 'Networking', sig: 'NET_02', group: 'MONITOR' },
+    { id: 'storage', label: 'Storage', sig: 'CSI_IO', group: 'MONITOR' },
+    { id: 'machines', label: 'Machines', sig: 'VM_LXC', group: 'MONITOR' },
+    { id: 'processor-memory', label: 'Processor & Memory', sig: 'CPU_MEM', group: 'MONITOR' },
+    { id: 'poly-compute', label: 'Poly-Compute', sig: 'PCE_04', group: 'COMPUTE' },
+    { id: 'acceleration', label: 'Acceleration', sig: 'ACCEL', group: 'COMPUTE' },
+    { id: 'operations', label: 'Operations', sig: 'OPS_CM', group: 'COMPUTE' },
+    { id: 'resource-monitoring', label: 'Resource Monitor', sig: 'RES_WK', group: 'COMPUTE' },
+    { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
+    { id: 'machine', label: 'Machine Wizard', sig: 'MACH_W', group: 'DEPLOY' },
+    { id: 'wizard', label: 'Manifest Wizard', sig: 'MFT_WZ', group: 'DEPLOY' },
+  ];
+
+  const navGroups = ['MONITOR', 'COMPUTE', 'DEPLOY'] as const;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -117,73 +134,47 @@ function App() {
           <div className="brand-wordmark">
             <h1>Harvester</h1>
             <span className="brand-sub">Nexus</span>
-            <p className="brand-tagline">Dark-mode workload & storage manifest generator</p>
+            <p className="brand-tagline">HCI cockpit · poly-compute · storage fabric</p>
           </div>
         </div>
-        <div className="step-list">
-          <button className={cockpitView === 'dashboard' ? 'active' : ''} onClick={() => setCockpitView('dashboard')}>
-            HUD Dashboard
-          </button>
-          <button className={cockpitView === 'networking' ? 'active' : ''} onClick={() => setCockpitView('networking')}>
-            Networking
-          </button>
-          <button className={cockpitView === 'storage' ? 'active' : ''} onClick={() => setCockpitView('storage')}>
-            Storage
-          </button>
-          <button className={cockpitView === 'machines' ? 'active' : ''} onClick={() => setCockpitView('machines')}>
-            Machines &amp; Containers
-          </button>
-          <button className={cockpitView === 'processor-memory' ? 'active' : ''} onClick={() => setCockpitView('processor-memory')}>
-            Processor &amp; Memory
-          </button>
-          <button className={cockpitView === 'poly-compute' ? 'active' : ''} onClick={() => setCockpitView('poly-compute')}>
-            Poly-Compute Engine
-          </button>
-          <button className={cockpitView === 'acceleration' ? 'active' : ''} onClick={() => setCockpitView('acceleration')}>
-            Acceleration
-          </button>
-          <button className={cockpitView === 'operations' ? 'active' : ''} onClick={() => setCockpitView('operations')}>
-            Operations &amp; Compliance
-          </button>
-          <button className={cockpitView === 'resource-monitoring' ? 'active' : ''} onClick={() => setCockpitView('resource-monitoring')}>
-            Resource Monitoring
-          </button>
-          <button className={cockpitView === 'cluster' ? 'active' : ''} onClick={() => setCockpitView('cluster')}>
-            Cluster Console
-          </button>
-          <button className={cockpitView === 'machine' ? 'active' : ''} onClick={() => setCockpitView('machine')}>
-            Machine Wizard
-          </button>
-          <button className={cockpitView === 'wizard' ? 'active' : ''} onClick={() => setCockpitView('wizard')}>
-            Manifest Wizard
-          </button>
-        </div>
+
+        <nav className="cockpit-nav" aria-label="Cockpit views">
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group}>
+              <span className="nav-group-label">{group}</span>
+              {NAV_ITEMS.filter((item) => item.group === group).map((item) => (
+                <button
+                  key={item.id}
+                  className={`nav-item ${cockpitView === item.id ? 'active' : ''}`}
+                  onClick={() => setCockpitView(item.id)}
+                  title={item.label}
+                >
+                  <span className="nav-sig">{item.sig}</span>
+                  <span className="nav-label">{item.label}</span>
+                  {cockpitView === item.id && <span className="nav-live-dot" />}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
         <ThemePicker active={theme} onSelect={setTheme} />
-        <div className="step-list manifest-step-list">
-          <button className={step === 1 ? 'active' : ''} onClick={() => setStep(1)}>
-            1. Workload
-          </button>
-          <button className={step === 2 ? 'active' : ''} onClick={() => setStep(2)}>
-            2. Storage
-          </button>
-          <button className={step === 3 ? 'active' : ''} onClick={() => setStep(3)}>
-            3. Networking
-          </button>
-          <button className={step === 4 ? 'active' : ''} onClick={() => setStep(4)}>
-            4. Security
-          </button>
-          <button className={step === 5 ? 'active' : ''} onClick={() => setStep(5)}>
-            5. Monitoring
-          </button>
-          <button className={step === 6 ? 'active' : ''} onClick={() => setStep(6)}>
-            6. GitOps
-          </button>
-          <button className={step === 7 ? 'active' : ''} onClick={() => setStep(7)}>
-            7. Review
-          </button>
+
+        <div className="wizard-step-rail">
+          <span className="nav-group-label">MANIFEST STEPS</span>
+          {[1,2,3,4,5,6,7].map((s, i) => {
+            const labels = ['Workload','Storage','Networking','Security','Monitoring','GitOps','Review'];
+            return (
+              <button key={s} className={`step-rail-btn ${step === s ? 'active' : ''}`} onClick={() => setStep(s)}>
+                <span className="step-num">{s}</span>
+                <span>{labels[i]}</span>
+              </button>
+            );
+          })}
         </div>
+
         <div className="storage-summary">
-          <h2>Storage template</h2>
+          <span className="nav-group-label">STORAGE TEMPLATE</span>
           <p>{STORAGE_TEMPLATES[config.storage.storageType]}</p>
         </div>
       </aside>

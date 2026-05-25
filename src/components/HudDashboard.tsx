@@ -6,6 +6,93 @@ const linePoints = telemetry.lineSeries
   .map((value, index) => `${(index / (telemetry.lineSeries.length - 1)) * 100},${100 - value}`)
   .join(' ');
 
+const areaPoints =
+  `0,100 ` +
+  telemetry.lineSeries
+    .map((value, index) => `${(index / (telemetry.lineSeries.length - 1)) * 100},${100 - value}`)
+    .join(' ') +
+  ` 100,100`;
+
+/**
+ * SVG radial gauge component.
+ * Uses CSS vars --theme-accent for stroke color via className.
+ */
+function RadialGauge({
+  value,
+  label,
+  size = 80,
+  strokeWidth = 6,
+  status = 'stable',
+}: {
+  value: number;
+  label: string;
+  size?: number;
+  strokeWidth?: number;
+  status?: 'stable' | 'active' | 'surging';
+}) {
+  const r = (size - strokeWidth * 2) / 2;
+  const circ = 2 * Math.PI * r;
+  const dashoffset = circ * (1 - value / 100);
+  const cx = size / 2;
+  const cy = size / 2;
+
+  return (
+    <svg
+      className="hud-gauge-svg"
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      aria-label={`${label}: ${value}%`}
+    >
+      <circle
+        className="gauge-track"
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        strokeWidth={strokeWidth}
+        stroke="rgba(255,255,255,0.07)"
+      />
+      <circle
+        className={`gauge-fill gauge-status-${status}`}
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={dashoffset}
+        transform={`rotate(-90 ${cx} ${cy})`}
+      />
+      <text className="gauge-pct" x={cx} y={cy - 4} textAnchor="middle" fontSize={size * 0.18} fontWeight="700">
+        {value}
+      </text>
+      <text className="gauge-lbl" x={cx} y={cy + size * 0.14} textAnchor="middle" fontSize={size * 0.1}>
+        %
+      </text>
+    </svg>
+  );
+}
+
+/** Sparkline SVG strip */
+function Sparkline({ samples, width = 120, height = 36 }: { samples: number[]; width?: number; height?: number }) {
+  const max = Math.max(...samples, 1);
+  const pts = samples
+    .map((v, i) => `${(i / (samples.length - 1)) * width},${height - (v / max) * (height - 4) - 2}`)
+    .join(' ');
+  const area = `0,${height} ${pts} ${width},${height}`;
+
+  return (
+    <div className="sparkline-wrap" style={{ width, height }}>
+      <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} preserveAspectRatio="none">
+        <polygon points={area} opacity="0.18" />
+        <polyline points={pts} fill="none" strokeWidth="1.5" />
+      </svg>
+    </div>
+  );
+}
+
 export function HudDashboard() {
   return (
     <section className="hud-dashboard" aria-label="Animated Nexus cluster dashboard mockup">
@@ -23,20 +110,30 @@ export function HudDashboard() {
         ))}
       </div>
 
+      {/* Hero header */}
       <div className="hud-hero hud-panel">
         <div>
           <span className="hud-kicker">NEXUS // HARVESTER CONTROL</span>
           <h2>Live cluster command surface</h2>
           <p>
-            Animated telemetry mockup for validation, apply readiness, storage health, service mesh, and multi-cluster targeting.
+            Animated telemetry mockup · validation · apply readiness · storage health · mesh targeting
           </p>
         </div>
-        <div className="hud-status-pill">
-          <span className="hud-live-dot" />
-          DEMO STREAM ACTIVE
+        <div className="hud-hero-right">
+          <div className="hud-status-pill">
+            <span className="hud-live-dot" />
+            DEMO STREAM ACTIVE
+          </div>
+          <div className="hud-cluster-stats">
+            <div><span>NODES</span><strong>4</strong></div>
+            <div><span>PODS</span><strong>38</strong></div>
+            <div><span>VMS</span><strong>12</strong></div>
+            <div><span>PVCs</span><strong>24</strong></div>
+          </div>
         </div>
       </div>
 
+      {/* Nav controls */}
       <div className="hud-reference-controls hud-panel">
         <nav className="hud-segment-menu hud-drawn-menu" aria-label="HUD dashboard menu modes">
           {telemetry.navigationTabs.map((tab, index) => (
@@ -56,6 +153,7 @@ export function HudDashboard() {
         </label>
       </div>
 
+      {/* Widget drawer */}
       <div className="hud-widget-drawer hud-panel">
         {telemetry.graphWidgets.map((widget, index) => (
           <article className={`hud-drawn-widget widget-${widget.renderMode}`} key={widget.label} style={{ animationDelay: `${widget.drawDelayMs}ms` }}>
@@ -69,6 +167,14 @@ export function HudDashboard() {
                   <i className={sample ? 'is-lit' : ''} key={`${widget.label}-${sampleIndex}`} />
                 ))}
               </div>
+            ) : widget.renderMode === 'radial' ? (
+              <div className="hud-widget-radial-row">
+                {widget.samples.slice(0, 4).map((sample, sampleIndex) => (
+                  <div key={`${widget.label}-${sampleIndex}`} className="hud-mini-gauge">
+                    <RadialGauge value={sample} label={widget.label} size={48} strokeWidth={4} />
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="hud-widget-graph">
                 {widget.samples.map((sample, sampleIndex) => (
@@ -80,6 +186,7 @@ export function HudDashboard() {
         ))}
       </div>
 
+      {/* Control surfaces */}
       <div className="hud-control-surfaces hud-panel" aria-label="Animated expandable dashboard controls">
         {telemetry.controlSurfaces.map((surface, index) => (
           <details className={`hud-fold-control fold-${surface.animation}`} key={surface.label} open={index < 2}>
@@ -99,6 +206,7 @@ export function HudDashboard() {
         ))}
       </div>
 
+      {/* Status rails + radio matrix */}
       <div className="banner-lab-strip hud-panel">
         <div className="banner-status-rails">
           {telemetry.statusRails.map((rail) => (
@@ -126,25 +234,22 @@ export function HudDashboard() {
         </div>
       </div>
 
-      <div className="hud-metric-grid">
+      {/* Radial gauge metric grid */}
+      <div className="hud-gauge-grid">
         {telemetry.metrics.map((metric) => (
-          <article className={`hud-panel hud-metric hud-status-${metric.status}`} key={metric.label}>
-            <div className="hud-metric-header">
-              <span>{metric.label}</span>
-              <strong>{metric.trend}</strong>
-            </div>
-            <div className="hud-metric-value">
-              {metric.value}
-              <span>{metric.unit}</span>
-            </div>
-            <div className="hud-meter" aria-hidden="true">
-              <span style={{ width: `${metric.value}%` }} />
+          <article className={`hud-panel hud-gauge-card hud-status-${metric.status}`} key={metric.label}>
+            <RadialGauge value={metric.value} label={metric.label} size={72} strokeWidth={5} status={metric.status} />
+            <div className="hud-gauge-info">
+              <span className="hud-gauge-label">{metric.label}</span>
+              <strong className="hud-gauge-trend">{metric.trend}</strong>
             </div>
           </article>
         ))}
       </div>
 
+      {/* Visual grid */}
       <div className="hud-visual-grid">
+        {/* Radar */}
         <article className="hud-panel hud-radar">
           <div className="hud-panel-title">
             <span>Topology pulse</span>
@@ -171,6 +276,7 @@ export function HudDashboard() {
           </div>
         </article>
 
+        {/* Storage rings */}
         <article className="hud-panel hud-storage">
           <div className="hud-panel-title">
             <span>CSI storage rings</span>
@@ -188,6 +294,7 @@ export function HudDashboard() {
           </div>
         </article>
 
+        {/* Throughput bars */}
         <article className="hud-panel hud-throughput">
           <div className="hud-panel-title">
             <span>Manifest apply wave</span>
@@ -206,18 +313,14 @@ export function HudDashboard() {
           </div>
         </article>
 
+        {/* Resource waveform */}
         <article className="hud-panel hud-waveform">
           <div className="hud-panel-title">
             <span>Resource waveform</span>
             <strong>sync trace</strong>
           </div>
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <linearGradient id="hudWaveGradient" x1="0%" x2="100%">
-                <stop offset="0%" stopColor="#33f7ff" />
-                <stop offset="100%" stopColor="#75ff6a" />
-              </linearGradient>
-            </defs>
+            <polygon points={areaPoints} opacity="0.14" />
             <polyline points={linePoints} />
             {telemetry.lineSeries.map((value, index) => (
               <circle
@@ -229,8 +332,19 @@ export function HudDashboard() {
               />
             ))}
           </svg>
+          <div className="hud-sparkline-row">
+            <div>
+              <span>CPU</span>
+              <Sparkline samples={[18, 24, 46, 39, 62, 55, 71, 82, 76, 88]} width={80} height={24} />
+            </div>
+            <div>
+              <span>RAM</span>
+              <Sparkline samples={[54, 61, 58, 72, 68, 74, 81, 77, 84, 91]} width={80} height={24} />
+            </div>
+          </div>
         </article>
 
+        {/* Toggle bank */}
         <article className="hud-panel hud-toggle-bank">
           <div className="hud-panel-title">
             <span>Control toggles</span>
@@ -246,6 +360,7 @@ export function HudDashboard() {
           </div>
         </article>
 
+        {/* Event feed */}
         <article className="hud-panel hud-feed">
           <div className="hud-panel-title">
             <span>Event stream</span>
@@ -261,6 +376,7 @@ export function HudDashboard() {
           </ul>
         </article>
 
+        {/* Scan windows */}
         <article className="hud-panel banner-scan-stack">
           <div className="hud-panel-title">
             <span>Scan windows</span>
