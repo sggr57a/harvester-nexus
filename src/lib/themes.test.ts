@@ -6,11 +6,6 @@ describe('theme catalog', () => {
     expect(THEME_CATALOG).toHaveLength(4);
     expect(THEME_CATALOG.map((theme) => theme.id)).toEqual([
       'route-grid',
-  it('offers a curated palette of cool/amber visual styles', () => {
-    expect(THEME_CATALOG).toHaveLength(4);
-    expect(THEME_CATALOG.map((theme) => theme.id)).toEqual([
-      'route-grid',
-      'solar-flare',
       'arctic-hologram',
       'arctic-command',
       'ice-spectrum',
@@ -21,21 +16,21 @@ describe('theme catalog', () => {
 
   it('validates and resolves only catalog-backed theme ids', () => {
     expect(isThemeId(DEFAULT_THEME_ID)).toBe(true);
-    expect(isThemeId('ice-spectrum')).toBe(true);
+    expect(isThemeId('route-grid')).toBe(true);
     expect(isThemeId('arctic-hologram')).toBe(true);
+    expect(isThemeId('arctic-command')).toBe(true);
+    expect(isThemeId('ice-spectrum')).toBe(true);
+    // Removed themes (per explicit user instructions earlier in the branch)
+    expect(isThemeId('solar-flare')).toBe(false);
     expect(isThemeId('plasma-vortex')).toBe(false);
     expect(isThemeId('emerald-console')).toBe(false);
     expect(isThemeId('nightwatch-crimson')).toBe(false);
     expect(isThemeId('tactical-nvg')).toBe(false);
-    expect(isThemeId('unknown-theme')).toBe(false);
-    expect(getTheme('arctic-hologram').name).toBe('Arctic Hologram');
-    expect(isThemeId('arctic-hologram')).toBe(true);
-    expect(isThemeId('solar-flare')).toBe(true);
-    expect(isThemeId('emerald-console')).toBe(false);
     expect(isThemeId('violet-nebula')).toBe(false);
     expect(isThemeId('noir-radar')).toBe(false);
     expect(isThemeId('void-protocol')).toBe(false);
     expect(isThemeId('unknown-theme')).toBe(false);
     expect(getTheme('arctic-command').name).toBe('Arctic Command');
+    expect(getTheme('arctic-hologram').name).toBe('Arctic Hologram');
   });
 });
