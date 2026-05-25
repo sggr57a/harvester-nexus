@@ -15,6 +15,7 @@ import {
   ApiRateGauge,
   Cluster3DMap,
   DialGauge,
+  FlowDiagram,
   GitOpsSyncBank,
   GpuMemoryGrid,
   HorizontalBarCluster,
@@ -24,6 +25,7 @@ import {
   PercentileBar,
   RingMeterCluster,
   SparklineGrid,
+  StackedAreaChart,
   StatGrid,
   StatReadouts,
   VerticalMeterBank,
@@ -209,6 +211,49 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
     [],
   );
 
+  // Stacked area: workload mix over a rolling window
+  const stackedAreaSeries = useMemo(() => {
+    const seed = telemetry?.tick ?? 0;
+    const len = 32;
+    const buildSeries = (base: number, amp: number, phase: number) =>
+      Array.from({ length: len }, (_, i) => Math.max(2, base + Math.sin((i + seed + phase) / 4) * amp + Math.random() * 4));
+    return [
+      { label: 'KubeVirt VMs', values: buildSeries(34, 8, 0), color: 'var(--theme-accent)' },
+      { label: 'LXC system', values: buildSeries(22, 6, 3), color: 'var(--theme-accent-2)' },
+      { label: 'K8s pods', values: buildSeries(18, 5, 7), color: 'var(--theme-good)' },
+      { label: 'Docker', values: buildSeries(8, 3, 11), color: 'var(--theme-warn)' },
+    ];
+  }, [telemetry]);
+
+  // Sankey: source-VLAN → destination-service flow
+  const flowNodes = useMemo(
+    () => [
+      { id: 'mgmt', label: 'mgmt-bo', value: 22, side: 'left' as const, color: 'var(--theme-accent-2)' },
+      { id: 'workload', label: 'workload-bo', value: 86, side: 'left' as const, color: 'var(--theme-accent)' },
+      { id: 'storage-bo', label: 'storage-bo', value: 64, side: 'left' as const, color: 'var(--theme-warn)' },
+      { id: 'rdma', label: 'rdma-bo', value: 48, side: 'left' as const, color: 'var(--theme-good)' },
+      { id: 'payments', label: 'payments-api', value: 64, side: 'right' as const },
+      { id: 'ledger', label: 'ledger-svc', value: 38, side: 'right' as const },
+      { id: 'fraud', label: 'fraud-detect', value: 42, side: 'right' as const },
+      { id: 'analytics', label: 'analytics-vm', value: 56, side: 'right' as const },
+      { id: 'argo', label: 'argocd', value: 20, side: 'right' as const },
+    ],
+    [],
+  );
+  const flowLinks = useMemo(
+    () => [
+      { from: 'mgmt', to: 'argo', value: 18 },
+      { from: 'workload', to: 'payments', value: 42 },
+      { from: 'workload', to: 'fraud', value: 30 },
+      { from: 'workload', to: 'analytics', value: 22 },
+      { from: 'storage-bo', to: 'analytics', value: 28 },
+      { from: 'storage-bo', to: 'ledger', value: 26 },
+      { from: 'rdma', to: 'payments', value: 20 },
+      { from: 'rdma', to: 'analytics', value: 16 },
+    ],
+    [],
+  );
+
   return (
     <section className="dash dash-mission" aria-label="Mission Control overview dashboard">
       <header className="dash-header">
@@ -344,6 +389,45 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           <HorizontalBarCluster bars={passThroughBars} scale={100} />
         </article>
 
+        <article className="dash-panel mission-stack">
+          <WidgetTitle kicker="STACK" title="Workload mix · last 32 ticks" trailing={<span className="osc-readout">vm + lxc + pod + docker</span>} />
+          <StackedAreaChart
+            height={140}
+            series={[
+              { label: 'pods', values: cpuSeries.map((v, i) => 220 + Math.sin((i + (telemetry?.tick ?? 0)) / 3) * 14 + (v / 5)), color: 'var(--theme-accent)' },
+              { label: 'lxc', values: cpuSeries.map((_, i) => 90 + Math.sin((i + (telemetry?.tick ?? 0)) / 4) * 8), color: 'var(--theme-accent-2)' },
+              { label: 'vms', values: cpuSeries.map((_, i) => 46 + Math.sin((i + (telemetry?.tick ?? 0)) / 5) * 4), color: 'var(--theme-good)' },
+              { label: 'docker', values: cpuSeries.map((_, i) => 18 + Math.sin((i + (telemetry?.tick ?? 0)) / 2) * 3), color: 'var(--theme-warn)' },
+            ]}
+          />
+        </article>
+
+        <article className="dash-panel mission-flow">
+          <WidgetTitle kicker="FLOW" title="VLAN → service mesh ribbons" trailing={<span className="osc-readout">Mb/s</span>} />
+          <FlowDiagram
+            height={220}
+            nodes={[
+              { id: 'vlan-mgmt', label: 'mgmt-bo', value: 220, side: 'left' },
+              { id: 'vlan-workload', label: 'workload-bo', value: 1820, side: 'left' },
+              { id: 'vlan-storage', label: 'storage-bo', value: 6420, side: 'left' },
+              { id: 'vlan-tenant-a', label: 'tenant-a', value: 410, side: 'left' },
+              { id: 'svc-payments', label: 'payments', value: 2400, side: 'right' },
+              { id: 'svc-ledger', label: 'ledger', value: 1800, side: 'right' },
+              { id: 'svc-fraud', label: 'fraud', value: 1640, side: 'right' },
+              { id: 'svc-platform', label: 'platform', value: 3030, side: 'right' },
+            ]}
+            links={[
+              { from: 'vlan-mgmt', to: 'svc-platform', value: 220 },
+              { from: 'vlan-workload', to: 'svc-payments', value: 1100 },
+              { from: 'vlan-workload', to: 'svc-fraud', value: 720 },
+              { from: 'vlan-storage', to: 'svc-ledger', value: 1800 },
+              { from: 'vlan-storage', to: 'svc-platform', value: 2810 },
+              { from: 'vlan-storage', to: 'svc-payments', value: 1300 },
+              { from: 'vlan-tenant-a', to: 'svc-fraud', value: 410 },
+            ]}
+          />
+        </article>
+
         <article className="dash-panel mission-fft">
           <WidgetTitle kicker="SPECTRUM" title="Network spectrum (DPDK)" trailing={<span className="osc-readout">64 channel FFT</span>} />
           <AnnotatedFft snapshot={telemetry} bars={64} height={160} freqLabels={['0', '125M', '250M', '500M', '1G', '2G', '4G']} />
@@ -355,6 +439,16 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           <PercentileBar label="api.payments → fraud" p50={42} p95={88} p99={142} scale={200} />
           <PercentileBar label="argocd → control-plane" p50={18} p95={36} p99={64} scale={200} />
           <PercentileBar label="prometheus → siem" p50={12} p95={28} p99={52} scale={200} />
+        </article>
+
+        <article className="dash-panel mission-stacked">
+          <WidgetTitle kicker="STACKED" title="Workload mix over time" trailing={<span className="osc-readout">VM · LXC · POD · DOCKER</span>} />
+          <StackedAreaChart series={stackedAreaSeries} height={150} />
+        </article>
+
+        <article className="dash-panel mission-flow">
+          <WidgetTitle kicker="FLOW" title="VLAN → service traffic flow" trailing={<span className="osc-readout">sankey · live</span>} />
+          <FlowDiagram nodes={flowNodes} links={flowLinks} height={210} />
         </article>
 
         <article className="dash-panel mission-stats">

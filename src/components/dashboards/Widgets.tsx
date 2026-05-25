@@ -497,6 +497,191 @@ export function RouteMap({ nodes, edges, snapshot }: RouteMapProps) {
   );
 }
 
+/* -------------------- Stacked area chart (multi-series time-series, condensed) -------------------- */
+
+interface StackedAreaSeries {
+  label: string;
+  values: number[];
+  color?: string;
+}
+
+interface StackedAreaChartProps {
+  series: StackedAreaSeries[];
+  height?: number;
+  yMax?: number;
+  xLabels?: string[];
+}
+
+/** Stacked area chart — each series adds onto the previous. Useful for
+ * showing how a total breaks down between contributors over time
+ * (workload mix, traffic by VLAN, IOPS by backend, etc.). */
+export function StackedAreaChart({ series, height = 140, yMax, xLabels }: StackedAreaChartProps) {
+  if (series.length === 0 || series[0].values.length === 0) return null;
+  const len = series[0].values.length;
+  // Compute cumulative stacks
+  const cumulative: number[][] = series.reduce<number[][]>((acc, s, idx) => {
+    const prev = acc[idx - 1];
+    acc.push(s.values.map((v, i) => v + (prev ? prev[i] : 0)));
+    return acc;
+  }, []);
+  const max = yMax ?? Math.max(...cumulative[cumulative.length - 1]);
+  const palette = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)', 'var(--theme-warn)', 'var(--theme-danger)', 'var(--theme-channel-gitops)'];
+  return (
+    <div className="stacked-area-chart" style={{ height }}>
+      <svg viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          {series.map((_, idx) => (
+            <linearGradient key={idx} id={`stack-grad-${idx}`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={series[idx].color ?? palette[idx % palette.length]} stopOpacity="0.7" />
+              <stop offset="100%" stopColor={series[idx].color ?? palette[idx % palette.length]} stopOpacity="0.1" />
+            </linearGradient>
+          ))}
+        </defs>
+        {/* axis grid */}
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <line key={idx} x1="0" y1={(idx / 4) * 100} x2="200" y2={(idx / 4) * 100} stroke="var(--theme-grid)" strokeWidth="0.3" opacity="0.5" />
+        ))}
+        {/* bottom-up stacking */}
+        {[...cumulative].reverse().map((cum, reverseIdx) => {
+          const idx = cumulative.length - 1 - reverseIdx;
+          const color = series[idx].color ?? palette[idx % palette.length];
+          const points = cum.map((v, i) => `${(i / (len - 1)) * 200},${100 - (v / max) * 100}`).join(' ');
+          return (
+            <g key={idx}>
+              <polygon points={`0,100 ${points} 200,100`} fill={`url(#stack-grad-${idx})`} stroke={color} strokeWidth="0.5" opacity="0.9" />
+            </g>
+          );
+        })}
+      </svg>
+      <div className="stacked-area-legend">
+        {series.map((s, idx) => {
+          const color = s.color ?? palette[idx % palette.length];
+          return (
+            <span key={s.label}>
+              <i style={{ background: color, boxShadow: `0 0 4px ${color}` }} />
+              {s.label}
+              <b>{s.values[s.values.length - 1].toFixed(0)}</b>
+            </span>
+          );
+        })}
+      </div>
+      {xLabels && (
+        <div className="stacked-area-xaxis">
+          {xLabels.map((label) => <span key={label}>{label}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------- Sankey-style flow widget (left → right ribbons) -------------------- */
+
+interface FlowNode {
+  id: string;
+  label: string;
+  value: number;
+  side: 'left' | 'right';
+  color?: string;
+}
+
+interface FlowLink {
+  from: string;
+  to: string;
+  value: number;
+  label?: string;
+}
+
+interface FlowDiagramProps {
+  nodes: FlowNode[];
+  links: FlowLink[];
+  height?: number;
+}
+
+/** Compact Sankey-style ribbon flow showing how units of activity flow from
+ * one set of categories (left side) to another (right side). Examples:
+ * source-VLAN → destination-service, workload-kind → backend, etc. */
+export function FlowDiagram({ nodes, links, height = 200 }: FlowDiagramProps) {
+  const leftNodes = nodes.filter((n) => n.side === 'left');
+  const rightNodes = nodes.filter((n) => n.side === 'right');
+  const totalLeft = leftNodes.reduce((sum, n) => sum + n.value, 0);
+  const totalRight = rightNodes.reduce((sum, n) => sum + n.value, 0);
+  const leftPositions = useMemo(() => {
+    let cursor = 0;
+    return leftNodes.map((n) => {
+      const heightUnits = (n.value / Math.max(totalLeft, 1)) * 100;
+      const y = cursor + heightUnits / 2;
+      cursor += heightUnits + 1;
+      return { ...n, y, h: heightUnits };
+    });
+  }, [leftNodes, totalLeft]);
+  const rightPositions = useMemo(() => {
+    let cursor = 0;
+    return rightNodes.map((n) => {
+      const heightUnits = (n.value / Math.max(totalRight, 1)) * 100;
+      const y = cursor + heightUnits / 2;
+      cursor += heightUnits + 1;
+      return { ...n, y, h: heightUnits };
+    });
+  }, [rightNodes, totalRight]);
+  const palette = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)', 'var(--theme-warn)', 'var(--theme-channel-gitops)'];
+  return (
+    <div className="flow-diagram" style={{ height }}>
+      <svg viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          {leftPositions.map((n, idx) => (
+            <linearGradient key={n.id} id={`flow-grad-${n.id}`} x1="0%" x2="100%" y1="0%" y2="0%">
+              <stop offset="0%" stopColor={n.color ?? palette[idx % palette.length]} stopOpacity="0.55" />
+              <stop offset="100%" stopColor={n.color ?? palette[idx % palette.length]} stopOpacity="0.18" />
+            </linearGradient>
+          ))}
+        </defs>
+        {/* Links */}
+        {links.map((link, idx) => {
+          const from = leftPositions.find((n) => n.id === link.from);
+          const to = rightPositions.find((n) => n.id === link.to);
+          if (!from || !to) return null;
+          const linkHeight = Math.max(0.6, (link.value / Math.max(totalLeft, 1)) * 80);
+          const yFrom = from.y;
+          const yTo = to.y;
+          const fromColor = from.color ?? palette[leftPositions.indexOf(from) % palette.length];
+          return (
+            <path
+              key={`${link.from}-${link.to}-${idx}`}
+              d={`M 22 ${yFrom - linkHeight / 2} C 100 ${yFrom - linkHeight / 2}, 100 ${yTo - linkHeight / 2}, 178 ${yTo - linkHeight / 2} L 178 ${yTo + linkHeight / 2} C 100 ${yTo + linkHeight / 2}, 100 ${yFrom + linkHeight / 2}, 22 ${yFrom + linkHeight / 2} Z`}
+              fill={`url(#flow-grad-${from.id})`}
+              opacity={0.85}
+            >
+              <animate attributeName="opacity" values="0.55;0.95;0.55" dur="3.2s" repeatCount="indefinite" begin={`${idx * 0.2}s`} />
+            </path>
+          );
+        })}
+        {/* Left node bars */}
+        {leftPositions.map((n, idx) => {
+          const color = n.color ?? palette[idx % palette.length];
+          return (
+            <g key={n.id}>
+              <rect x="18" y={n.y - n.h / 2} width="4" height={n.h} fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />
+              <text x="14" y={n.y + 1.5} textAnchor="end" className="flow-label">{n.label}</text>
+              <text x="14" y={n.y + 4.5} textAnchor="end" className="flow-value">{n.value}</text>
+            </g>
+          );
+        })}
+        {/* Right node bars */}
+        {rightPositions.map((n, idx) => {
+          const color = n.color ?? palette[idx % palette.length];
+          return (
+            <g key={n.id}>
+              <rect x="178" y={n.y - n.h / 2} width="4" height={n.h} fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />
+              <text x="186" y={n.y + 1.5} textAnchor="start" className="flow-label">{n.label}</text>
+              <text x="186" y={n.y + 4.5} textAnchor="start" className="flow-value">{n.value}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 /* -------------------- 3D isometric cluster map (city-skyline style) -------------------- */
 
 interface City3DNode {
