@@ -6,7 +6,9 @@ export type ThemeId =
   | 'nightwatch-crimson'
   | 'tactical-nvg'
   | 'ice-spectrum'
-  | 'plasma-vortex';
+  | 'plasma-vortex'
+  | 'void-protocol'
+  | 'arctic-command';
 
 export interface ThemeDefinition {
   id: ThemeId;
@@ -63,6 +65,18 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     name: 'Plasma Vortex',
     tagline: 'Magenta-electric plasma over deep void',
     swatches: ['#06030d', '#1a0533', '#ff4af7', '#ffd166', '#5bf2ff'],
+  },
+  {
+    id: 'void-protocol',
+    name: 'Void Protocol',
+    tagline: 'Neon violet cyberpunk on absolute black',
+    swatches: ['#060010', '#130028', '#7c3aed', '#c084fc', '#e9d5ff'],
+  },
+  {
+    id: 'arctic-command',
+    name: 'Arctic Command',
+    tagline: 'Ice-blue military command center on dark slate',
+    swatches: ['#040d12', '#081c28', '#0ea5e9', '#7dd3fc', '#e0f2fe'],
   },
 ];
 
