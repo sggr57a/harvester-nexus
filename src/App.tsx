@@ -188,7 +188,7 @@ function App() {
         </div>
       </aside>
       <main className="main-view">
-        {cockpitView === 'dashboard' && <HudDashboard />}
+        {cockpitView === 'dashboard' && <HudDashboard activeTheme={theme} />}
         {cockpitView === 'networking' && <NetworkingDashboardView />}
         {cockpitView === 'storage' && <StorageDashboardView />}
         {cockpitView === 'machines' && <MachinesDashboardView />}

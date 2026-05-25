@@ -17,7 +17,7 @@ export function ThemePicker({ active, onSelect }: ThemePickerProps) {
             className={`theme-option ${active === theme.id ? 'is-selected' : ''}`}
             onClick={() => onSelect(theme.id)}
             aria-pressed={active === theme.id}
-            title={theme.tagline}
+            title={`${theme.tagline}: ${theme.visualStyle}`}
           >
             <span className="theme-swatches" aria-hidden="true">
               {theme.swatches.map((color, index) => (
@@ -26,6 +26,7 @@ export function ThemePicker({ active, onSelect }: ThemePickerProps) {
             </span>
             <span className="theme-name">{theme.name}</span>
             <small>{theme.tagline}</small>
+            <em>{theme.visualStyle}</em>
           </button>
         ))}
       </div>

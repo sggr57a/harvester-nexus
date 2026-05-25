@@ -1,12 +1,19 @@
 import type { CSSProperties } from 'react';
 import { buildHudTelemetry } from '../lib/hudTelemetry';
+import { getTheme, THEME_CATALOG, type ThemeId } from '../lib/themes';
 
 const telemetry = buildHudTelemetry();
 const linePoints = telemetry.lineSeries
   .map((value, index) => `${(index / (telemetry.lineSeries.length - 1)) * 100},${100 - value}`)
   .join(' ');
 
-export function HudDashboard() {
+interface HudDashboardProps {
+  activeTheme: ThemeId;
+}
+
+export function HudDashboard({ activeTheme }: HudDashboardProps) {
+  const activeThemeDefinition = getTheme(activeTheme);
+
   return (
     <section className="hud-dashboard" aria-label="Animated Nexus cluster dashboard mockup">
       <div className="hud-scanlines" />
@@ -54,6 +61,22 @@ export function HudDashboard() {
             <option value="control-plane">control-plane</option>
           </select>
         </label>
+      </div>
+
+      <div className="hud-theme-sync hud-panel" aria-label="Active visual theme profile">
+        <div>
+          <span className="hud-kicker">THEME // MOCKUP STYLE</span>
+          <strong>{activeThemeDefinition.name}</strong>
+          <p>{activeThemeDefinition.visualStyle}</p>
+        </div>
+        <div className="hud-theme-cards">
+          {THEME_CATALOG.map((theme) => (
+            <span className={theme.id === activeTheme ? 'hud-theme-card is-active' : 'hud-theme-card'} key={theme.id}>
+              <i style={{ background: `linear-gradient(135deg, ${theme.swatches.join(', ')})` }} />
+              <b>{theme.name}</b>
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="hud-widget-drawer hud-panel">
