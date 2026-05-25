@@ -9634,182 +9634,314 @@ select option {
 
 /* ============================================================
    Cyber Wireframe — enhanced graph / widget overrides
-   Transparent fills, neon outlines, holographic glow effects
+   Transparent fills, neon outlines, holographic glow effects,
+   sharp angular geometry, dense active waveforms
    ============================================================ */
 
-/* Sparklines: outlined stroke, no fill gradient */
+/* Force sharp angular corners everywhere — no rounded/bulbous shapes */
+:root[data-theme='cyber-wireframe'] .dash,
+:root[data-theme='cyber-wireframe'] .dash-panel,
+:root[data-theme='cyber-wireframe'] .sidebar,
+:root[data-theme='cyber-wireframe'] .wizard-shell,
+:root[data-theme='cyber-wireframe'] .manifest-panel,
+:root[data-theme='cyber-wireframe'] .kpi-tile,
+:root[data-theme='cyber-wireframe'] .theme-picker,
+:root[data-theme='cyber-wireframe'] .theme-option,
+:root[data-theme='cyber-wireframe'] .nav-item,
+:root[data-theme='cyber-wireframe'] .step-rail-btn,
+:root[data-theme='cyber-wireframe'] input,
+:root[data-theme='cyber-wireframe'] select,
+:root[data-theme='cyber-wireframe'] textarea,
+:root[data-theme='cyber-wireframe'] button,
+:root[data-theme='cyber-wireframe'] .topology-svg,
+:root[data-theme='cyber-wireframe'] .oscilloscope,
+:root[data-theme='cyber-wireframe'] .osc-annotated,
+:root[data-theme='cyber-wireframe'] .route-map,
+:root[data-theme='cyber-wireframe'] .live-event-feed {
+  border-radius: 0 !important;
+}
+
+/* Sparklines: razor-thin stroke, intense glow, no fill */
 :root[data-theme='cyber-wireframe'] .spark-fill {
   fill: none;
 }
 :root[data-theme='cyber-wireframe'] .spark-line {
   stroke: var(--theme-accent);
-  stroke-width: 1.2;
-  filter: drop-shadow(0 0 3px rgba(0, 255, 200, 0.8)) drop-shadow(0 0 8px rgba(0, 255, 200, 0.4));
+  stroke-width: 0.8;
+  filter: drop-shadow(0 0 2px rgba(0, 255, 200, 0.9)) drop-shadow(0 0 6px rgba(0, 255, 200, 0.5)) drop-shadow(0 0 12px rgba(0, 255, 200, 0.2));
 }
 :root[data-theme='cyber-wireframe'] .spark-tip {
   fill: var(--theme-accent);
-  filter: drop-shadow(0 0 4px rgba(0, 255, 200, 1));
+  r: 1.2;
+  filter: drop-shadow(0 0 3px rgba(0, 255, 200, 1)) drop-shadow(0 0 8px rgba(0, 255, 200, 0.6));
+  animation: wireframe-tip-pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes wireframe-tip-pulse {
+  0% { opacity: 0.7; }
+  100% { opacity: 1; }
 }
 
-/* FFT Bars: wireframe-outlined with glow pulse */
+/* FFT Bars: razor-thin wireframe, no fill, individual glow */
 :root[data-theme='cyber-wireframe'] .fft-bars .fft-bar i,
 :root[data-theme='cyber-wireframe'] .fft-anno-bars .fft-bar i {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.6);
-  box-shadow: 0 0 4px rgba(0, 255, 200, 0.3), inset 0 0 6px rgba(0, 255, 200, 0.08);
+  border-left: 1px solid rgba(0, 255, 200, 0.5);
+  border-right: 1px solid rgba(0, 255, 200, 0.5);
+  border-top: 1px solid rgba(0, 255, 200, 0.7);
   border-bottom: none;
+  box-shadow: 0 0 3px rgba(0, 255, 200, 0.2), inset 0 0 4px rgba(0, 255, 200, 0.03);
+  animation: fft-wireframe-pulse 1.2s ease-in-out infinite alternate;
+}
+:root[data-theme='cyber-wireframe'] .fft-bars .fft-bar:nth-child(odd) i {
+  animation-delay: -0.6s;
 }
 :root[data-theme='cyber-wireframe'] .fft-bar.is-peak i {
-  border-color: rgba(0, 255, 200, 0.9);
-  box-shadow: 0 0 8px rgba(0, 255, 200, 0.6), inset 0 0 10px rgba(0, 255, 200, 0.15);
+  border-color: rgba(0, 255, 200, 0.95);
+  box-shadow: 0 0 6px rgba(0, 255, 200, 0.5), 0 0 12px rgba(0, 255, 200, 0.2), inset 0 0 8px rgba(0, 255, 200, 0.08);
+}
+@keyframes fft-wireframe-pulse {
+  0% { border-color: rgba(0, 255, 200, 0.35); }
+  100% { border-color: rgba(0, 255, 200, 0.65); }
 }
 
-/* Multi-ring gauge: thinner strokes, stronger glow */
+/* Multi-ring gauge: razor-thin strokes, intense glow, angular tick marks */
 :root[data-theme='cyber-wireframe'] .multi-ring-gauge circle {
-  filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 10px currentColor);
+  filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 8px currentColor);
+}
+:root[data-theme='cyber-wireframe'] .multi-ring-gauge line {
+  stroke-width: 0.3;
 }
 :root[data-theme='cyber-wireframe'] .multi-ring-center {
   background: transparent;
+  text-shadow: 0 0 6px rgba(0, 255, 200, 0.5);
 }
 :root[data-theme='cyber-wireframe'] .multi-ring-legend {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.2);
+  border: 1px solid rgba(0, 255, 200, 0.15);
+  border-radius: 0 !important;
 }
 
-/* Dial gauge: wireframe arc, holographic needle */
+/* Dial gauge: sharp geometry, thin arcs, active needle */
 :root[data-theme='cyber-wireframe'] .dial-gauge svg path[fill="none"] {
-  filter: drop-shadow(0 0 3px currentColor);
+  filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 6px currentColor);
+}
+:root[data-theme='cyber-wireframe'] .dial-gauge svg line {
+  stroke-width: 0.3;
 }
 :root[data-theme='cyber-wireframe'] .dial-readout {
   background: transparent;
   border: 1px solid rgba(0, 255, 200, 0.2);
-  text-shadow: 0 0 8px rgba(0, 255, 200, 0.5);
+  border-radius: 0;
+  text-shadow: 0 0 6px rgba(0, 255, 200, 0.4);
 }
 
-/* Oscilloscope: pure black bg, brighter trace glow */
+/* Oscilloscope: sharp black void, intense trace glow, active sweep */
 :root[data-theme='cyber-wireframe'] .oscilloscope,
 :root[data-theme='cyber-wireframe'] .osc-annotated {
-  background: rgba(0, 0, 0, 0.98);
-  border: 1px solid rgba(0, 255, 200, 0.3);
-  box-shadow: inset 0 0 30px rgba(0, 255, 200, 0.02);
+  background: #000000;
+  border: 1px solid rgba(0, 255, 200, 0.35);
+  box-shadow: inset 0 0 20px rgba(0, 255, 200, 0.015), 0 0 1px rgba(0, 255, 200, 0.4);
+  border-radius: 0;
 }
 :root[data-theme='cyber-wireframe'] .osc-channel polyline,
 :root[data-theme='cyber-wireframe'] .osc-anno-channel polyline {
-  filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 8px currentColor) !important;
+  stroke-width: 0.6 !important;
+  filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor) drop-shadow(0 0 10px currentColor) !important;
+}
+:root[data-theme='cyber-wireframe'] .oscilloscope svg line[stroke="var(--theme-accent)"],
+:root[data-theme='cyber-wireframe'] .osc-annotated svg line {
+  stroke-width: 0.2;
 }
 :root[data-theme='cyber-wireframe'] .osc-readout,
 :root[data-theme='cyber-wireframe'] .osc-anno-meta {
   background: transparent;
-  border-top: 1px solid rgba(0, 255, 200, 0.2);
+  border-top: 1px solid rgba(0, 255, 200, 0.15);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+}
+:root[data-theme='cyber-wireframe'] .osc-anno-readout {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 200, 0.15);
+  border-radius: 0;
 }
 
-/* KPI tiles: wireframe borders, transparent bg */
+/* KPI tiles: sharp angular wireframe, pulsing border */
 :root[data-theme='cyber-wireframe'] .kpi-tile {
   background: transparent;
   border: 1px solid rgba(0, 255, 200, 0.3);
-  box-shadow: 0 0 8px rgba(0, 255, 200, 0.08);
+  box-shadow: 0 0 6px rgba(0, 255, 200, 0.06);
+  border-radius: 0;
   animation: wireframe-panel-draw 0.5s ease-out both;
 }
+:root[data-theme='cyber-wireframe'] .kpi-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 200, 0.6), transparent);
+  animation: kpi-top-scan 3s linear infinite;
+}
+@keyframes kpi-top-scan {
+  0% { opacity: 0.3; transform: scaleX(0.3); }
+  50% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0.3; transform: scaleX(0.3); }
+}
 :root[data-theme='cyber-wireframe'] .kpi-corner {
-  border-color: rgba(0, 255, 200, 0.7);
-  animation: wireframe-corner-pulse 3s ease-in-out infinite;
+  border-color: rgba(0, 255, 200, 0.8);
+  width: 8px;
+  height: 8px;
+  animation: wireframe-corner-pulse 2s ease-in-out infinite;
 }
 
-/* Horizontal bar cluster: outlined tracks */
+/* Horizontal bar cluster: thin outlined tracks, no fill */
 :root[data-theme='cyber-wireframe'] .hbar-track {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.15);
+  border: 1px solid rgba(0, 255, 200, 0.12);
+  border-radius: 0;
+  height: 4px;
 }
 :root[data-theme='cyber-wireframe'] .hbar-track i {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.5);
-  box-shadow: 0 0 6px rgba(0, 255, 200, 0.25);
-  border-right: none;
+  border-top: 1px solid rgba(0, 255, 200, 0.6);
+  border-bottom: 1px solid rgba(0, 255, 200, 0.6);
+  box-shadow: 0 0 4px rgba(0, 255, 200, 0.2), 0 0 8px rgba(0, 255, 200, 0.08);
+  border-radius: 0;
 }
 
-/* Vertical meter bank: outlined style */
+/* Vertical meter bank: thin angular meters */
 :root[data-theme='cyber-wireframe'] .vert-meter-track {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.25);
+  border: 1px solid rgba(0, 255, 200, 0.2);
+  border-radius: 0;
 }
 :root[data-theme='cyber-wireframe'] .vert-meter-fill {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.5);
+  border-left: 1px solid rgba(0, 255, 200, 0.5);
+  border-right: 1px solid rgba(0, 255, 200, 0.5);
+  border-top: 1px solid rgba(0, 255, 200, 0.7);
   border-bottom: none;
-  box-shadow: 0 0 6px rgba(0, 255, 200, 0.2), inset 0 0 10px rgba(0, 255, 200, 0.05);
+  box-shadow: 0 0 4px rgba(0, 255, 200, 0.15), inset 0 0 6px rgba(0, 255, 200, 0.03);
+  border-radius: 0;
 }
 :root[data-theme='cyber-wireframe'] .vert-meter-peak {
-  background: rgba(0, 255, 200, 0.9);
-  box-shadow: 0 0 8px rgba(0, 255, 200, 0.8);
+  background: rgba(0, 255, 200, 0.95);
+  box-shadow: 0 0 6px rgba(0, 255, 200, 0.9), 0 0 12px rgba(0, 255, 200, 0.4);
+  height: 1px !important;
+}
+:root[data-theme='cyber-wireframe'] .vert-meter-tick {
+  background: rgba(0, 255, 200, 0.15);
+  height: 1px;
 }
 
-/* Latency histogram: outlined bars */
+/* Latency histogram: angular thin bars */
 :root[data-theme='cyber-wireframe'] .lat-histogram .lat-bar i,
 :root[data-theme='cyber-wireframe'] .lat-anno-bar i {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.45);
+  border-left: 1px solid rgba(0, 255, 200, 0.4);
+  border-right: 1px solid rgba(0, 255, 200, 0.4);
+  border-top: 1px solid rgba(0, 255, 200, 0.6);
   border-bottom: none;
-  box-shadow: 0 0 4px rgba(0, 255, 200, 0.15);
+  box-shadow: 0 0 3px rgba(0, 255, 200, 0.12);
+  border-radius: 0;
 }
 :root[data-theme='cyber-wireframe'] .lat-col.is-p95 .lat-bar i,
 :root[data-theme='cyber-wireframe'] .lat-anno-col.is-p95 .lat-anno-bar i {
-  border-color: rgba(255, 204, 0, 0.7);
-  box-shadow: 0 0 6px rgba(255, 204, 0, 0.3);
+  border-color: rgba(255, 204, 0, 0.6);
+  box-shadow: 0 0 4px rgba(255, 204, 0, 0.25);
 }
 :root[data-theme='cyber-wireframe'] .lat-col.is-p99 .lat-bar i,
 :root[data-theme='cyber-wireframe'] .lat-anno-col.is-p99 .lat-anno-bar i {
-  border-color: rgba(255, 51, 102, 0.7);
-  box-shadow: 0 0 6px rgba(255, 51, 102, 0.3);
+  border-color: rgba(255, 51, 102, 0.6);
+  box-shadow: 0 0 4px rgba(255, 51, 102, 0.25);
 }
 
-/* Route map: deeper wireframe look */
+/* Route map: angular sharp nodes, thin connection lines */
 :root[data-theme='cyber-wireframe'] .route-map {
-  background: rgba(0, 0, 0, 0.98);
-  border: 1px solid rgba(0, 255, 200, 0.25);
+  background: #000000;
+  border: 1px solid rgba(0, 255, 200, 0.2);
+  border-radius: 0;
+}
+:root[data-theme='cyber-wireframe'] .route-map svg {
+  filter: drop-shadow(0 0 1px rgba(0, 255, 200, 0.2));
 }
 :root[data-theme='cyber-wireframe'] .map-node-halo {
   fill: none;
-  stroke: rgba(0, 255, 200, 0.2);
-  stroke-width: 0.3;
+  stroke: rgba(0, 255, 200, 0.15);
+  stroke-width: 0.2;
+  stroke-dasharray: 1 1;
 }
 :root[data-theme='cyber-wireframe'] .map-node-ring {
   fill: none;
-  stroke: rgba(0, 255, 200, 0.6);
-  stroke-width: 0.5;
+  stroke: rgba(0, 255, 200, 0.7);
+  stroke-width: 0.3;
 }
 :root[data-theme='cyber-wireframe'] .map-node-core {
-  fill: rgba(0, 255, 200, 0.8);
-  filter: drop-shadow(0 0 4px rgba(0, 255, 200, 0.9));
+  fill: rgba(0, 255, 200, 0.9);
+  r: 0.8;
+  filter: drop-shadow(0 0 3px rgba(0, 255, 200, 1)) drop-shadow(0 0 8px rgba(0, 255, 200, 0.5));
+}
+:root[data-theme='cyber-wireframe'] .map-edge path {
+  stroke-width: 0.4;
 }
 
-/* Live event feed: terminal wireframe look */
+/* Live event feed: sharp monospace terminal style */
 :root[data-theme='cyber-wireframe'] .live-event-feed {
-  background: rgba(0, 0, 0, 0.98);
-  border: 1px solid rgba(0, 255, 200, 0.2);
+  background: #000000;
+  border: 1px solid rgba(0, 255, 200, 0.15);
+  border-radius: 0;
+  font-family: var(--theme-mono);
 }
 :root[data-theme='cyber-wireframe'] .feed-item {
-  border-bottom: 1px solid rgba(0, 255, 200, 0.08);
+  border-bottom: 1px solid rgba(0, 255, 200, 0.06);
+  animation: feed-line-draw 0.3s ease-out both;
+}
+@keyframes feed-line-draw {
+  0% { opacity: 0; transform: translateX(-4px); }
+  100% { opacity: 1; transform: translateX(0); }
 }
 
-/* Percentile bar: wireframe track */
+/* Percentile bar: thin angular track */
 :root[data-theme='cyber-wireframe'] .pctile-track {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.2);
+  border: 1px solid rgba(0, 255, 200, 0.15);
+  border-radius: 0;
+  height: 3px;
 }
 :root[data-theme='cyber-wireframe'] .pctile-mid {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.35);
+  border-top: 1px solid rgba(0, 255, 200, 0.3);
+  border-bottom: 1px solid rgba(0, 255, 200, 0.3);
   border-left: none;
   border-right: none;
+  border-radius: 0;
 }
 
-/* Stat grid items: wireframe cells */
+/* Stat grid items: sharp wireframe cells with active border */
 :root[data-theme='cyber-wireframe'] .stat-grid-item {
   background: transparent;
-  border: 1px solid rgba(0, 255, 200, 0.2);
+  border: 1px solid rgba(0, 255, 200, 0.15);
+  border-radius: 0;
+  position: relative;
+  overflow: hidden;
+}
+:root[data-theme='cyber-wireframe'] .stat-grid-item::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 200, 0.4), transparent);
+  animation: stat-bottom-scan 4s linear infinite;
+}
+@keyframes stat-bottom-scan {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.8; }
 }
 
-/* Global scanline overlay for wireframe theme */
+/* Global scanline overlay — faster, denser for active feel */
 :root[data-theme='cyber-wireframe'] .dash::after {
   content: '';
   position: absolute;
@@ -9817,15 +9949,78 @@ select option {
   background: repeating-linear-gradient(
     0deg,
     transparent,
-    transparent 2px,
-    rgba(0, 255, 200, 0.008) 2px,
-    rgba(0, 255, 200, 0.008) 4px
+    transparent 1px,
+    rgba(0, 255, 200, 0.006) 1px,
+    rgba(0, 255, 200, 0.006) 2px
   );
   pointer-events: none;
   z-index: 1;
-  animation: wireframe-scanline 8s linear infinite;
+  animation: wireframe-scanline 4s linear infinite;
 }
 @keyframes wireframe-scanline {
   0% { transform: translateY(0); }
-  100% { transform: translateY(4px); }
+  100% { transform: translateY(2px); }
+}
+
+/* Active glow pulse on main container border */
+:root[data-theme='cyber-wireframe'] .dash {
+  animation: wireframe-container-pulse 6s ease-in-out infinite;
+}
+@keyframes wireframe-container-pulse {
+  0%, 100% { border-color: rgba(0, 255, 200, 0.3); box-shadow: 0 0 20px rgba(0, 0, 0, 0.95); }
+  50% { border-color: rgba(0, 255, 200, 0.5); box-shadow: 0 0 30px rgba(0, 255, 200, 0.05), 0 0 60px rgba(0, 0, 0, 0.9); }
+}
+
+/* Panel header bottom border: animated scan line */
+:root[data-theme='cyber-wireframe'] .panel-title {
+  border-bottom: 1px solid rgba(0, 255, 200, 0.2);
+  position: relative;
+}
+:root[data-theme='cyber-wireframe'] .panel-title::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 30%;
+  height: 1px;
+  background: rgba(0, 255, 200, 0.7);
+  box-shadow: 0 0 4px rgba(0, 255, 200, 0.5);
+  animation: panel-title-scan 5s ease-in-out infinite;
+}
+@keyframes panel-title-scan {
+  0%, 100% { left: 0; width: 20%; }
+  50% { left: 70%; width: 30%; }
+}
+
+/* Topology SVG overrides: thinner, sharper, more active edges */
+:root[data-theme='cyber-wireframe'] .topology-svg {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 200, 0.15);
+  border-radius: 0;
+}
+:root[data-theme='cyber-wireframe'] .topology-edge-pulse {
+  stroke-width: 0.4 !important;
+  filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 4px currentColor) !important;
+}
+:root[data-theme='cyber-wireframe'] .topology-node .node-ring {
+  stroke-width: 0.2;
+}
+:root[data-theme='cyber-wireframe'] .topology-node .node-core {
+  r: 1.5;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+/* Data tables: sharp wireframe borders */
+:root[data-theme='cyber-wireframe'] .dash-table th,
+:root[data-theme='cyber-wireframe'] .dash-table td {
+  border-bottom: 1px solid rgba(0, 255, 200, 0.1);
+}
+:root[data-theme='cyber-wireframe'] .dash-table th {
+  border-bottom-color: rgba(0, 255, 200, 0.25);
+  text-shadow: 0 0 4px rgba(0, 255, 200, 0.3);
+}
+:root[data-theme='cyber-wireframe'] .dash-table code {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 200, 0.25);
+  border-radius: 0;
 }
