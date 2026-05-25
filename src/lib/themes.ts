@@ -5,11 +5,7 @@ export type ThemeId =
   | 'arctic-hologram'
   | 'violet-nebula'
   | 'noir-radar'
-  | 'holo-quantum'
-  | 'nightwatch-crimson'
-  | 'tactical-nvg'
-  | 'ice-spectrum'
-  | 'plasma-vortex'
+  | 'void-protocol'
   | 'arctic-command';
 
 export interface ThemeDefinition {
@@ -64,37 +60,6 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     swatches: ['#030303', '#151515', '#f8fafc', '#9ca3af', '#a3ff12'],
   },
   {
-    id: 'holo-quantum',
-    name: 'Holo Quantum',
-    tagline: 'Violet holographic mesh with cyan accents',
-    visualStyle: 'violet holographic mesh, quantum lattice, cyan edge glow',
-    swatches: ['#0a0418', '#1d0a3a', '#7c3bff', '#b86bff', '#36ecff'],
-  },
-  {
-    id: 'nightwatch-crimson',
-    name: 'Nightwatch Crimson',
-    tagline: 'Carbon black bunker with crimson tactical overlays',
-    swatches: ['#08040a', '#1c0709', '#ff2e63', '#ff7a59', '#ffd6c2'],
-  },
-  {
-    id: 'tactical-nvg',
-    name: 'Tactical NVG',
-    tagline: 'Night-vision CRT phosphor on graphite chassis',
-    swatches: ['#020a06', '#072014', '#3aff8e', '#9dff66', '#caffaa'],
-  },
-  {
-    id: 'ice-spectrum',
-    name: 'Ice Spectrum',
-    tagline: 'Glacial cobalt panes with prismatic spectrum',
-    swatches: ['#040a14', '#0a1f3a', '#8be9ff', '#ffffff', '#b6c8ff'],
-  },
-  {
-    id: 'plasma-vortex',
-    name: 'Plasma Vortex',
-    tagline: 'Magenta-electric plasma over deep void',
-    swatches: ['#06030d', '#1a0533', '#ff4af7', '#ffd166', '#5bf2ff'],
-  },
-  {
     id: 'void-protocol',
     name: 'Void Protocol',
     tagline: 'Neon violet cyberpunk on absolute black',
@@ -112,11 +77,9 @@ export const THEME_CATALOG: ThemeDefinition[] = [
 
 export const DEFAULT_THEME_ID: ThemeId = 'route-grid';
 
-const THEME_IDS: ThemeId[] = THEME_CATALOG.map((theme) => theme.id);
-
 export function isThemeId(value: string | null | undefined): value is ThemeId {
+  if (typeof value !== 'string') return false;
   return THEME_CATALOG.some((theme) => theme.id === value);
-  return typeof value === 'string' && (THEME_IDS as string[]).includes(value);
 }
 
 export function getTheme(id: ThemeId): ThemeDefinition {

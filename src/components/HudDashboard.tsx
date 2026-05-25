@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react';
 import { buildHudTelemetry } from '../lib/hudTelemetry';
 import { getTheme, THEME_CATALOG, type ThemeId } from '../lib/themes';
+import type { EnvironmentSnapshot } from '../lib/liveTelemetry';
+import { HudDataVizSection } from './HudDataVizPanels';
 
 const telemetry = buildHudTelemetry();
 const linePoints = telemetry.lineSeries
@@ -15,9 +17,10 @@ function buildWidgetPoints(samples: number[]): string {
 
 interface HudDashboardProps {
   activeTheme: ThemeId;
+  telemetry?: EnvironmentSnapshot;
 }
 
-export function HudDashboard({ activeTheme }: HudDashboardProps) {
+export function HudDashboard({ activeTheme, telemetry: liveSnapshot }: HudDashboardProps) {
   const activeThemeDefinition = getTheme(activeTheme);
 
   return (
@@ -366,6 +369,8 @@ export function HudDashboard({ activeTheme }: HudDashboardProps) {
           ))}
         </article>
       </div>
+
+      <HudDataVizSection telemetry={liveSnapshot} />
     </section>
   );
 }
