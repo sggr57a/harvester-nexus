@@ -189,6 +189,7 @@ function App() {
           <button className={cockpitView === 'setup' ? 'active' : ''} onClick={() => setCockpitView('setup')}>
             Setup Wizard
           </button>
+        </div>
 
         <nav className="cockpit-nav" aria-label="Cockpit views">
           {navGroups.map((group) => (
