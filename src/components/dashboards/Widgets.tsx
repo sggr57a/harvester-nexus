@@ -1389,35 +1389,37 @@ export function ThreatIntelMap({
             </g>
           ))}
           {/* Countries — every country drawn as a faded outline. Active
-              countries (from sources or threats) get highlighted on top. */}
+              countries (from sources or threats) get an OUTLINE-only
+              highlight; their fill stays the same dim ghost as everyone
+              else, so highlighting reads as a glowing border only. */}
           {COUNTRIES.map((country) => {
             const isThreat = threats.some((t) => t.country === country.code);
             const isSource = sources.some((s) => s.country === country.code);
             const isActive = isThreat || isSource;
-            const fill = isThreat ? '#ff2d4a' : isSource ? 'var(--theme-accent)' : 'var(--theme-accent-soft)';
+            const accentColor = isThreat ? '#ff2d4a' : 'var(--theme-accent)';
             return (
               <g key={country.code} className={`tim-country ${isActive ? 'is-active' : 'is-passive'} ${isThreat ? 'is-threat' : ''}`}>
-                {/* Faded base layer — every country always visible */}
+                {/* Base layer — same faded ghostly fill for every country */}
                 <path
                   d={country.d}
-                  fill={fill}
-                  fillOpacity={isThreat ? 0.32 : isSource ? 0.28 : 0.12}
-                  stroke={isThreat ? '#ff2d4a' : isSource ? 'var(--theme-accent)' : 'var(--theme-text-dim)'}
-                  strokeWidth={isActive ? '0.4' : '0.18'}
-                  opacity={isActive ? 1 : 0.55}
-                  style={isActive ? { filter: `drop-shadow(0 0 2px ${isThreat ? '#ff2d4a' : 'var(--theme-accent)'}) drop-shadow(0 0 5px ${isThreat ? '#ff2d4a' : 'var(--theme-accent)'})` } : undefined}
+                  fill="var(--theme-accent-soft)"
+                  fillOpacity={0.12}
+                  stroke="var(--theme-text-dim)"
+                  strokeWidth="0.18"
+                  opacity={0.55}
                 />
                 {isActive && (
-                  /* Bright highlight stroke pass on top */
+                  /* Outline-only highlight: bright glowing stroke on top */
                   <path
                     d={country.d}
                     fill="none"
-                    stroke={isThreat ? '#ff2d4a' : 'var(--theme-accent)'}
+                    stroke={accentColor}
                     strokeWidth="0.55"
                     opacity="0.95"
-                    style={{ filter: `drop-shadow(0 0 3px ${isThreat ? '#ff2d4a' : 'var(--theme-accent)'})` }}
+                    style={{ filter: `drop-shadow(0 0 2px ${accentColor}) drop-shadow(0 0 6px ${accentColor})` }}
                   >
-                    <animate attributeName="stroke-width" values="0.45;0.85;0.45" dur="2s" repeatCount="indefinite" />
+                    <animate attributeName="stroke-width" values="0.45;0.95;0.45" dur="2s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite" />
                   </path>
                 )}
               </g>
