@@ -1057,6 +1057,355 @@ export interface StatGridItem {
   delta?: number;
 }
 
+/* -------------------- Activity heatmap (workload density per node) -------------------- */
+
+interface ActivityHeatmapProps {
+  rows: { label: string; cells: number[] }[];
+  cols?: number;
+  cellTitle?: (rowLabel: string, colIndex: number, value: number) => string;
+}
+
+export function ActivityHeatmap({ rows, cellTitle }: ActivityHeatmapProps) {
+  return (
+    <div className="activity-heatmap">
+      <div className="heatmap-grid" style={{ gridTemplateColumns: `120px repeat(${rows[0]?.cells.length ?? 12}, 1fr)` }}>
+        <span className="heatmap-corner">/</span>
+        {Array.from({ length: rows[0]?.cells.length ?? 12 }).map((_, idx) => (
+          <span key={`h-${idx}`} className="heatmap-col-label">t-{(rows[0]?.cells.length ?? 12) - 1 - idx}</span>
+        ))}
+        {rows.map((row) => (
+          <>
+            <span key={`r-${row.label}`} className="heatmap-row-label">{row.label}</span>
+            {row.cells.map((value, idx) => {
+              const intensity = Math.max(0, Math.min(1, value / 100));
+              const cellClass = intensity > 0.85 ? 'is-hot' : intensity > 0.6 ? 'is-warm' : intensity > 0.3 ? 'is-mid' : 'is-cool';
+              return (
+                <span
+                  key={`${row.label}-${idx}`}
+                  className={`heatmap-cell ${cellClass}`}
+                  style={{ opacity: 0.25 + intensity * 0.75 }}
+                  title={cellTitle ? cellTitle(row.label, idx, value) : `${row.label} · ${value}%`}
+                />
+              );
+            })}
+          </>
+        ))}
+      </div>
+      <div className="heatmap-legend">
+        <span className="heatmap-cell is-cool" />
+        <span>cool</span>
+        <span className="heatmap-cell is-mid" />
+        <span>mid</span>
+        <span className="heatmap-cell is-warm" />
+        <span>warm</span>
+        <span className="heatmap-cell is-hot" />
+        <span>hot</span>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- Sparkline grid (many sparklines, compact) -------------------- */
+
+interface SparklineGridItem {
+  label: string;
+  values: number[];
+  current: number;
+  unit?: string;
+  status?: 'good' | 'warn' | 'danger';
+}
+
+export function SparklineGrid({ items, columns = 3 }: { items: SparklineGridItem[]; columns?: number }) {
+  return (
+    <div className="sparkgrid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+      {items.map((item) => (
+        <div key={item.label} className={`sparkgrid-cell status-${item.status ?? 'neutral'}`}>
+          <header>
+            <span>{item.label}</span>
+            <b>{item.current}{item.unit && <em>{item.unit}</em>}</b>
+          </header>
+          <Sparkline values={item.values} height={22} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* -------------------- Ring meter cluster (compact ring gauges) -------------------- */
+
+interface RingMeter {
+  label: string;
+  value: number;
+  unit?: string;
+  status?: 'good' | 'warn' | 'danger';
+}
+
+export function RingMeterCluster({ meters, size = 88 }: { meters: RingMeter[]; size?: number }) {
+  return (
+    <div className="ring-meter-cluster">
+      {meters.map((meter) => {
+        const r = 40;
+        const c = 2 * Math.PI * r;
+        const offset = c * (1 - Math.max(0, Math.min(100, meter.value)) / 100);
+        const accent = meter.status === 'warn' ? 'var(--theme-warn)' : meter.status === 'danger' ? 'var(--theme-danger)' : 'var(--theme-accent)';
+        return (
+          <div key={meter.label} className="ring-meter" style={{ width: size, height: size }}>
+            <svg viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+              <circle
+                cx="50"
+                cy="50"
+                r={r}
+                fill="none"
+                stroke={accent}
+                strokeWidth="6"
+                strokeDasharray={`${c}`}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                transform="rotate(-90 50 50)"
+                style={{ filter: `drop-shadow(0 0 4px ${accent}) drop-shadow(0 0 10px ${accent})` }}
+              />
+              <text x="50" y="46" textAnchor="middle" className="ring-meter-value" fill={accent}>{Math.round(meter.value)}</text>
+              <text x="50" y="62" textAnchor="middle" className="ring-meter-unit">{meter.unit ?? '%'}</text>
+            </svg>
+            <small>{meter.label}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* -------------------- Anomaly stream (3-channel anomaly score timeline) -------------------- */
+
+interface AnomalyStreamProps {
+  snapshot?: EnvironmentSnapshot;
+  height?: number;
+}
+
+export function AnomalyStream({ snapshot, height = 110 }: AnomalyStreamProps) {
+  const seed = snapshot?.tick ?? 0;
+  const series = useMemo(() => {
+    const buildAnomaly = (offset: number, spikeMod: number, base: number) =>
+      Array.from({ length: 64 }, (_, idx) => {
+        const phase = (seed + idx + offset) / 5;
+        const spike = (seed + idx) % spikeMod === 0 ? 30 : 0;
+        return Math.max(0, Math.min(100, base + Math.sin(phase) * 8 + spike + Math.random() * 4));
+      });
+    return {
+      auth: buildAnomaly(0, 17, 18),
+      net: buildAnomaly(7, 23, 22),
+      io: buildAnomaly(14, 31, 28),
+    };
+  }, [seed]);
+  return (
+    <div className="anomaly-stream" style={{ height }}>
+      <svg viewBox="0 0 200 100" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="anomaly-fill-auth" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--theme-accent)" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="anomaly-fill-net" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--theme-accent-2)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="var(--theme-accent-2)" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="anomaly-fill-io" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--theme-warn)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--theme-warn)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* threshold line */}
+        <line x1="0" y1="30" x2="200" y2="30" stroke="var(--theme-danger)" strokeWidth="0.4" strokeDasharray="2 2" opacity="0.5" />
+        <text x="2" y="28" className="anomaly-axis-label" fill="var(--theme-danger)">THRESHOLD 70</text>
+        {(Object.entries(series) as [string, number[]][]).map(([key, values], channelIdx) => {
+          const color = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-warn)'][channelIdx];
+          const fill = `url(#anomaly-fill-${key})`;
+          const points = values.map((v, i) => `${(i / (values.length - 1)) * 200},${100 - v}`).join(' ');
+          return (
+            <g key={key}>
+              <polyline points={`0,100 ${points} 200,100`} fill={fill} />
+              <polyline points={points} fill="none" stroke={color} strokeWidth="0.7" style={{ filter: `drop-shadow(0 0 2px ${color})` }} />
+            </g>
+          );
+        })}
+      </svg>
+      <div className="anomaly-legend">
+        <span><i style={{ background: 'var(--theme-accent)' }} />AUTH {series.auth[series.auth.length - 1].toFixed(0)}</span>
+        <span><i style={{ background: 'var(--theme-accent-2)' }} />NET {series.net[series.net.length - 1].toFixed(0)}</span>
+        <span><i style={{ background: 'var(--theme-warn)' }} />IO {series.io[series.io.length - 1].toFixed(0)}</span>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- GitOps sync state bank -------------------- */
+
+interface GitOpsTargetMini {
+  name: string;
+  provider: string;
+  state: 'synced' | 'syncing' | 'drift' | 'failed';
+  revision: string;
+  ageSec: number;
+}
+
+const DEFAULT_GITOPS: GitOpsTargetMini[] = [
+  { name: 'platform/observability', provider: 'argocd', state: 'synced', revision: '7f3a2c1', ageSec: 38 },
+  { name: 'fintech/payments', provider: 'argocd', state: 'drift', revision: '912ad88', ageSec: 220 },
+  { name: 'edge/registry-cache', provider: 'flux', state: 'syncing', revision: '4c1ee20', ageSec: 8 },
+  { name: 'tenant-a/release', provider: 'jenkins-x', state: 'failed', revision: 'aa1f203', ageSec: 612 },
+  { name: 'edge-a/manifests', provider: 'argocd', state: 'synced', revision: 'b81f0c0', ageSec: 12 },
+  { name: 'edge-b/manifests', provider: 'argocd', state: 'synced', revision: 'b81f0c0', ageSec: 14 },
+];
+
+export function GitOpsSyncBank({ targets = DEFAULT_GITOPS }: { targets?: GitOpsTargetMini[] }) {
+  return (
+    <ul className="gitops-sync-bank">
+      {targets.map((target) => (
+        <li key={target.name} className={`gitops-mini state-${target.state}`}>
+          <span className="gitops-state-dot" aria-hidden="true" />
+          <div>
+            <strong>{target.name}</strong>
+            <small>{target.provider} · rev {target.revision} · {target.ageSec}s</small>
+          </div>
+          <b>{target.state.toUpperCase()}</b>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* -------------------- GPU memory grid -------------------- */
+
+interface GpuRow {
+  id: string;
+  label: string;
+  memUsedGiB: number;
+  memTotalGiB: number;
+  utilPercent: number;
+  tempC: number;
+  bound: string;
+}
+
+const DEFAULT_GPUS: GpuRow[] = [
+  { id: 'gpu-a100-1', label: 'A100 80G', memUsedGiB: 62, memTotalGiB: 80, utilPercent: 88, tempC: 71, bound: 'analytics-vm' },
+  { id: 'gpu-a100-2', label: 'A100 80G', memUsedGiB: 74, memTotalGiB: 80, utilPercent: 92, tempC: 76, bound: 'training-sandbox' },
+  { id: 'gpu-a100-3', label: 'A100 80G', memUsedGiB: 78, memTotalGiB: 80, utilPercent: 94, tempC: 78, bound: 'training-sandbox' },
+  { id: 'gpu-h100-1', label: 'H100 SXM', memUsedGiB: 58, memTotalGiB: 80, utilPercent: 76, tempC: 68, bound: 'inference-pool' },
+  { id: 'gpu-tpu', label: 'Coral TPU', memUsedGiB: 2, memTotalGiB: 4, utilPercent: 41, tempC: 52, bound: 'edge-a inf' },
+];
+
+export function GpuMemoryGrid({ gpus = DEFAULT_GPUS }: { gpus?: GpuRow[] }) {
+  return (
+    <div className="gpu-mem-grid">
+      {gpus.map((gpu) => {
+        const memPct = (gpu.memUsedGiB / gpu.memTotalGiB) * 100;
+        const tempStatus = gpu.tempC > 80 ? 'danger' : gpu.tempC > 70 ? 'warn' : 'good';
+        return (
+          <div key={gpu.id} className="gpu-row">
+            <div className="gpu-head">
+              <strong>{gpu.label}</strong>
+              <small>{gpu.id} → {gpu.bound}</small>
+            </div>
+            <div className="gpu-bars">
+              <div className="gpu-bar">
+                <span>MEM</span>
+                <div className="gpu-track"><i style={{ width: `${memPct}%` }} /></div>
+                <b>{gpu.memUsedGiB}/{gpu.memTotalGiB} GiB</b>
+              </div>
+              <div className="gpu-bar">
+                <span>UTL</span>
+                <div className="gpu-track"><i className="gpu-util" style={{ width: `${gpu.utilPercent}%` }} /></div>
+                <b>{gpu.utilPercent}%</b>
+              </div>
+              <div className={`gpu-temp temp-${tempStatus}`}>
+                <span>°C</span>
+                <strong>{gpu.tempC}</strong>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* -------------------- API request rate gauge cluster -------------------- */
+
+interface ApiRateGaugeProps {
+  label: string;
+  current: number;
+  max: number;
+  budget: number;
+  series: number[];
+  unit?: string;
+}
+
+export function ApiRateGauge({ label, current, max, budget, series, unit = '/s' }: ApiRateGaugeProps) {
+  const pct = (current / max) * 100;
+  const budgetPct = (budget / max) * 100;
+  const status = current > budget ? 'warn' : 'good';
+  return (
+    <div className={`api-rate-gauge status-${status}`}>
+      <header>
+        <strong>{label}</strong>
+        <b>{current.toLocaleString()}{unit}</b>
+      </header>
+      <div className="api-rate-track">
+        <span className="api-rate-budget" style={{ left: `${budgetPct}%` }} />
+        <i style={{ width: `${pct}%` }} />
+      </div>
+      <div className="api-rate-meta">
+        <span>budget {budget}{unit}</span>
+        <span>peak {Math.max(...series).toFixed(0)}{unit}</span>
+        <span>max {max}{unit}</span>
+      </div>
+      <Sparkline values={series} height={22} />
+    </div>
+  );
+}
+
+/* -------------------- Workload activity timeline (now-playing strip) -------------------- */
+
+interface ActivityItem {
+  id: string;
+  channel: string;
+  workload: string;
+  state: 'running' | 'migrating' | 'snapshot' | 'syncing' | 'building';
+  progress: number;
+}
+
+const DEFAULT_ACTIVITY: ActivityItem[] = [
+  { id: 'a1', channel: 'KubeVirt', workload: 'payments-vm-02', state: 'migrating', progress: 64 },
+  { id: 'a2', channel: 'Incus', workload: 'fraud-lxc-01', state: 'migrating', progress: 41 },
+  { id: 'a3', channel: 'Docker', workload: 'registry-cache', state: 'syncing', progress: 22 },
+  { id: 'a4', channel: 'CRI-O', workload: 'argo-runner-bd2', state: 'snapshot', progress: 88 },
+  { id: 'a5', channel: 'KubeVirt', workload: 'analytics-vm', state: 'running', progress: 100 },
+  { id: 'a6', channel: 'Incus', workload: 'security-sandbox', state: 'building', progress: 56 },
+  { id: 'a7', channel: 'GitOps', workload: 'platform/observability', state: 'syncing', progress: 78 },
+];
+
+export function ActivityTimeline({ items = DEFAULT_ACTIVITY }: { items?: ActivityItem[] }) {
+  return (
+    <ul className="activity-timeline">
+      {items.map((item) => (
+        <li key={item.id} className={`activity-row state-${item.state}`}>
+          <span className="activity-channel">{item.channel}</span>
+          <span className="activity-workload">{item.workload}</span>
+          <div className="activity-bar">
+            <i style={{ width: `${item.progress}%` }} />
+            <span className="activity-shimmer" />
+          </div>
+          <b className="activity-state">{item.state}</b>
+          <em>{item.progress}%</em>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* -------------------- Original StatGrid -------------------- */
+
 export function StatGrid({ items, columns = 4 }: { items: StatGridItem[]; columns?: number }) {
   return (
     <div className="stat-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
