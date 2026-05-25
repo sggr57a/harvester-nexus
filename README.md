@@ -16,6 +16,7 @@ Highlights:
 - **Machine Wizard 2.0** — extends the install YAML with `poly_compute` and `hardware_acceleration` blocks and adds boot-parameter switches such as `nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, and `nexus.acceleration.gpu_passthrough=true`. Validation refuses a config that turns off every runtime or enables GPU pass-through without NUMA pinning.
 - **Themable cockpit** — eight switchable themes (Route Grid, Emerald Console, Solar Flare, Arctic Hologram, Violet Nebula, Noir Radar, Void Protocol, Arctic Command) so all 2.0 dashboards adapt to operator preference. Theme selection persists in `localStorage`.
 - **Geometric glass cockpit expansion** — additional theme profiles, redesigned instrument widgets, environment intelligence, and activity command dashboards for transparent control-room mockups.
+- **Themable cockpit** — ten switchable themes (Route Grid, Emerald Console, Solar Flare, Holo Quantum, Nightwatch Crimson, Tactical NVG, Ice Spectrum, Plasma Vortex, Void Protocol, Arctic Command) so all dashboards adapt to operator preference. Theme selection persists in `localStorage`.
 
 ## Overview
 
@@ -33,8 +34,9 @@ Nexus is the updated Harvester fork with:
 - In-tree Harvester platform source under `platform/harvester` so Nexus is tracked as a standalone system instead of a UI-only add-on.
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
 - Manifest Wizard embedded inside the unified Setup Wizard as an optional setup section, allowing workload manifest generation without leaving the provisioning flow.
+- Manifest Wizard embedded inside the Machine Wizard as a selectable tab so bare-metal install and workload manifest generation can be driven from the same surface, with an additional Review &amp; apply tab for the combined plan.
 - Wizard-driven workload and manifest configuration.
-- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, iSCSI, GlusterFS, Longhorn, OpenEBS, and Portworx.
+- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass).
 - Auto-generated `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `CronJob` manifests.
 - PVC, Service, Ingress, NetworkPolicy, RBAC, monitoring, logging, GitOps, and multi-cluster manifest generation.
 - Service mesh integration support for Istio, Linkerd, and Cilium.
@@ -47,6 +49,16 @@ Nexus is the updated Harvester fork with:
 - Virtual cluster support generates `vcluster` create/connect operations from multi-cluster targets.
 - Editor enhancements are implemented with CodeMirror YAML editing.
 - Storage backend templates include CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester source references under `platform/harvester/deploy/charts/harvester`.
+- Kubernetes validation and live preview combining local structural prechecks with Nexus live-adapter endpoints and server-side dry-run command generation.
+- Manifest apply / test runner commands generated for `kubectl auth can-i`, server-side dry-run, diff, apply, and rollout status.
+- Virtual cluster support generating `vcluster` create/connect operations from multi-cluster targets.
+- Storage backend templates including CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester chart references under `platform/harvester/deploy/charts/harvester`.
+- Ten switchable cockpit themes (Route Grid, Emerald Console, Solar Flare, Holo Quantum, Nightwatch Crimson, Tactical NVG, Ice Spectrum, Plasma Vortex, Void Protocol, Arctic Command) with persistent `localStorage` selection; every panel, gauge, control, and background adapts to the active theme.
+- Live Environment Ticker banner above every dashboard with rolling cluster-wide stats (workloads, IOPS, ingress / egress Mb/s, CPU %, DRAM %, power, in-flight migrations, open CVEs, trust score).
+- Mission Control overview dashboard with multi-ring radial gauges, live oscilloscope waveforms, spark-trended panels, and a route-grid spatial map of the synthetic environment.
+- Telemetry Wave dashboard with high-density oscilloscope traces, FFT bands, and rolling latency histograms for SPDK / DPDK / vhost-user / RDMA paths.
+- HUD Dashboard with animated hex-cell topology visualization, arc radial gauges, sparklines, throughput bars, control toggles, event feed, and cluster stat tiles.
+- Eight additional themed data dashboards: Networking, Storage, Machines &amp; Containers, Processor &amp; Memory, Poly-Compute Engine, Acceleration, Operations &amp; Compliance, and Resource Monitoring.
 
 ## Quick start
 
@@ -76,4 +88,3 @@ The updated Nexus version is available on the `nexus` branch in the forked repos
 
 - `https://github.com/sggr57a/harvester/tree/nexus`
 - Pull request: `https://github.com/sggr57a/harvester/pull/1`
-

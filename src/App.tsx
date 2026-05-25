@@ -4,9 +4,11 @@ import { generateManifest } from './lib/manifestGenerator';
 import { buildApplyTestRun, buildCsiTemplatePreview, buildLivePreview, buildNexusClusterOperationBundle, buildVClusterPlan, validateKubernetesManifest } from './lib/clusterWorkflow';
 import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
 import { isDemoLogin } from './lib/auth';
+import { useLiveTelemetry } from './lib/liveTelemetry';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from './lib/themes';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
 import { ResourceMonitoringPage } from './components/ActiveWorkPage';
+import { EnvironmentTicker, SidebarRouteDecoration } from './components/EnvironmentTicker';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
@@ -24,6 +26,8 @@ import {
   ProcessorMemoryDashboardView,
   StorageDashboardView,
 } from './components/dashboards/Dashboards';
+import { MissionControlView } from './components/dashboards/MissionControl';
+import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -41,7 +45,9 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
 };
 
 type CockpitView =
+  | 'mission-control'
   | 'dashboard'
+  | 'telemetry-wave'
   | 'networking'
   | 'storage'
   | 'machines'
@@ -67,10 +73,11 @@ function App() {
   const [config, setConfig] = useState<ApplicationConfig>(defaultConfig);
   const [machineConfig, setMachineConfig] = useState(buildDefaultMachineConfig);
   const [step, setStep] = useState(1);
-  const [cockpitView, setCockpitView] = useState<CockpitView>('dashboard');
+  const [cockpitView, setCockpitView] = useState<CockpitView>('mission-control');
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
   const [includeManifestSetup, setIncludeManifestSetup] = useState(false);
+  const telemetry = useLiveTelemetry(1600);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -111,6 +118,25 @@ function App() {
       />
     );
   }
+
+  const NAV_ITEMS: { id: CockpitView; label: string; sig: string; group: string }[] = [
+    { id: 'mission-control', label: 'Mission Control', sig: 'CMD_00', group: 'MONITOR' },
+    { id: 'dashboard', label: 'HUD Dashboard', sig: 'TX_001', group: 'MONITOR' },
+    { id: 'telemetry-wave', label: 'Telemetry Wave', sig: 'WAVE_S', group: 'MONITOR' },
+    { id: 'networking', label: 'Networking', sig: 'NET_02', group: 'MONITOR' },
+    { id: 'storage', label: 'Storage', sig: 'CSI_IO', group: 'MONITOR' },
+    { id: 'machines', label: 'Machines', sig: 'VM_LXC', group: 'MONITOR' },
+    { id: 'processor-memory', label: 'Processor & Memory', sig: 'CPU_MEM', group: 'MONITOR' },
+    { id: 'poly-compute', label: 'Poly-Compute', sig: 'PCE_04', group: 'COMPUTE' },
+    { id: 'acceleration', label: 'Acceleration', sig: 'ACCEL', group: 'COMPUTE' },
+    { id: 'operations', label: 'Operations', sig: 'OPS_CM', group: 'COMPUTE' },
+    { id: 'resource-monitoring', label: 'Resource Monitor', sig: 'RES_WK', group: 'COMPUTE' },
+    { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
+    { id: 'machine', label: 'Machine Wizard', sig: 'MACH_W', group: 'DEPLOY' },
+    { id: 'wizard', label: 'Manifest Wizard', sig: 'MFT_WZ', group: 'DEPLOY' },
+  ];
+
+  const navGroups = ['MONITOR', 'COMPUTE', 'DEPLOY'] as const;
 
   return (
     <div className="app-shell">
@@ -163,6 +189,41 @@ function App() {
           <button className={cockpitView === 'setup' ? 'active' : ''} onClick={() => setCockpitView('setup')}>
             Setup Wizard
           </button>
+
+        <nav className="cockpit-nav" aria-label="Cockpit views">
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group}>
+              <span className="nav-group-label">{group}</span>
+              {NAV_ITEMS.filter((item) => item.group === group).map((item) => (
+                <button
+                  key={item.id}
+                  className={`nav-item ${cockpitView === item.id ? 'active' : ''}`}
+                  onClick={() => setCockpitView(item.id)}
+                  title={item.label}
+                >
+                  <span className="nav-sig">{item.sig}</span>
+                  <span className="nav-label">{item.label}</span>
+                  {cockpitView === item.id && <span className="nav-live-dot" />}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <SidebarRouteDecoration />
+        <ThemePicker active={theme} onSelect={setTheme} />
+
+        <div className="wizard-step-rail">
+          <span className="nav-group-label">MANIFEST STEPS</span>
+          {[1,2,3,4,5,6,7].map((s, i) => {
+            const labels = ['Workload','Storage','Networking','Security','Monitoring','GitOps','Review'];
+            return (
+              <button key={s} className={`step-rail-btn ${step === s ? 'active' : ''}`} onClick={() => setStep(s)}>
+                <span className="step-num">{s}</span>
+                <span>{labels[i]}</span>
+              </button>
+            );
+          })}
         </div>
         <ThemePicker active={theme} onSelect={setTheme} />
         <div className="storage-summary">
@@ -181,6 +242,17 @@ function App() {
         {cockpitView === 'environment' && <EnvironmentDashboardView />}
         {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'operations' && <OperationsDashboardView />}
+        <EnvironmentTicker snapshot={telemetry} />
+        {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
+        {cockpitView === 'dashboard' && <HudDashboard />}
+        {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
+        {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
+        {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
+        {cockpitView === 'machines' && <MachinesDashboardView telemetry={telemetry} />}
+        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
+        {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
+        {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
+        {cockpitView === 'operations' && <OperationsDashboardView telemetry={telemetry} />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (
           <ClusterIntegrationPanel
@@ -204,6 +276,40 @@ function App() {
             onManifestStepChange={setStep}
             includeManifestSetup={includeManifestSetup}
             onIncludeManifestSetupChange={setIncludeManifestSetup}
+        {cockpitView === 'machine' && (
+          <NexusMachineWizard
+            config={machineConfig}
+            plan={machinePlan}
+            onChange={setMachineConfig}
+            manifestWizardSlot={
+              <Wizard
+                currentStep={step}
+                config={config}
+                onChange={setConfig}
+                onNext={() => setStep(Math.min(step + 1, 7))}
+                onBack={() => setStep(Math.max(step - 1, 1))}
+              />
+            }
+            reviewSlot={
+              <ClusterIntegrationPanel
+                validation={validation}
+                livePreview={livePreview}
+                applyRun={applyRun}
+                vclusterPlan={vclusterPlan}
+                csiPreview={csiPreview}
+                operationBundle={operationBundle}
+                config={config}
+              />
+            }
+          />
+        )}
+        {cockpitView === 'wizard' && (
+          <Wizard
+            currentStep={step}
+            config={config}
+            onChange={setConfig}
+            onNext={() => setStep(Math.min(step + 1, 7))}
+            onBack={() => setStep(Math.max(step - 1, 1))}
           />
         )}
         <section className="manifest-panel">
