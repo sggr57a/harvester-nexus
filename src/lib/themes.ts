@@ -1,13 +1,10 @@
 export type ThemeId =
   | 'route-grid'
   | 'emerald-console'
-  | 'solar-flare'
-  | 'holo-quantum'
   | 'nightwatch-crimson'
   | 'tactical-nvg'
   | 'ice-spectrum'
   | 'plasma-vortex'
-  | 'void-protocol'
   | 'arctic-command';
 
 export interface ThemeDefinition {
@@ -29,18 +26,6 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     name: 'Emerald Console',
     tagline: 'Deep black-glass cockpit with emerald data',
     swatches: ['#020608', '#082015', '#1f7a52', '#36d399', '#a8ffd0'],
-  },
-  {
-    id: 'solar-flare',
-    name: 'Solar Flare',
-    tagline: 'Charcoal blueprint with amber contours',
-    swatches: ['#0d0a06', '#2a1c08', '#ff8c2a', '#ffd166', '#ffeeb0'],
-  },
-  {
-    id: 'holo-quantum',
-    name: 'Holo Quantum',
-    tagline: 'Violet holographic mesh with cyan accents',
-    swatches: ['#0a0418', '#1d0a3a', '#7c3bff', '#b86bff', '#36ecff'],
   },
   {
     id: 'nightwatch-crimson',
@@ -65,12 +50,6 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     name: 'Plasma Vortex',
     tagline: 'Magenta-electric plasma over deep void',
     swatches: ['#06030d', '#1a0533', '#ff4af7', '#ffd166', '#5bf2ff'],
-  },
-  {
-    id: 'void-protocol',
-    name: 'Void Protocol',
-    tagline: 'Neon violet cyberpunk on absolute black',
-    swatches: ['#060010', '#130028', '#7c3aed', '#c084fc', '#e9d5ff'],
   },
   {
     id: 'arctic-command',
