@@ -12,8 +12,10 @@ import { EnvironmentTicker, SidebarRouteDecoration } from './components/Environm
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
+import { NexusMachineWizard } from './components/NexusMachineWizard';
 import { ThemePicker } from './components/ThemePicker';
 import { UnifiedSetupWizard } from './components/UnifiedSetupWizard';
+import { Wizard } from './components/Wizard';
 import { YamlEditor } from './components/YamlEditor';
 import {
   AccelerationDashboardView,
@@ -59,6 +61,8 @@ type CockpitView =
   | 'operations'
   | 'resource-monitoring'
   | 'cluster'
+  | 'machine'
+  | 'wizard'
   | 'setup';
 
 function readStoredTheme(): ThemeId {
@@ -233,19 +237,9 @@ function App() {
         </div>
       </aside>
       <main className="main-view">
-        {cockpitView === 'dashboard' && <HudDashboard activeTheme={theme} />}
-        {cockpitView === 'networking' && <NetworkingDashboardView />}
-        {cockpitView === 'storage' && <StorageDashboardView />}
-        {cockpitView === 'machines' && <MachinesDashboardView />}
-        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView />}
-        {cockpitView === 'poly-compute' && <PolyComputeDashboardView />}
-        {cockpitView === 'acceleration' && <AccelerationDashboardView />}
-        {cockpitView === 'environment' && <EnvironmentDashboardView />}
-        {cockpitView === 'activity' && <ActivityDashboardView />}
-        {cockpitView === 'operations' && <OperationsDashboardView />}
         <EnvironmentTicker snapshot={telemetry} />
         {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
-        {cockpitView === 'dashboard' && <HudDashboard />}
+        {cockpitView === 'dashboard' && <HudDashboard activeTheme={theme} />}
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
         {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
         {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
@@ -253,6 +247,8 @@ function App() {
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
         {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
         {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
+        {cockpitView === 'environment' && <EnvironmentDashboardView />}
+        {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'operations' && <OperationsDashboardView telemetry={telemetry} />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (

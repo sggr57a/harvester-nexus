@@ -9167,3 +9167,378 @@ select option {
 @media (max-width: 1100px) {
   .wave-rolling-grid { grid-template-columns: 1fr; }
 }
+
+/* =====================================================
+   ADVANCED VISUALIZATION WIDGETS (HUD continuation)
+   Geo map, sankey flow, heatmap, streaming area, chord
+   ===================================================== */
+
+.hud-advanced-grid {
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  grid-auto-rows: minmax(0, auto);
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.hud-advanced-grid > .hud-panel {
+  padding: 0.9rem 1rem;
+}
+
+.hud-advanced-grid .hud-geo-map {
+  grid-column: 1 / span 1;
+}
+
+.hud-advanced-grid .hud-chord {
+  grid-column: 2 / span 1;
+}
+
+.hud-advanced-grid .hud-sankey,
+.hud-advanced-grid .hud-stream-chart {
+  grid-column: span 1;
+}
+
+.hud-advanced-grid .hud-heatmap {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .hud-advanced-grid {
+    grid-template-columns: 1fr;
+  }
+  .hud-advanced-grid .hud-geo-map,
+  .hud-advanced-grid .hud-chord,
+  .hud-advanced-grid .hud-sankey,
+  .hud-advanced-grid .hud-stream-chart,
+  .hud-advanced-grid .hud-heatmap {
+    grid-column: 1 / -1;
+  }
+}
+
+/* -------- Geo cluster map -------- */
+.hud-geo-map { color: var(--theme-accent); }
+.hud-geo-stage {
+  position: relative;
+  margin-top: 0.7rem;
+  height: 16rem;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 35% 50%, rgba(51, 247, 255, 0.10), transparent 70%),
+    radial-gradient(ellipse at 75% 45%, rgba(124, 59, 255, 0.10), transparent 70%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.55));
+  overflow: hidden;
+}
+.hud-geo-stage svg { width: 100%; height: 100%; display: block; }
+.geo-continents path { stroke: currentColor; stroke-width: 0.18; }
+.geo-link-base {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 0.35;
+}
+.geo-link-pulse {
+  fill: none;
+  stroke-width: 0.5;
+  stroke-linecap: round;
+  stroke-dasharray: 6 18;
+  animation: geo-link-march 3s linear infinite;
+}
+@keyframes geo-link-march {
+  to { stroke-dashoffset: -48; }
+}
+.geo-packet {
+  fill: var(--theme-accent-2);
+  filter: drop-shadow(0 0 1.2px var(--theme-accent-2));
+}
+.geo-region-core {
+  fill: var(--theme-accent);
+  filter: drop-shadow(0 0 2.4px var(--theme-accent));
+}
+.geo-region-ring {
+  fill: none;
+  stroke: var(--theme-accent);
+  stroke-width: 0.4;
+  opacity: 0.5;
+  transform-origin: center;
+  animation: geo-region-pulse 2.4s ease-out infinite;
+}
+@keyframes geo-region-pulse {
+  0% { r: 2.6; opacity: 0.85; }
+  100% { r: 7.2; opacity: 0; }
+}
+.geo-region.role-control-plane .geo-region-core { fill: var(--theme-accent); }
+.geo-region.role-edge .geo-region-core { fill: var(--theme-accent-2); }
+.geo-region.role-storage .geo-region-core { fill: var(--theme-good, #36d399); }
+.geo-region.role-failover .geo-region-core { fill: #ffd166; }
+.geo-region-label {
+  font-size: 2.1px;
+  font-weight: 700;
+  fill: var(--theme-text, #e0f7ff);
+  letter-spacing: 0.06em;
+}
+.geo-region-nodes {
+  font-size: 1.8px;
+  fill: var(--theme-text-dim, rgba(255,255,255,0.6));
+  font-weight: 700;
+}
+.hud-geo-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+.hud-geo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--theme-text, #e0f7ff);
+}
+.hud-geo-chip i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--theme-accent);
+  box-shadow: 0 0 8px var(--theme-accent);
+}
+.hud-geo-chip.role-control-plane i { background: var(--theme-accent); }
+.hud-geo-chip.role-edge i { background: var(--theme-accent-2); }
+.hud-geo-chip.role-storage i { background: var(--theme-good, #36d399); }
+.hud-geo-chip.role-failover i { background: #ffd166; }
+.hud-geo-rate { color: var(--theme-good, #36d399); border-color: rgba(54, 211, 153, 0.4); }
+
+/* -------- Sankey flow -------- */
+.hud-sankey-stage {
+  margin-top: 0.7rem;
+  height: 14rem;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.55)),
+    radial-gradient(circle at 50% 50%, rgba(51, 247, 255, 0.06), transparent 60%);
+  overflow: hidden;
+}
+.hud-sankey-stage svg { width: 100%; height: 100%; display: block; }
+.sankey-band {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: sankey-band-in 900ms ease-out forwards;
+  filter: drop-shadow(0 0 1.5px rgba(51, 247, 255, 0.4));
+}
+.sankey-band-2 {
+  stroke: rgba(124, 59, 255, 0.55);
+}
+@keyframes sankey-band-in {
+  0% { opacity: 0; stroke-dashoffset: 200; }
+  100% { opacity: 0.85; stroke-dashoffset: 0; }
+}
+.sankey-node {
+  fill: var(--theme-accent);
+  filter: drop-shadow(0 0 2px var(--theme-accent));
+}
+.sankey-node-ns { fill: rgba(255, 255, 255, 0.85); }
+.sankey-node-target { fill: var(--theme-good, #36d399); }
+.sankey-label {
+  font-size: 2.2px;
+  fill: var(--theme-text, #e0f7ff);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sankey-sub {
+  font-size: 1.8px;
+  fill: var(--theme-text-dim, rgba(255,255,255,0.55));
+  font-weight: 600;
+}
+
+/* -------- Activity heatmap -------- */
+.hud-heatmap-grid {
+  display: grid;
+  gap: 2px;
+  margin-top: 0.8rem;
+  padding: 0.65rem;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.hud-heatmap-hour {
+  text-align: center;
+  font-size: 0.6rem;
+  color: var(--theme-text-dim, rgba(255,255,255,0.55));
+  letter-spacing: 0.04em;
+}
+.hud-heatmap-node {
+  align-self: center;
+  font-size: 0.7rem;
+  color: var(--theme-text, #e0f7ff);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hud-heatmap-cell {
+  display: block;
+  height: 1.1rem;
+  border-radius: 3px;
+  animation: heatmap-cell-in 600ms ease-out both;
+  transition: transform 0.2s ease;
+}
+.hud-heatmap-cell:hover {
+  transform: scale(1.25);
+  z-index: 2;
+  position: relative;
+  outline: 1px solid rgba(255, 255, 255, 0.8);
+}
+@keyframes heatmap-cell-in {
+  from { opacity: 0; transform: translateY(2px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+.hud-heatmap-scale {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--theme-text-dim, rgba(255,255,255,0.55));
+}
+.hud-heatmap-ramp {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgb(9, 18, 36), rgb(16, 90, 130), rgb(40, 200, 168), rgb(255, 196, 78), rgb(255, 78, 200));
+  box-shadow: 0 0 12px rgba(255, 196, 78, 0.4);
+}
+
+/* -------- Streaming area chart -------- */
+.hud-stream-stage {
+  margin-top: 0.7rem;
+  height: 13rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
+  color: var(--theme-accent);
+  overflow: hidden;
+}
+.hud-stream-stage svg { width: 100%; height: 100%; display: block; }
+.hud-stream-series polyline {
+  filter: drop-shadow(0 0 1.6px currentColor);
+}
+.hud-stream-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+.hud-stream-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.4);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--theme-text, #e0f7ff);
+}
+.hud-stream-chip i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+  box-shadow: 0 0 8px currentColor;
+}
+.hud-stream-chip b { color: var(--theme-text, #e0f7ff); font-weight: 700; }
+.hud-stream-chip em {
+  font-style: normal;
+  color: var(--theme-text-dim, rgba(255,255,255,0.65));
+}
+
+/* -------- Service mesh chord -------- */
+.hud-chord-stage {
+  margin-top: 0.7rem;
+  height: 16rem;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(124, 59, 255, 0.08), transparent 65%),
+    linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.55));
+  overflow: hidden;
+}
+.hud-chord-stage svg { width: 100%; height: 100%; display: block; }
+.chord-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 0.3;
+}
+.chord-ring-inner {
+  stroke-dasharray: 1 2;
+  animation: chord-spin 22s linear infinite;
+  transform-origin: 50px 50px;
+}
+@keyframes chord-spin {
+  to { transform: rotate(360deg); }
+}
+.chord-edge {
+  fill: none;
+  stroke-linecap: round;
+  transition: opacity 0.3s ease, stroke-width 0.3s ease;
+}
+.chord-edge.is-active {
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 1.6px currentColor);
+  animation: chord-edge-glow 1.4s ease-out;
+}
+@keyframes chord-edge-glow {
+  0% { stroke-dashoffset: 60; stroke-dasharray: 4 4; }
+  100% { stroke-dashoffset: 0; stroke-dasharray: 0; }
+}
+.chord-node-halo {
+  fill: none;
+  stroke-width: 0.45;
+  opacity: 0.55;
+  animation: chord-halo 2.6s ease-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+@keyframes chord-halo {
+  0% { opacity: 0.7; r: 4.2; }
+  100% { opacity: 0; r: 7.5; }
+}
+.chord-label {
+  font-size: 2.4px;
+  fill: var(--theme-text, #e0f7ff);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.hud-chord-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+.hud-chord-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.4);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--theme-text, #e0f7ff);
+}
+.hud-chord-chip em { color: var(--theme-accent); font-style: normal; }
+.hud-chord-chip i {
+  color: var(--theme-good, #36d399);
+  font-style: normal;
+  font-weight: 700;
+}
+.hud-chord-chip.is-active {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 14px rgba(51, 247, 255, 0.4);
+}
