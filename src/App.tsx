@@ -138,6 +138,9 @@ function App() {
     { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
     { id: 'machine', label: 'Machine Wizard', sig: 'MACH_W', group: 'DEPLOY' },
     { id: 'wizard', label: 'Manifest Wizard', sig: 'MFT_WZ', group: 'DEPLOY' },
+    { id: 'setup', label: 'Setup Wizard', sig: 'SET_UP', group: 'DEPLOY' },
+    { id: 'environment', label: 'Environment Intel', sig: 'ENV_IO', group: 'COMPUTE' },
+    { id: 'activity', label: 'Activity Command', sig: 'ACT_CM', group: 'COMPUTE' },
   ];
 
   const navGroups = ['MONITOR', 'COMPUTE', 'DEPLOY'] as const;
@@ -153,48 +156,6 @@ function App() {
             <p className="brand-tagline">Dark-mode workload & storage manifest generator</p>
           </div>
         </div>
-        <div className="step-list">
-          <button className={cockpitView === 'dashboard' ? 'active' : ''} onClick={() => setCockpitView('dashboard')}>
-            HUD Dashboard
-          </button>
-          <button className={cockpitView === 'networking' ? 'active' : ''} onClick={() => setCockpitView('networking')}>
-            Networking
-          </button>
-          <button className={cockpitView === 'storage' ? 'active' : ''} onClick={() => setCockpitView('storage')}>
-            Storage
-          </button>
-          <button className={cockpitView === 'machines' ? 'active' : ''} onClick={() => setCockpitView('machines')}>
-            Machines &amp; Containers
-          </button>
-          <button className={cockpitView === 'processor-memory' ? 'active' : ''} onClick={() => setCockpitView('processor-memory')}>
-            Processor &amp; Memory
-          </button>
-          <button className={cockpitView === 'poly-compute' ? 'active' : ''} onClick={() => setCockpitView('poly-compute')}>
-            Poly-Compute Engine
-          </button>
-          <button className={cockpitView === 'acceleration' ? 'active' : ''} onClick={() => setCockpitView('acceleration')}>
-            Acceleration
-          </button>
-          <button className={cockpitView === 'environment' ? 'active' : ''} onClick={() => setCockpitView('environment')}>
-            Environment Intelligence
-          </button>
-          <button className={cockpitView === 'activity' ? 'active' : ''} onClick={() => setCockpitView('activity')}>
-            Activity Command
-          </button>
-          <button className={cockpitView === 'operations' ? 'active' : ''} onClick={() => setCockpitView('operations')}>
-            Operations &amp; Compliance
-          </button>
-          <button className={cockpitView === 'resource-monitoring' ? 'active' : ''} onClick={() => setCockpitView('resource-monitoring')}>
-            Resource Monitoring
-          </button>
-          <button className={cockpitView === 'cluster' ? 'active' : ''} onClick={() => setCockpitView('cluster')}>
-            Cluster Console
-          </button>
-          <button className={cockpitView === 'setup' ? 'active' : ''} onClick={() => setCockpitView('setup')}>
-            Setup Wizard
-          </button>
-        </div>
-
         <nav className="cockpit-nav" aria-label="Cockpit views">
           {navGroups.map((group) => (
             <div className="nav-group" key={group}>
