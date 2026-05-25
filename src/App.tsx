@@ -4,9 +4,11 @@ import { generateManifest } from './lib/manifestGenerator';
 import { buildApplyTestRun, buildCsiTemplatePreview, buildLivePreview, buildNexusClusterOperationBundle, buildVClusterPlan, validateKubernetesManifest } from './lib/clusterWorkflow';
 import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
 import { isDemoLogin } from './lib/auth';
+import { useLiveTelemetry } from './lib/liveTelemetry';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from './lib/themes';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
 import { ResourceMonitoringPage } from './components/ActiveWorkPage';
+import { EnvironmentTicker, SidebarRouteDecoration } from './components/EnvironmentTicker';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
@@ -68,6 +70,7 @@ function App() {
   const [cockpitView, setCockpitView] = useState<CockpitView>('dashboard');
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
+  const telemetry = useLiveTelemetry(1600);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -158,6 +161,7 @@ function App() {
             Manifest Wizard
           </button>
         </div>
+        <SidebarRouteDecoration />
         <ThemePicker active={theme} onSelect={setTheme} />
         <div className="step-list manifest-step-list">
           <button className={step === 1 ? 'active' : ''} onClick={() => setStep(1)}>
@@ -188,14 +192,15 @@ function App() {
         </div>
       </aside>
       <main className="main-view">
+        <EnvironmentTicker snapshot={telemetry} />
         {cockpitView === 'dashboard' && <HudDashboard />}
-        {cockpitView === 'networking' && <NetworkingDashboardView />}
-        {cockpitView === 'storage' && <StorageDashboardView />}
-        {cockpitView === 'machines' && <MachinesDashboardView />}
-        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView />}
-        {cockpitView === 'poly-compute' && <PolyComputeDashboardView />}
-        {cockpitView === 'acceleration' && <AccelerationDashboardView />}
-        {cockpitView === 'operations' && <OperationsDashboardView />}
+        {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
+        {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
+        {cockpitView === 'machines' && <MachinesDashboardView telemetry={telemetry} />}
+        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
+        {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
+        {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
+        {cockpitView === 'operations' && <OperationsDashboardView telemetry={telemetry} />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (
           <ClusterIntegrationPanel
