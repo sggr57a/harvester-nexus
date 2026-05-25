@@ -9732,3 +9732,127 @@ select option {
   .dash-mission .mission-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-mission [class^="mission-"] { grid-column: span 2 !important; }
 }
+
+/* ============================================================
+   v4.1 — Sidebar cockpit-nav (grouped) styling
+   The older `.step-list button` classes are still themed via
+   v2.1 selectors above; this adds the missing styles for the
+   newer `.cockpit-nav > .nav-group > .nav-item` structure.
+   ============================================================ */
+.cockpit-nav {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.4rem 0;
+}
+.cockpit-nav .nav-group {
+  display: grid;
+  gap: 0.32rem;
+}
+.cockpit-nav .nav-group-label {
+  display: block;
+  font-size: 0.58rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--theme-accent);
+  text-shadow: 0 0 6px var(--theme-accent);
+  padding: 0.2rem 0.4rem 0.25rem;
+  border-bottom: 1px dashed var(--theme-panel-border);
+  margin-bottom: 0.25rem;
+}
+
+.cockpit-nav .nav-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--theme-panel-border);
+  background: rgba(0, 0, 0, 0.42);
+  border-radius: 4px;
+  color: var(--theme-text-dim);
+  font-family: var(--theme-font-stack, inherit);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+}
+.cockpit-nav .nav-item:hover {
+  border-color: var(--theme-accent);
+  color: var(--theme-text);
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 10px var(--theme-accent-soft);
+  transform: translateX(2px);
+}
+.cockpit-nav .nav-item.active {
+  border-color: var(--theme-accent);
+  color: var(--theme-accent);
+  background: var(--theme-accent-soft);
+  box-shadow: var(--theme-route-glow, 0 0 14px var(--theme-accent-soft));
+}
+.cockpit-nav .nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--theme-accent);
+  box-shadow: 0 0 8px var(--theme-accent);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Signal code chip (left side of every nav item) */
+.cockpit-nav .nav-sig {
+  font-family: var(--theme-mono, 'IBM Plex Mono', monospace);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--theme-text-dim);
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+.cockpit-nav .nav-item:hover .nav-sig,
+.cockpit-nav .nav-item.active .nav-sig {
+  color: var(--theme-accent);
+  border-color: var(--theme-accent);
+  text-shadow: 0 0 4px var(--theme-accent);
+}
+
+.cockpit-nav .nav-label {
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: inherit;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Live dot — animated pulse on the active nav item */
+.cockpit-nav .nav-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  box-shadow: 0 0 8px var(--theme-accent);
+  animation: nav-live-dot 1.2s ease-in-out infinite;
+}
+@keyframes nav-live-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.7); }
+}
+
+/* Hide the older flat `.step-list` if any leftover renders inside the new sidebar */
+.sidebar > .step-list { display: none !important; }
+
+/* Sidebar widths + spacing tweak so the nav has room for the longer labels */
+.app-shell { grid-template-columns: 280px 1fr !important; }
+.sidebar { padding: 1rem 0.85rem !important; gap: 0.9rem !important; display: grid !important; align-content: start; }
+.sidebar > * { min-width: 0; }
