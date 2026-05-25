@@ -1,0 +1,181 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { formatNumber, type EnvironmentSnapshot } from '../lib/liveTelemetry';
+
+interface EnvironmentTickerProps {
+  snapshot: EnvironmentSnapshot;
+  /** Optional label shown above the cells; defaults to a generic "Live Environment" label */
+  label?: string;
+}
+
+interface Cell {
+  key: keyof EnvironmentSnapshot['deltas'] | 'openCves' | 'trustScore';
+  label: string;
+  value: string;
+  sub: string;
+  delta?: number;
+}
+
+/**
+ * Animated horizontal banner showing real-time aggregate statistics
+ * of the mockup environment. Drops a "flash" CSS class on cells whose
+ * value changed since the previous tick, so the user can see the
+ * dashboards monitor a live environment.
+ */
+export function EnvironmentTicker({ snapshot, label = 'Live Environment Stream' }: EnvironmentTickerProps) {
+  const previousTickRef = useRef<number>(snapshot.tick);
+  const [flashKeys, setFlashKeys] = useState<Set<string>>(() => new Set());
+
+  const cells: Cell[] = useMemo(
+    () => [
+      {
+        key: 'totalWorkloads',
+        label: 'Workloads',
+        value: formatNumber(snapshot.totalWorkloads),
+        sub: 'vm·lxc·docker·pod',
+        delta: snapshot.deltas.totalWorkloads,
+      },
+      {
+        key: 'totalIops',
+        label: 'Cluster IOPS',
+        value: formatNumber(snapshot.totalIops, { compact: true }),
+        sub: 'all storage backends',
+        delta: snapshot.deltas.totalIops,
+      },
+      {
+        key: 'ingressMbps',
+        label: 'Ingress Mb/s',
+        value: formatNumber(snapshot.ingressMbps),
+        sub: 'NIC bonds aggregated',
+        delta: snapshot.deltas.ingressMbps,
+      },
+      {
+        key: 'egressMbps',
+        label: 'Egress Mb/s',
+        value: formatNumber(snapshot.egressMbps),
+        sub: 'NIC bonds aggregated',
+        delta: snapshot.deltas.egressMbps,
+      },
+      {
+        key: 'cpuPercent',
+        label: 'CPU %',
+        value: `${snapshot.cpuPercent}%`,
+        sub: 'rolling cluster avg',
+        delta: snapshot.deltas.cpuPercent,
+      },
+      {
+        key: 'ramPercent',
+        label: 'DRAM %',
+        value: `${snapshot.ramPercent}%`,
+        sub: 'rolling cluster avg',
+        delta: snapshot.deltas.ramPercent,
+      },
+      {
+        key: 'watts',
+        label: 'Power',
+        value: `${formatNumber(snapshot.watts)} W`,
+        sub: 'aggregate draw',
+        delta: snapshot.deltas.watts,
+      },
+      {
+        key: 'activeMigrations',
+        label: 'Migrations',
+        value: String(snapshot.activeMigrations),
+        sub: 'in-flight vMotion',
+        delta: snapshot.deltas.activeMigrations,
+      },
+      {
+        key: 'openCves',
+        label: 'Open CVEs',
+        value: String(snapshot.openCves),
+        sub: 'critical & high',
+      },
+      {
+        key: 'trustScore',
+        label: 'Trust',
+        value: `${snapshot.trustScore}`,
+        sub: 'security posture',
+      },
+    ],
+    [snapshot],
+  );
+
+  useEffect(() => {
+    if (snapshot.tick === previousTickRef.current) return;
+    previousTickRef.current = snapshot.tick;
+    const newFlash = new Set<string>();
+    for (const cell of cells) {
+      if (cell.delta && cell.delta !== 0) newFlash.add(cell.key as string);
+    }
+    setFlashKeys(newFlash);
+    const handle = window.setTimeout(() => setFlashKeys(new Set()), 1100);
+    return () => window.clearTimeout(handle);
+  }, [snapshot.tick, cells]);
+
+  return (
+    <div className="env-ticker" aria-label="Live environment statistics">
+      <div className="env-ticker-cell" style={{ gridColumn: '1 / -1', background: 'transparent', border: 'none', padding: '0 0 0.2rem' }}>
+        <span className="label" style={{ color: 'var(--theme-text-dim)' }}>{label}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem' }}>
+          <span className="sub">tick #{snapshot.tick} · synthetic poly-compute environment</span>
+          <span className="env-ticker-live">stream live</span>
+        </div>
+      </div>
+      {cells.map((cell) => {
+        const deltaClass =
+          cell.delta === undefined || cell.delta === 0
+            ? ''
+            : cell.delta > 0
+              ? ' delta-up'
+              : ' delta-down';
+        const flashClass = flashKeys.has(cell.key as string) ? ' flash' : '';
+        return (
+          <div key={cell.key as string} className={`env-ticker-cell${deltaClass}${flashClass}`}>
+            <span className="label">{cell.label}</span>
+            <span className="value">{cell.value}</span>
+            <span className="sub">
+              {cell.sub}
+              {cell.delta !== undefined && cell.delta !== 0 ? (
+                <>
+                  {' · '}
+                  <strong style={{ color: cell.delta > 0 ? 'var(--theme-good)' : 'var(--theme-danger)' }}>
+                    {cell.delta > 0 ? '+' : ''}
+                    {formatNumber(cell.delta, { compact: true })}
+                  </strong>
+                </>
+              ) : null}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Lightweight sidebar decoration: a glowing animated route line that follows
+ * the theme. Adds visual cohesion between the sidebar and the dashboards.
+ */
+export function SidebarRouteDecoration() {
+  return (
+    <div className="sidebar-route-decoration" aria-hidden="true">
+      <svg viewBox="0 0 200 36" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sidebar-route-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0" />
+            <stop offset="50%" stopColor="var(--theme-accent)" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="var(--theme-accent-2)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M0 18 Q 40 6, 80 18 T 160 18 L 200 14" fill="none" stroke="url(#sidebar-route-grad)" strokeWidth="1.5" />
+        <circle cx="0" cy="0" r="2.4" fill="var(--theme-accent)">
+          <animateMotion dur="6s" repeatCount="indefinite" path="M0 18 Q 40 6, 80 18 T 160 18 L 200 14" />
+        </circle>
+      </svg>
+    </div>
+  );
+}
+
+export function useTickHook() {
+  // Re-export for convenience to keep import surface narrow in App.tsx
+  return null;
+}

@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { ApplicationConfig, defaultConfig, StorageType } from './types';
 import { generateManifest } from './lib/manifestGenerator';
 import { buildApplyTestRun, buildCsiTemplatePreview, buildLivePreview, buildNexusClusterOperationBundle, buildVClusterPlan, validateKubernetesManifest } from './lib/clusterWorkflow';
-import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan, type HarvesterMachineConfig, type HarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
+import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
 import { isDemoLogin } from './lib/auth';
+import { useLiveTelemetry } from './lib/liveTelemetry';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from './lib/themes';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
 import { ResourceMonitoringPage } from './components/ActiveWorkPage';
+import { EnvironmentTicker, SidebarRouteDecoration } from './components/EnvironmentTicker';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
@@ -23,62 +25,8 @@ import {
   ProcessorMemoryDashboardView,
   StorageDashboardView,
 } from './components/dashboards/Dashboards';
-
-/** Combined machine + manifest wizard view with a tabbed selector */
-function MachineAndManifestView({
-  machineConfig,
-  machinePlan,
-  onMachineChange,
-  manifestStep,
-  manifestConfig,
-  onManifestChange,
-  onManifestNext,
-  onManifestBack,
-}: {
-  machineConfig: HarvesterMachineConfig;
-  machinePlan: HarvesterMachineInstallPlan;
-  onMachineChange: (c: HarvesterMachineConfig) => void;
-  manifestStep: number;
-  manifestConfig: ApplicationConfig;
-  onManifestChange: (c: ApplicationConfig) => void;
-  onManifestNext: () => void;
-  onManifestBack: () => void;
-}) {
-  const [tab, setTab] = useState<'machine' | 'manifest'>('machine');
-  return (
-    <div className="machine-manifest-shell">
-      <nav className="machine-manifest-tabs" aria-label="Machine wizard sub-mode">
-        <button
-          className={tab === 'machine' ? 'is-selected' : ''}
-          type="button"
-          onClick={() => setTab('machine')}
-        >
-          <span>MACH_W</span>
-          Machine Config
-        </button>
-        <button
-          className={tab === 'manifest' ? 'is-selected' : ''}
-          type="button"
-          onClick={() => setTab('manifest')}
-        >
-          <span>MFT_WZ</span>
-          Manifest Wizard
-        </button>
-      </nav>
-      {tab === 'machine' ? (
-        <NexusMachineWizard config={machineConfig} plan={machinePlan} onChange={onMachineChange} />
-      ) : (
-        <Wizard
-          currentStep={manifestStep}
-          config={manifestConfig}
-          onChange={onManifestChange}
-          onNext={onManifestNext}
-          onBack={onManifestBack}
-        />
-      )}
-    </div>
-  );
-}
+import { MissionControlView } from './components/dashboards/MissionControl';
+import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -96,7 +44,9 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
 };
 
 type CockpitView =
+  | 'mission-control'
   | 'dashboard'
+  | 'telemetry-wave'
   | 'networking'
   | 'storage'
   | 'machines'
@@ -121,9 +71,10 @@ function App() {
   const [config, setConfig] = useState<ApplicationConfig>(defaultConfig);
   const [machineConfig, setMachineConfig] = useState(buildDefaultMachineConfig);
   const [step, setStep] = useState(1);
-  const [cockpitView, setCockpitView] = useState<CockpitView>('dashboard');
+  const [cockpitView, setCockpitView] = useState<CockpitView>('mission-control');
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
+  const telemetry = useLiveTelemetry(1600);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -166,7 +117,9 @@ function App() {
   }
 
   const NAV_ITEMS: { id: CockpitView; label: string; sig: string; group: string }[] = [
+    { id: 'mission-control', label: 'Mission Control', sig: 'CMD_00', group: 'MONITOR' },
     { id: 'dashboard', label: 'HUD Dashboard', sig: 'TX_001', group: 'MONITOR' },
+    { id: 'telemetry-wave', label: 'Telemetry Wave', sig: 'WAVE_S', group: 'MONITOR' },
     { id: 'networking', label: 'Networking', sig: 'NET_02', group: 'MONITOR' },
     { id: 'storage', label: 'Storage', sig: 'CSI_IO', group: 'MONITOR' },
     { id: 'machines', label: 'Machines', sig: 'VM_LXC', group: 'MONITOR' },
@@ -214,6 +167,7 @@ function App() {
           ))}
         </nav>
 
+        <SidebarRouteDecoration />
         <ThemePicker active={theme} onSelect={setTheme} />
 
         <div className="wizard-step-rail">
@@ -235,14 +189,17 @@ function App() {
         </div>
       </aside>
       <main className="main-view">
+        <EnvironmentTicker snapshot={telemetry} />
+        {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
         {cockpitView === 'dashboard' && <HudDashboard />}
-        {cockpitView === 'networking' && <NetworkingDashboardView />}
-        {cockpitView === 'storage' && <StorageDashboardView />}
-        {cockpitView === 'machines' && <MachinesDashboardView />}
-        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView />}
-        {cockpitView === 'poly-compute' && <PolyComputeDashboardView />}
-        {cockpitView === 'acceleration' && <AccelerationDashboardView />}
-        {cockpitView === 'operations' && <OperationsDashboardView />}
+        {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
+        {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
+        {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
+        {cockpitView === 'machines' && <MachinesDashboardView telemetry={telemetry} />}
+        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
+        {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
+        {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
+        {cockpitView === 'operations' && <OperationsDashboardView telemetry={telemetry} />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (
           <ClusterIntegrationPanel
@@ -256,18 +213,41 @@ function App() {
           />
         )}
         {cockpitView === 'machine' && (
-          <MachineAndManifestView
-            machineConfig={machineConfig}
-            machinePlan={machinePlan}
-            onMachineChange={setMachineConfig}
-            manifestStep={step}
-            manifestConfig={config}
-            onManifestChange={setConfig}
-            onManifestNext={() => setStep(Math.min(step + 1, 7))}
-            onManifestBack={() => setStep(Math.max(step - 1, 1))}
+          <NexusMachineWizard
+            config={machineConfig}
+            plan={machinePlan}
+            onChange={setMachineConfig}
+            manifestWizardSlot={
+              <Wizard
+                currentStep={step}
+                config={config}
+                onChange={setConfig}
+                onNext={() => setStep(Math.min(step + 1, 7))}
+                onBack={() => setStep(Math.max(step - 1, 1))}
+              />
+            }
+            reviewSlot={
+              <ClusterIntegrationPanel
+                validation={validation}
+                livePreview={livePreview}
+                applyRun={applyRun}
+                vclusterPlan={vclusterPlan}
+                csiPreview={csiPreview}
+                operationBundle={operationBundle}
+                config={config}
+              />
+            }
           />
         )}
-        {cockpitView === 'wizard' && <Wizard currentStep={step} config={config} onChange={setConfig} onNext={() => setStep(Math.min(step + 1, 7))} onBack={() => setStep(Math.max(step - 1, 1))} />}
+        {cockpitView === 'wizard' && (
+          <Wizard
+            currentStep={step}
+            config={config}
+            onChange={setConfig}
+            onNext={() => setStep(Math.min(step + 1, 7))}
+            onBack={() => setStep(Math.max(step - 1, 1))}
+          />
+        )}
         <section className="manifest-panel">
           <div className="panel-header">
             <h2>Generated manifest</h2>

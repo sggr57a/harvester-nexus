@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
   buildAccelerationDashboard,
   buildMachinesDashboard,
@@ -8,6 +9,7 @@ import {
   buildStorageDashboard,
   type CpuCore,
 } from '../../lib/dashboards';
+import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 
 const networking = buildNetworkingDashboard();
 const storage = buildStorageDashboard();
@@ -17,6 +19,31 @@ const ops = buildOperationsDashboard();
 const poly = buildPolyComputeDashboard();
 const accel = buildAccelerationDashboard();
 
+interface DashboardViewProps {
+  telemetry?: EnvironmentSnapshot;
+}
+
+/**
+ * Force-remounts a span when the value changes so the CSS flash animation
+ * runs again on every tick. Lightweight wrapper used inline by dashboards
+ * to render numeric metrics that come from the live telemetry feed.
+ */
+function LiveValue({ value, className }: { value: string | number; className?: string }) {
+  const [tick, setTick] = useState(0);
+  const [previous, setPrevious] = useState<string | number>(value);
+  useEffect(() => {
+    if (value !== previous) {
+      setPrevious(value);
+      setTick((current) => current + 1);
+    }
+  }, [value, previous]);
+  return (
+    <span key={tick} className={`live-tick ${className ?? ''}`.trim()}>
+      {value}
+    </span>
+  );
+}
+
 function svgPathBetween(ax: number, ay: number, bx: number, by: number): string {
   const dx = bx - ax;
   const dy = by - ay;
@@ -25,14 +52,58 @@ function svgPathBetween(ax: number, ay: number, bx: number, by: number): string 
   return `M${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
 }
 
-export function NetworkingDashboardView() {
+function RouteDecoration() {
+  return (
+    <svg className="route-decoration" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="route-grad-h" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="var(--theme-accent)" stopOpacity="0" />
+          <stop offset="30%" stopColor="var(--theme-accent)" stopOpacity="0.7" />
+          <stop offset="70%" stopColor="var(--theme-accent-2)" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="var(--theme-accent)" stopOpacity="0" />
+        </linearGradient>
+        <filter id="route-bloom">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+        </filter>
+      </defs>
+      <path d="M0 30 Q 60 10, 120 30 T 240 30 T 360 25 L 400 28" fill="none" stroke="url(#route-grad-h)" strokeWidth="1.5" opacity="0.6" />
+      <path d="M0 30 Q 60 10, 120 30 T 240 30 T 360 25 L 400 28" fill="none" stroke="url(#route-grad-h)" strokeWidth="3" opacity="0.25" filter="url(#route-bloom)" />
+      <path d="M0 45 Q 80 55, 160 40 T 320 42 L 400 38" fill="none" stroke="var(--theme-accent-2)" strokeWidth="0.8" opacity="0.3" strokeDasharray="6 12" />
+      <circle cx="120" cy="30" r="2.5" fill="var(--theme-accent)" opacity="0.8">
+        <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="240" cy="30" r="2" fill="var(--theme-accent-2)" opacity="0.7">
+        <animate attributeName="opacity" values="0.3;0.9;0.3" dur="4s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="360" cy="25" r="1.8" fill="var(--theme-accent)" opacity="0.6">
+        <animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite" />
+      </circle>
+      <circle r="2" fill="var(--theme-accent)" opacity="0.9">
+        <animateMotion dur="6s" repeatCount="indefinite" path="M0 30 Q 60 10, 120 30 T 240 30 T 360 25 L 400 28" />
+      </circle>
+    </svg>
+  );
+}
+
+export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { topology, vlans, ingressRoutes, policyMatrix, nicBonds, vip } = networking;
+  const liveBonds = useMemo(() => {
+    if (!telemetry) return nicBonds;
+    const ingressFactor = telemetry.ingressMbps / 78_420;
+    const egressFactor = telemetry.egressMbps / 74_840;
+    return nicBonds.map((bond) => ({
+      ...bond,
+      rxMbps: Math.round(bond.rxMbps * ingressFactor),
+      txMbps: Math.round(bond.txMbps * egressFactor),
+    }));
+  }, [telemetry]);
   const nodeMap = new Map(topology.nodes.map((node) => [node.id, node]));
   const sources = Array.from(new Set(policyMatrix.map((cell) => cell.source)));
   const targets = Array.from(new Set(policyMatrix.map((cell) => cell.target)));
 
   return (
     <section className="dash dash-networking" aria-label="Networking dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CHANNEL // NETWORK</span>
@@ -159,15 +230,15 @@ export function NetworkingDashboardView() {
             <strong>{nicBonds.length} bonds</strong>
           </div>
           <ul className="nic-list">
-            {nicBonds.map((bond) => (
+            {liveBonds.map((bond) => (
               <li key={bond.name} className={`nic-state-${bond.state}`}>
                 <div>
                   <strong>{bond.name}</strong>
                   <small>{bond.speedGbps} Gbps · {bond.state}</small>
                 </div>
                 <div className="nic-flow">
-                  <span>RX {bond.rxMbps.toLocaleString()} Mb/s</span>
-                  <span>TX {bond.txMbps.toLocaleString()} Mb/s</span>
+                  <span>RX <LiveValue value={`${bond.rxMbps.toLocaleString()} Mb/s`} /></span>
+                  <span>TX <LiveValue value={`${bond.txMbps.toLocaleString()} Mb/s`} /></span>
                 </div>
                 <div className="nic-bars">
                   <i style={{ width: `${Math.min(100, bond.rxMbps / (bond.speedGbps * 1000) * 100)}%` }} />
@@ -207,10 +278,19 @@ export function NetworkingDashboardView() {
   );
 }
 
-export function StorageDashboardView() {
+export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { backends, pvcs, snapshots, replicationLinks } = storage;
+  const liveBackends = useMemo(() => {
+    if (!telemetry) return backends;
+    const iopsFactor = telemetry.totalIops / 1_120_000;
+    return backends.map((backend) => ({
+      ...backend,
+      iops: Math.round(backend.iops * iopsFactor),
+    }));
+  }, [telemetry]);
   return (
     <section className="dash dash-storage" aria-label="Storage dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FABRIC // STORAGE</span>
@@ -219,12 +299,12 @@ export function StorageDashboardView() {
         </div>
         <div className="dash-totals">
           <div><span>Capacity</span><strong>{backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB</strong></div>
-          <div><span>IOPS</span><strong>{(backends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K</strong></div>
+          <div><span>IOPS</span><strong><LiveValue value={`${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
         </div>
       </header>
 
       <div className="storage-backend-grid">
-        {backends.map((backend) => {
+        {liveBackends.map((backend) => {
           const rad = 38;
           const circ = 2 * Math.PI * rad;
           const offset = circ * (1 - backend.usagePercent / 100);
@@ -241,7 +321,7 @@ export function StorageDashboardView() {
                 <text x="50" y="62" textAnchor="middle" className="radial-sub">{backend.capacityTiB}TiB</text>
               </svg>
               <dl className="backend-stats">
-                <div><dt>IOPS</dt><dd>{backend.iops.toLocaleString()}</dd></div>
+                <div><dt>IOPS</dt><dd><LiveValue value={backend.iops.toLocaleString()} /></dd></div>
                 <div><dt>R</dt><dd>{backend.readMiBs} MiB/s</dd></div>
                 <div><dt>W</dt><dd>{backend.writeMiBs} MiB/s</dd></div>
               </dl>
@@ -302,10 +382,27 @@ export function StorageDashboardView() {
   );
 }
 
-export function MachinesDashboardView() {
+export function MachinesDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { fleet, migrations, affinityRules, ha, consoleChips } = machines;
+  const liveMigrations = useMemo(() => {
+    if (!telemetry) return migrations;
+    const progressShift = (telemetry.tick * 7) % 32;
+    return migrations.map((mig, index) => ({
+      ...mig,
+      progress: Math.min(98, (mig.progress + progressShift + index * 4) % 99),
+    }));
+  }, [telemetry]);
+  const liveFleet = useMemo(() => {
+    if (!telemetry) return fleet;
+    const cpuFactor = telemetry.cpuPercent / 58;
+    return fleet.map((row) => ({
+      ...row,
+      cpuPercent: Math.max(4, Math.min(99, Math.round(row.cpuPercent * cpuFactor))),
+    }));
+  }, [telemetry]);
   return (
     <section className="dash dash-machines" aria-label="Machines and containers dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FLEET // COMPUTE</span>
@@ -314,14 +411,14 @@ export function MachinesDashboardView() {
         </div>
         <div className="dash-totals">
           <div><span>Workloads</span><strong>{fleet.length}</strong></div>
-          <div><span>Migrations</span><strong>{migrations.length}</strong></div>
+          <div><span>Migrations</span><strong><LiveValue value={liveMigrations.length} /></strong></div>
         </div>
       </header>
 
       <article className="dash-panel migration-panel">
         <div className="panel-title"><span>Live migration arcs</span><strong>vMotion-style · memory state preserved</strong></div>
         <svg viewBox="0 0 100 30" className="migration-svg" preserveAspectRatio="none" aria-hidden="true">
-          {migrations.map((mig, index) => {
+          {liveMigrations.map((mig, index) => {
             const x1 = 8 + index * 28;
             const x2 = x1 + 22;
             const y = 16;
@@ -347,12 +444,12 @@ export function MachinesDashboardView() {
           <table className="dash-table">
             <thead><tr><th>name</th><th>kind</th><th>host</th><th>cpu</th><th>ram</th><th>aff</th><th>ha</th><th>status</th></tr></thead>
             <tbody>
-              {fleet.map((row) => (
+              {liveFleet.map((row) => (
                 <tr key={row.id}>
                   <td><strong>{row.name}</strong></td>
                   <td><span className={`kind-chip kind-${row.kind}`}>{row.kind}</span></td>
                   <td>{row.host}</td>
-                  <td><div className="mini-bar"><i style={{ width: `${row.cpuPercent}%` }} /></div><small>{row.cpuPercent}%</small></td>
+                  <td><div className="mini-bar"><i style={{ width: `${row.cpuPercent}%` }} /></div><small><LiveValue value={`${row.cpuPercent}%`} /></small></td>
                   <td>{row.ramGiB} / {row.ramAllocGiB} GiB</td>
                   <td><span className={`affinity-chip aff-${row.affinity}`}>{row.affinity}</span></td>
                   <td>{row.haEnabled ? 'on' : '—'}</td>
@@ -414,13 +511,35 @@ function CoreHeatCell({ core }: { core: CpuCore }) {
   );
 }
 
-export function ProcessorMemoryDashboardView() {
+export function ProcessorMemoryDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { numaZones, memoryTiers, pressureWaterfall, swapDevices, hugepages } = procmem;
+  const liveZones = useMemo(() => {
+    if (!telemetry) return numaZones;
+    const cpuFactor = telemetry.cpuPercent / 58;
+    return numaZones.map((zone) => ({
+      ...zone,
+      cores: zone.cores.map((core) => ({
+        ...core,
+        utilizationPercent: Math.max(4, Math.min(100, Math.round(core.utilizationPercent * cpuFactor))),
+      })),
+    }));
+  }, [telemetry]);
+  const livePressure = useMemo(() => {
+    if (!telemetry) return pressureWaterfall;
+    const cpuFactor = telemetry.cpuPercent / 58;
+    const memFactor = telemetry.ramPercent / 64;
+    return pressureWaterfall.map((sample, idx) => ({
+      ...sample,
+      cpuPressure: Math.round(sample.cpuPressure * (idx === pressureWaterfall.length - 1 ? cpuFactor : 1)),
+      memoryPressure: Math.round(sample.memoryPressure * (idx === pressureWaterfall.length - 1 ? memFactor : 1)),
+    }));
+  }, [telemetry]);
   const maxPressure = Math.max(
-    ...pressureWaterfall.flatMap((sample) => [sample.cpuPressure, sample.memoryPressure, sample.ioPressure]),
+    ...livePressure.flatMap((sample) => [sample.cpuPressure, sample.memoryPressure, sample.ioPressure]),
   );
   return (
     <section className="dash dash-procmem" aria-label="Processor and memory dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CORE // MEMORY</span>
@@ -436,7 +555,7 @@ export function ProcessorMemoryDashboardView() {
       <article className="dash-panel">
         <div className="panel-title"><span>NUMA core heatmap</span><strong>{numaZones.length} zones</strong></div>
         <div className="numa-zones">
-          {numaZones.map((zone) => (
+          {liveZones.map((zone) => (
             <div key={zone.id} className="numa-zone">
               <div className="numa-head">
                 <strong>{zone.id}</strong>
@@ -473,7 +592,7 @@ export function ProcessorMemoryDashboardView() {
         <article className="dash-panel">
           <div className="panel-title"><span>Pressure waterfall</span><strong>cpu / mem / io</strong></div>
           <div className="pressure-waterfall">
-            {pressureWaterfall.map((sample) => (
+            {livePressure.map((sample) => (
               <div key={sample.label} className="pressure-column">
                 <span className="pressure-bar pressure-cpu" style={{ height: `${(sample.cpuPressure / maxPressure) * 100}%` }} />
                 <span className="pressure-bar pressure-mem" style={{ height: `${(sample.memoryPressure / maxPressure) * 100}%` }} />
@@ -515,14 +634,25 @@ export function ProcessorMemoryDashboardView() {
   );
 }
 
-export function OperationsDashboardView() {
+export function OperationsDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { cost, power, rightSizing, compliance, cve, audit, gitops, backupSla, drPlans } = ops;
+  const livePower = useMemo(() => {
+    if (!telemetry) return power;
+    const factor = telemetry.watts / 1_592;
+    return power.map((row) => ({
+      ...row,
+      watts: Math.round(row.watts * factor),
+      kwhMonth: Math.round(row.kwhMonth * factor),
+      co2KgMonth: Math.round(row.co2KgMonth * factor),
+    }));
+  }, [telemetry]);
   const costTotal = cost.reduce((sum, row) => sum + row.monthlyEuro, 0);
-  const powerTotal = power.reduce((sum, row) => sum + row.kwhMonth, 0);
-  const co2Total = power.reduce((sum, row) => sum + row.co2KgMonth, 0);
+  const powerTotal = livePower.reduce((sum, row) => sum + row.kwhMonth, 0);
+  const co2Total = livePower.reduce((sum, row) => sum + row.co2KgMonth, 0);
   const maxBar = Math.max(...cost.map((row) => row.monthlyEuro));
   return (
     <section className="dash dash-operations" aria-label="Operations and compliance dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">OPS // COMPLIANCE</span>
@@ -531,8 +661,8 @@ export function OperationsDashboardView() {
         </div>
         <div className="dash-totals">
           <div><span>€/month</span><strong>€{costTotal.toFixed(0)}</strong></div>
-          <div><span>kWh/mo</span><strong>{powerTotal.toFixed(0)}</strong></div>
-          <div><span>CO₂ kg/mo</span><strong>{co2Total.toFixed(0)}</strong></div>
+          <div><span>kWh/mo</span><strong><LiveValue value={powerTotal.toFixed(0)} /></strong></div>
+          <div><span>CO₂ kg/mo</span><strong><LiveValue value={co2Total.toFixed(0)} /></strong></div>
         </div>
       </header>
 
@@ -557,10 +687,10 @@ export function OperationsDashboardView() {
           <table className="dash-table">
             <thead><tr><th>node</th><th>W</th><th>kWh/mo</th><th>CO₂ kg</th><th>PUE</th></tr></thead>
             <tbody>
-              {power.map((row) => (
+              {livePower.map((row) => (
                 <tr key={row.id}>
                   <td><strong>{row.node}</strong></td>
-                  <td>{row.watts}</td>
+                  <td><LiveValue value={row.watts} /></td>
                   <td>{row.kwhMonth}</td>
                   <td>{row.co2KgMonth}</td>
                   <td>{row.pue.toFixed(2)}</td>
@@ -665,11 +795,20 @@ export function OperationsDashboardView() {
   );
 }
 
-export function PolyComputeDashboardView() {
+export function PolyComputeDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { runtimes, nodeBlend, topologyAwareScheduling, unifiedScheduler } = poly;
+  const liveRuntimes = useMemo(() => {
+    if (!telemetry) return runtimes;
+    const cpuFactor = telemetry.cpuPercent / 58;
+    return runtimes.map((runtime) => ({
+      ...runtime,
+      cpuShare: Math.max(5, Math.min(99, Math.round(runtime.cpuShare * cpuFactor))),
+    }));
+  }, [telemetry]);
   const maxDensity = Math.max(...nodeBlend.map((node) => node.densityScore));
   return (
     <section className="dash dash-poly-compute" aria-label="Poly-compute engine dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">RUNTIME // POLY-COMPUTE</span>
@@ -683,7 +822,7 @@ export function PolyComputeDashboardView() {
       </header>
 
       <div className="poly-runtime-grid">
-        {runtimes.map((runtime) => (
+        {liveRuntimes.map((runtime) => (
           <article key={runtime.id} className={`poly-runtime poly-${runtime.id}`}>
             <div className="poly-runtime-head">
               <span className={`kind-chip kind-${runtime.id === 'kubevirt' ? 'vm' : runtime.id === 'incus-lxc' ? 'lxc' : 'pod'}`}>{runtime.id}</span>
@@ -692,7 +831,7 @@ export function PolyComputeDashboardView() {
             <p className="poly-runtime-desc">{runtime.description}</p>
             <dl className="poly-runtime-stats">
               <div><dt>Workloads</dt><dd>{runtime.workloadCount}</dd></div>
-              <div><dt>CPU share</dt><dd>{runtime.cpuShare}%</dd></div>
+              <div><dt>CPU share</dt><dd><LiveValue value={`${runtime.cpuShare}%`} /></dd></div>
               <div><dt>RAM share</dt><dd>{runtime.ramShare}%</dd></div>
               <div><dt>Kernel</dt><dd>{runtime.kernelMode}</dd></div>
               <div><dt>Live migrate</dt><dd>{runtime.liveMigration ? 'yes' : 'no'}</dd></div>
@@ -765,10 +904,28 @@ export function PolyComputeDashboardView() {
   );
 }
 
-export function AccelerationDashboardView() {
+export function AccelerationDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = accel;
+  const liveFeatures = useMemo(() => {
+    if (!telemetry) return features;
+    const drift = ((telemetry.tick * 3) % 12) - 6;
+    return features.map((feature) => ({
+      ...feature,
+      utilizationPercent: Math.max(8, Math.min(99, feature.utilizationPercent + drift)),
+    }));
+  }, [telemetry]);
+  const liveDpdk = useMemo(() => {
+    if (!telemetry) return dpdkPorts;
+    const factor = telemetry.ingressMbps / 78_420;
+    return dpdkPorts.map((port) => ({
+      ...port,
+      loadPercent: Math.max(8, Math.min(99, Math.round(port.loadPercent * factor))),
+      packetsPerSecond: Math.round(port.packetsPerSecond * factor),
+    }));
+  }, [telemetry]);
   return (
     <section className="dash dash-acceleration" aria-label="Acceleration and pass-through dashboard">
+      <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">SILICON // ACCEL</span>
@@ -785,7 +942,7 @@ export function AccelerationDashboardView() {
       <article className="dash-panel">
         <div className="panel-title"><span>Acceleration feature mesh</span><strong>data-path · scheduling · pass-through · nested-virt</strong></div>
         <div className="accel-feature-grid">
-          {features.map((feature) => (
+          {liveFeatures.map((feature) => (
             <article key={feature.id} className={`accel-feature accel-${feature.kind} ${feature.enabled ? 'on' : 'off'}`}>
               <div className="accel-feature-head">
                 <span className="accel-feature-kind">{feature.kind.replace('-', ' ')}</span>
@@ -794,7 +951,7 @@ export function AccelerationDashboardView() {
               <p>{feature.detail}</p>
               <div className="accel-util-bar" aria-label={`utilization ${feature.utilizationPercent}%`}>
                 <i style={{ width: `${feature.utilizationPercent}%` }} />
-                <b>{feature.utilizationPercent}%</b>
+                <b><LiveValue value={`${feature.utilizationPercent}%`} /></b>
               </div>
             </article>
           ))}
@@ -864,12 +1021,12 @@ export function AccelerationDashboardView() {
         <article className="dash-panel">
           <div className="panel-title"><span>DPDK ring buffers</span><strong>polled-mode userspace ports</strong></div>
           <ul className="dpdk-ports">
-            {dpdkPorts.map((port) => (
+            {liveDpdk.map((port) => (
               <li key={port.port}>
                 <strong>{port.port}</strong>
-                <small>{port.queues} queues · burst {port.burstSize} · {(port.packetsPerSecond / 1_000_000).toFixed(1)} Mpps</small>
+                <small>{port.queues} queues · burst {port.burstSize} · <LiveValue value={`${(port.packetsPerSecond / 1_000_000).toFixed(1)} Mpps`} /></small>
                 <div className="cost-bar"><i style={{ width: `${port.loadPercent}%` }} /></div>
-                <b>{port.loadPercent}%</b>
+                <b><LiveValue value={`${port.loadPercent}%`} /></b>
               </li>
             ))}
           </ul>
