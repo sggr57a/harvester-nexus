@@ -10,6 +10,7 @@ export type ThemeId =
   | 'tactical-nvg'
   | 'ice-spectrum'
   | 'plasma-vortex'
+  | 'cyber-wireframe'
   | 'arctic-command';
 
 export interface ThemeDefinition {
@@ -93,6 +94,13 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     name: 'Plasma Vortex',
     tagline: 'Magenta-electric plasma over deep void',
     swatches: ['#06030d', '#1a0533', '#ff4af7', '#ffd166', '#5bf2ff'],
+  },
+  {
+    id: 'cyber-wireframe',
+    name: 'Cyber Wireframe',
+    tagline: 'Pure-black void with holographic wireframe outlines',
+    visualStyle: 'absolute-black background, transparent panels, neon wireframe borders, draw/redraw animations',
+    swatches: ['#000000', '#050505', '#00ffc8', '#00b8ff', '#00ff88'],
   },
   {
     id: 'void-protocol',
