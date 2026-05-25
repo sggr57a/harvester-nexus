@@ -53,6 +53,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <input
               id="username"
               type="text"
+              autoComplete="username"
               aria-label="Username"
               autoFocus
               value={username}
@@ -69,6 +70,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               aria-label="Password"
               value={password}
               onKeyDown={handleKeyDown}
@@ -87,6 +89,18 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               Elevating...
             </div>
           )}
+
+          {isLoading && (
+            <div className="login-loading" aria-live="polite">
+              <div className="spinner-small" aria-hidden="true" />
+              <span>Elevating&hellip;</span>
+            </div>
+          )}
+
+          {/* No visible submit button — pressing Enter inside the form still submits.
+              `type="submit"` with `hidden` is required so the form has an implicit
+              submitter for keyboard activation. */}
+          <button type="submit" className="login-submit-hidden" tabIndex={-1} aria-hidden="true" />
         </form>
       </div>
     </div>

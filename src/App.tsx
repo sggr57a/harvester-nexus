@@ -12,8 +12,10 @@ import { EnvironmentTicker, SidebarRouteDecoration } from './components/Environm
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
 import { HudDashboard } from './components/HudDashboard';
+import { NexusMachineWizard } from './components/NexusMachineWizard';
 import { ThemePicker } from './components/ThemePicker';
 import { UnifiedSetupWizard } from './components/UnifiedSetupWizard';
+import { Wizard } from './components/Wizard';
 import { YamlEditor } from './components/YamlEditor';
 import {
   AccelerationDashboardView,
@@ -59,7 +61,9 @@ type CockpitView =
   | 'operations'
   | 'resource-monitoring'
   | 'cluster'
-  | 'setup';
+  | 'setup'
+  | 'machine'
+  | 'wizard';
 
 function readStoredTheme(): ThemeId {
   if (typeof window === 'undefined') return DEFAULT_THEME_ID;
@@ -135,6 +139,11 @@ function App() {
     { id: 'resource-monitoring', label: 'Resource Monitor', sig: 'RES_WK', group: 'COMPUTE' },
     { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
     { id: 'setup', label: 'Setup Wizard', sig: 'SETUP', group: 'DEPLOY' },
+    { id: 'machine', label: 'Machine Wizard', sig: 'MACH_W', group: 'DEPLOY' },
+    { id: 'wizard', label: 'Manifest Wizard', sig: 'MFT_WZ', group: 'DEPLOY' },
+    { id: 'setup', label: 'Setup Wizard', sig: 'SET_UP', group: 'DEPLOY' },
+    { id: 'environment', label: 'Environment Intel', sig: 'ENV_IO', group: 'COMPUTE' },
+    { id: 'activity', label: 'Activity Command', sig: 'ACT_CM', group: 'COMPUTE' },
   ];
 
   const navGroups = ['MONITOR', 'COMPUTE', 'DEPLOY'] as const;
@@ -174,6 +183,18 @@ function App() {
         <SidebarRouteDecoration />
         <ThemePicker active={theme} onSelect={setTheme} />
 
+        <div className="wizard-step-rail">
+          <span className="nav-group-label">MANIFEST STEPS</span>
+          {[1,2,3,4,5,6,7].map((s, i) => {
+            const labels = ['Workload','Storage','Networking','Security','Monitoring','GitOps','Review'];
+            return (
+              <button key={s} className={`step-rail-btn ${step === s ? 'active' : ''}`} onClick={() => setStep(s)}>
+                <span className="step-num">{s}</span>
+                <span>{labels[i]}</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="storage-summary">
           <span className="nav-group-label">STORAGE TEMPLATE</span>
           <p>{STORAGE_TEMPLATES[config.storage.storageType]}</p>
@@ -192,6 +213,8 @@ function App() {
         {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
         {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
+        {cockpitView === 'environment' && <EnvironmentDashboardView />}
+        {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'operations' && <OperationsDashboardView telemetry={telemetry} />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'cluster' && (
