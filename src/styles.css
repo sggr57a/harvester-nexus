@@ -10543,3 +10543,70 @@ select option {
   -webkit-backdrop-filter: none !important;
   padding: 1rem !important;
 }
+
+/* ============================================================
+   v5.5 — Fix: scope dynamic spanning ONLY to children of
+   .mission-grid (not .mission-kpi-row or .mission-grid itself).
+   The earlier `[class^="mission-"]` rule was matching the KPI
+   row + grid wrapper, forcing them into flex-column and
+   stacking the KPI tiles vertically.
+   ============================================================ */
+
+/* Reset the over-broad rules from v5.1 / v5.2 */
+.dash-mission [class^="mission-"] {
+  grid-column: auto !important;
+  display: block;
+  flex-direction: initial;
+}
+
+/* Re-apply layout to .mission-grid container itself */
+.dash-mission .mission-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)) !important;
+  grid-auto-flow: dense;
+  align-items: stretch;
+  gap: 0.55rem !important;
+}
+
+/* Re-apply KPI tile row container (must be grid, not flex column) */
+.dash-mission .mission-kpi-row {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+  gap: 0.45rem !important;
+}
+
+/* Children of .mission-grid become flex columns and span 1 by default */
+.dash-mission .mission-grid > .dash-panel {
+  display: flex !important;
+  flex-direction: column;
+  align-self: stretch;
+  grid-column: span 1 !important;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Span-2 ONLY for data-dense panels inside .mission-grid */
+.dash-mission .mission-grid > .mission-osc,
+.dash-mission .mission-grid > .mission-map,
+.dash-mission .mission-grid > .mission-activity,
+.dash-mission .mission-grid > .mission-sparkgrid,
+.dash-mission .mission-grid > .mission-heatmap,
+.dash-mission .mission-grid > .mission-stats,
+.dash-mission .mission-grid > .mission-stacked,
+.dash-mission .mission-grid > .mission-flow,
+.dash-mission .mission-grid > .mission-fft {
+  grid-column: span 2 !important;
+}
+
+/* Span-3 on extra-wide viewports */
+@media (min-width: 1700px) {
+  .dash-mission .mission-grid > .mission-stats,
+  .dash-mission .mission-grid > .mission-sparkgrid {
+    grid-column: span 3 !important;
+  }
+}
+
+/* Single-column on narrow viewports */
+@media (max-width: 720px) {
+  .dash-mission .mission-grid > .dash-panel { grid-column: auto !important; }
+}
