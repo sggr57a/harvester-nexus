@@ -14,7 +14,7 @@ Highlights:
 - **Universal Storage Fabric** — every storage backend in the catalog is wired to Nexus's CSI / direct-host integration paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath volume driver for RWX shares.
 - **Acceleration & Hardware Pass-Through dashboard** — SPDK userspace NVMe-oF queues, DPDK polled-mode ring buffers, vhost-user fast paths, topology-aware NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
 - **Machine Wizard 2.0** — extends the install YAML with `poly_compute` and `hardware_acceleration` blocks and adds boot-parameter switches such as `nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, and `nexus.acceleration.gpu_passthrough=true`. Validation refuses a config that turns off every runtime or enables GPU pass-through without NUMA pinning.
-- **Themable cockpit** — six switchable themes (Route Grid, Emerald Console, Solar Flare, Arctic Hologram, Violet Nebula, Noir Radar) so all 2.0 dashboards adapt to operator preference. Theme selection persists in `localStorage`.
+- **Themable cockpit** — eight switchable themes (Route Grid, Emerald Console, Solar Flare, Arctic Hologram, Violet Nebula, Noir Radar, Void Protocol, Arctic Command) so all 2.0 dashboards adapt to operator preference. Theme selection persists in `localStorage`.
 - **Geometric glass cockpit expansion** — additional theme profiles, redesigned instrument widgets, environment intelligence, and activity command dashboards for transparent control-room mockups.
 
 ## Overview
@@ -32,14 +32,16 @@ Nexus is the updated Harvester fork with:
 
 - In-tree Harvester platform source under `platform/harvester` so Nexus is tracked as a standalone system instead of a UI-only add-on.
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
+- Manifest Wizard embedded inside the unified Setup Wizard as an optional setup section, allowing workload manifest generation without leaving the provisioning flow.
 - Wizard-driven workload and manifest configuration.
 - Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, iSCSI, GlusterFS, Longhorn, OpenEBS, and Portworx.
 - Auto-generated `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `CronJob` manifests.
 - PVC, Service, Ingress, NetworkPolicy, RBAC, monitoring, logging, GitOps, and multi-cluster manifest generation.
 - Service mesh integration support for Istio, Linkerd, and Cilium.
-- CodeMirror YAML editor preview with dark mode styling.
+- CodeMirror YAML editor preview with live validation and dark mode styling.
 - Live-adapter operation planning for Kubernetes API validation, `kubectl` apply/test runs, `vcluster` workflows, and CSI templates sourced from the imported Harvester tree.
 - Environment Intelligence and Activity Command dashboards for facility telemetry, automation queues, approvals, migrations, backups, and security scan activity.
+- HUD Dashboard with instrument-style topology, radial gauges, scoped traces, segmented throughput bars, control toggles, event feed, and cluster stat tiles.
 - Kubernetes validation and live preview now combine local structural prechecks with Nexus live-adapter endpoints and server-side dry-run command generation.
 - Manifest apply / test runner commands are generated for `kubectl auth can-i`, server-side dry-run, diff, apply, and rollout status.
 - Virtual cluster support generates `vcluster` create/connect operations from multi-cluster targets.
@@ -74,19 +76,4 @@ The updated Nexus version is available on the `nexus` branch in the forked repos
 
 - `https://github.com/sggr57a/harvester/tree/nexus`
 - Pull request: `https://github.com/sggr57a/harvester/pull/1`
-
-### Run locally
-
-1. Clone or navigate to the project folder.
-2. Install dependencies: `npm install`
-3. Start the app: `npm run dev`
-4. Open the browser at `http://localhost:4173`
-
-### GitHub branch and pull request
-
-The updated Nexus version is available on the `nexus` branch in the forked repository:
-
-- `https://github.com/sggr57a/harvester/tree/nexus`
-
-A pull request can be created from this branch to merge Nexus back into the main repository.
 

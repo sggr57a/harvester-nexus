@@ -4,7 +4,9 @@ export type ThemeId =
   | 'solar-flare'
   | 'arctic-hologram'
   | 'violet-nebula'
-  | 'noir-radar';
+  | 'noir-radar'
+  | 'void-protocol'
+  | 'arctic-command';
 
 export interface ThemeDefinition {
   id: ThemeId;
@@ -56,6 +58,20 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     tagline: 'Monochrome tactical radar with lime targeting',
     visualStyle: 'black ops scopes, white etched lines, lime radar sweeps',
     swatches: ['#030303', '#151515', '#f8fafc', '#9ca3af', '#a3ff12'],
+  },
+  {
+    id: 'void-protocol',
+    name: 'Void Protocol',
+    tagline: 'Neon violet cyberpunk on absolute black',
+    visualStyle: 'absolute-black glass, ultraviolet rails, high-contrast neon glyphs',
+    swatches: ['#060010', '#130028', '#7c3aed', '#c084fc', '#e9d5ff'],
+  },
+  {
+    id: 'arctic-command',
+    name: 'Arctic Command',
+    tagline: 'Ice-blue military command center on dark slate',
+    visualStyle: 'dark slate command glass, ice-blue instruments, frosted geometry',
+    swatches: ['#040d12', '#081c28', '#0ea5e9', '#7dd3fc', '#e0f2fe'],
   },
 ];
 
