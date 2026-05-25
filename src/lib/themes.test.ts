@@ -6,6 +6,11 @@ describe('theme catalog', () => {
     expect(THEME_CATALOG).toHaveLength(5);
     expect(THEME_CATALOG.map((theme) => theme.id)).toEqual([
       'route-grid',
+  it('offers a curated palette of cool/amber visual styles', () => {
+    expect(THEME_CATALOG).toHaveLength(4);
+    expect(THEME_CATALOG.map((theme) => theme.id)).toEqual([
+      'route-grid',
+      'solar-flare',
       'arctic-hologram',
       'arctic-command',
       'ice-spectrum',
@@ -24,5 +29,13 @@ describe('theme catalog', () => {
     expect(isThemeId('tactical-nvg')).toBe(false);
     expect(isThemeId('unknown-theme')).toBe(false);
     expect(getTheme('arctic-hologram').name).toBe('Arctic Hologram');
+    expect(isThemeId('arctic-hologram')).toBe(true);
+    expect(isThemeId('solar-flare')).toBe(true);
+    expect(isThemeId('emerald-console')).toBe(false);
+    expect(isThemeId('violet-nebula')).toBe(false);
+    expect(isThemeId('noir-radar')).toBe(false);
+    expect(isThemeId('void-protocol')).toBe(false);
+    expect(isThemeId('unknown-theme')).toBe(false);
+    expect(getTheme('arctic-command').name).toBe('Arctic Command');
   });
 });
