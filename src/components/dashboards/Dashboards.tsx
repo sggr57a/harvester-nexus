@@ -12,6 +12,21 @@ import {
   type CpuCore,
 } from '../../lib/dashboards';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
+import {
+  ChordDiagram,
+  FlameGraph,
+  GeoNodeMap,
+  HeatmapMatrix,
+  RadialBarChart,
+  SankeyFlow,
+  ScatterPlot,
+  StreamGraph,
+  TreemapTiles,
+  type GeoArc,
+  type GeoSite,
+  type SankeyFlowLink,
+  type SankeyStage,
+} from './AdvancedWidgets';
 
 const networking = buildNetworkingDashboard();
 const storage = buildStorageDashboard();
@@ -89,6 +104,48 @@ function RouteDecoration() {
   );
 }
 
+const NETWORKING_GEO_SITES: GeoSite[] = [
+  { id: 'sea', name: 'sea-1', x: 14, y: 28, status: 'primary' },
+  { id: 'fra', name: 'fra-2', x: 50, y: 26, status: 'primary' },
+  { id: 'sgp', name: 'sgp-3', x: 76, y: 44, status: 'edge' },
+  { id: 'tok', name: 'tok-1', x: 84, y: 28, status: 'edge' },
+  { id: 'syd', name: 'syd-2', x: 84, y: 62, status: 'edge' },
+  { id: 'nyc', name: 'nyc-1', x: 26, y: 30, status: 'primary' },
+  { id: 'sao', name: 'sao-4', x: 28, y: 60, status: 'failover' },
+];
+
+const NETWORKING_GEO_ARCS: GeoArc[] = [
+  { from: 'sea', to: 'nyc', latency: 78, channel: 'mgmt' },
+  { from: 'nyc', to: 'fra', latency: 92, channel: 'storage' },
+  { from: 'fra', to: 'tok', latency: 168, channel: 'mesh' },
+  { from: 'fra', to: 'sgp', latency: 142, channel: 'vm' },
+  { from: 'tok', to: 'syd', latency: 122, channel: 'storage' },
+  { from: 'nyc', to: 'sao', latency: 118, channel: 'mesh' },
+  { from: 'sea', to: 'tok', latency: 134, channel: 'gitops' },
+];
+
+const VLAN_CHORD_GROUPS = [
+  { label: 'mgmt', color: 'var(--theme-accent)' },
+  { label: 'storage', color: 'var(--theme-good)' },
+  { label: 'mesh', color: 'var(--theme-accent-2)' },
+  { label: 'vm-net', color: 'var(--theme-warn)' },
+  { label: 'gitops', color: 'var(--theme-accent)' },
+  { label: 'edge-dmz', color: 'var(--theme-danger)' },
+];
+
+const VLAN_CHORD_LINKS = [
+  { source: 0, target: 2, value: 18 },
+  { source: 0, target: 4, value: 12 },
+  { source: 1, target: 2, value: 22 },
+  { source: 1, target: 3, value: 16 },
+  { source: 2, target: 3, value: 28 },
+  { source: 2, target: 5, value: 14 },
+  { source: 3, target: 5, value: 18 },
+  { source: 4, target: 0, value: 10 },
+  { source: 4, target: 2, value: 14 },
+  { source: 5, target: 0, value: 11 },
+];
+
 export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { topology, vlans, ingressRoutes, policyMatrix, nicBonds, vip } = networking;
   const liveBonds = useMemo(() => {
@@ -104,6 +161,19 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
   const nodeMap = new Map(topology.nodes.map((node) => [node.id, node]));
   const sources = Array.from(new Set(policyMatrix.map((cell) => cell.source)));
   const targets = Array.from(new Set(policyMatrix.map((cell) => cell.target)));
+
+  /* 4-track flow over the past N ticks; faked but tied to live ingress/egress. */
+  const trafficStream = useMemo(() => {
+    const len = 40;
+    const seed = telemetry?.tick ?? 0;
+    const base = telemetry ? telemetry.ingressMbps / 1500 : 50;
+    return [
+      { label: 'mgmt', color: 'var(--theme-accent)', values: Array.from({ length: len }, (_, i) => Math.max(4, base * 0.4 + Math.sin((seed + i) / 4) * 12 + 18)) },
+      { label: 'storage', color: 'var(--theme-good)', values: Array.from({ length: len }, (_, i) => Math.max(4, base * 0.8 + Math.sin((seed + i) / 3.2 + 1.4) * 18 + 26)) },
+      { label: 'mesh', color: 'var(--theme-accent-2)', values: Array.from({ length: len }, (_, i) => Math.max(4, base * 0.6 + Math.cos((seed + i) / 5 + 0.8) * 14 + 22)) },
+      { label: 'vm-net', color: 'var(--theme-warn)', values: Array.from({ length: len }, (_, i) => Math.max(4, base * 0.3 + Math.sin((seed + i) / 2.7 + 2.1) * 10 + 16)) },
+    ];
+  }, [telemetry?.tick, telemetry?.ingressMbps]);
 
   return (
     <section className="dash dash-networking" aria-label="Networking dashboard">
@@ -165,6 +235,34 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
           <span className="legend-chip channel-vm">vm/lxc</span>
           <span className="legend-chip channel-gitops">gitops</span>
         </div>
+      </article>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <div className="panel-title">
+            <span>Global site routes · live arcs</span>
+            <strong>{NETWORKING_GEO_SITES.length} sites · {NETWORKING_GEO_ARCS.length} routes</strong>
+          </div>
+          <GeoNodeMap sites={NETWORKING_GEO_SITES} arcs={NETWORKING_GEO_ARCS} height={260} tick={telemetry?.tick ?? 0} />
+        </article>
+
+        <article className="dash-panel">
+          <div className="panel-title">
+            <span>VLAN chord · inter-fabric traffic</span>
+            <strong>{VLAN_CHORD_GROUPS.length} channels</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <ChordDiagram groups={VLAN_CHORD_GROUPS} links={VLAN_CHORD_LINKS} size={260} tick={telemetry?.tick ?? 0} />
+          </div>
+        </article>
+      </div>
+
+      <article className="dash-panel">
+        <div className="panel-title">
+          <span>Channel stream · 4-track ingress mix</span>
+          <strong>mgmt · storage · mesh · vm-net</strong>
+        </div>
+        <StreamGraph series={trafficStream} height={180} />
       </article>
 
       <div className="dash-row dash-row-2">
@@ -282,6 +380,82 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
   );
 }
 
+const STORAGE_SANKEY_STAGES: SankeyStage[] = [
+  {
+    label: 'WORKLOADS',
+    bands: [
+      { id: 'wl-vm', label: 'kubevirt vm', value: 32, color: 'var(--theme-accent)' },
+      { id: 'wl-pod', label: 'k8s pods', value: 28, color: 'var(--theme-accent-2)' },
+      { id: 'wl-lxc', label: 'lxc / incus', value: 18, color: 'var(--theme-good)' },
+      { id: 'wl-gpu', label: 'gpu jobs', value: 6, color: 'var(--theme-warn)' },
+    ],
+  },
+  {
+    label: 'CSI CLASS',
+    bands: [
+      { id: 'sc-rwo', label: 'rwo block', value: 38, color: 'var(--theme-accent)' },
+      { id: 'sc-rwx', label: 'rwx file', value: 20, color: 'var(--theme-accent-2)' },
+      { id: 'sc-fast', label: 'fast-nvme', value: 18, color: 'var(--theme-good)' },
+      { id: 'sc-arch', label: 'archive', value: 8, color: 'var(--theme-warn)' },
+    ],
+  },
+  {
+    label: 'BACKEND',
+    bands: [
+      { id: 'be-ceph', label: 'ceph', value: 36, color: 'var(--theme-accent)' },
+      { id: 'be-long', label: 'longhorn', value: 22, color: 'var(--theme-accent-2)' },
+      { id: 'be-nvme', label: 'nvme-of', value: 16, color: 'var(--theme-good)' },
+      { id: 'be-zfs', label: 'zfs', value: 8, color: 'var(--theme-warn)' },
+      { id: 'be-nfs', label: 'nfs/smb', value: 2, color: 'var(--theme-danger)' },
+    ],
+  },
+];
+
+const STORAGE_SANKEY_LINKS: SankeyFlowLink[] = [
+  { from: 'wl-vm', to: 'sc-rwo', value: 20 },
+  { from: 'wl-vm', to: 'sc-fast', value: 8 },
+  { from: 'wl-vm', to: 'sc-arch', value: 4 },
+  { from: 'wl-pod', to: 'sc-rwo', value: 12 },
+  { from: 'wl-pod', to: 'sc-rwx', value: 12 },
+  { from: 'wl-pod', to: 'sc-fast', value: 4 },
+  { from: 'wl-lxc', to: 'sc-rwo', value: 6 },
+  { from: 'wl-lxc', to: 'sc-rwx', value: 8 },
+  { from: 'wl-lxc', to: 'sc-arch', value: 4 },
+  { from: 'wl-gpu', to: 'sc-fast', value: 6 },
+  { from: 'sc-rwo', to: 'be-ceph', value: 22 },
+  { from: 'sc-rwo', to: 'be-long', value: 14 },
+  { from: 'sc-rwo', to: 'be-zfs', value: 2 },
+  { from: 'sc-rwx', to: 'be-long', value: 8 },
+  { from: 'sc-rwx', to: 'be-nfs', value: 2 },
+  { from: 'sc-rwx', to: 'be-ceph', value: 10 },
+  { from: 'sc-fast', to: 'be-nvme', value: 14 },
+  { from: 'sc-fast', to: 'be-ceph', value: 4 },
+  { from: 'sc-arch', to: 'be-zfs', value: 6 },
+  { from: 'sc-arch', to: 'be-ceph', value: 2 },
+];
+
+const STORAGE_TREEMAP = [
+  { label: 'payments', value: 8600, sub: 'pvc / 18 vol', status: 'good' as const },
+  { label: 'ml-train', value: 6200, sub: 'pvc / 12 vol', status: 'warn' as const },
+  { label: 'analytics', value: 4400, sub: 'pvc / 22 vol' },
+  { label: 'platform', value: 3300, sub: 'pvc / 38 vol', status: 'good' as const },
+  { label: 'cdn', value: 2400, sub: 'pvc / 14 vol' },
+  { label: 'backups', value: 1700, sub: 'pvc / 8 vol', status: 'good' as const },
+  { label: 'observ', value: 1200, sub: 'pvc / 10 vol' },
+  { label: 'security', value: 700, sub: 'pvc / 6 vol' },
+];
+
+const STORAGE_SCATTER = [
+  { id: 's-1', x: 32, y: 18, label: 'ceph-rbd-0', status: 'good' as const, size: 1.6 },
+  { id: 's-2', x: 28, y: 22, label: 'ceph-rbd-1', status: 'good' as const, size: 1.4 },
+  { id: 's-3', x: 68, y: 42, label: 'longhorn-0', status: 'warn' as const, size: 1.5 },
+  { id: 's-4', x: 82, y: 24, label: 'nvme-of-0', status: 'good' as const, size: 1.8 },
+  { id: 's-5', x: 22, y: 64, label: 'zfs-cold', status: 'warn' as const, size: 1.1 },
+  { id: 's-6', x: 12, y: 86, label: 'nfs-legacy', status: 'danger' as const, size: 0.9 },
+  { id: 's-7', x: 56, y: 14, label: 'ceph-rbd-2', status: 'good' as const, size: 1.7 },
+  { id: 's-8', x: 74, y: 58, label: 'longhorn-1', status: 'warn' as const, size: 1.4 },
+];
+
 export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
   const { backends, pvcs, snapshots, replicationLinks } = storage;
   const liveBackends = useMemo(() => {
@@ -306,6 +480,40 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
           <div><span>IOPS</span><strong><LiveValue value={`${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
         </div>
       </header>
+
+      <article className="dash-panel">
+        <div className="panel-title">
+          <span>Storage flow · workloads → CSI class → backend</span>
+          <strong>{(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)}k IOPS</strong>
+        </div>
+        <SankeyFlow stages={STORAGE_SANKEY_STAGES} links={STORAGE_SANKEY_LINKS} height={260} />
+      </article>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <div className="panel-title">
+            <span>Capacity treemap · GiB by namespace</span>
+            <strong>{STORAGE_TREEMAP.reduce((a, t) => a + t.value, 0).toLocaleString()} GiB</strong>
+          </div>
+          <TreemapTiles items={STORAGE_TREEMAP} height={220} />
+        </article>
+
+        <article className="dash-panel">
+          <div className="panel-title">
+            <span>Latency · throughput · per-volume</span>
+            <strong>top-right = unhealthy</strong>
+          </div>
+          <ScatterPlot
+            points={STORAGE_SCATTER}
+            xLabel="THROUGHPUT (k IOPS)"
+            yLabel="P99 LATENCY (ms)"
+            xMax={100}
+            yMax={100}
+            height={240}
+            threshold={{ axis: 'y', value: 60, label: 'p99 SLO 60ms' }}
+          />
+        </article>
+      </div>
 
       <div className="storage-backend-grid">
         {liveBackends.map((backend) => {
@@ -795,6 +1003,66 @@ export function OperationsDashboardView({ telemetry }: DashboardViewProps = {}) 
           </ul>
         </article>
       </div>
+
+      <article className="dash-panel">
+        <div className="panel-title">
+          <span>Audit pipeline flame · last drill</span>
+          <strong>backup·restore·verify·sign · 7.4s total</strong>
+        </div>
+        <FlameGraph
+          root={{
+            name: 'audit.pipeline.full-drill',
+            value: 7400,
+            status: 'good',
+            children: [
+              {
+                name: 'backup.snapshot',
+                value: 2200,
+                status: 'good',
+                children: [
+                  { name: 'csi.freeze', value: 220 },
+                  { name: 'csi.snapshot', value: 1180, status: 'good' },
+                  { name: 'csi.unfreeze', value: 240 },
+                  { name: 'meta.tag', value: 560 },
+                ],
+              },
+              {
+                name: 'restore.test',
+                value: 2400,
+                status: 'warn',
+                children: [
+                  { name: 'csi.clone', value: 980, status: 'warn' },
+                  { name: 'fs.mount', value: 420 },
+                  { name: 'fs.fsck', value: 620, status: 'warn' },
+                  { name: 'data.verify', value: 380 },
+                ],
+              },
+              {
+                name: 'verify.integrity',
+                value: 1300,
+                status: 'good',
+                children: [
+                  { name: 'hash.sha256', value: 540 },
+                  { name: 'sig.verify', value: 360 },
+                  { name: 'manifest.diff', value: 400, status: 'good' },
+                ],
+              },
+              {
+                name: 'sign.artifact',
+                value: 900,
+                status: 'good',
+                children: [
+                  { name: 'cosign.sign', value: 540 },
+                  { name: 'tuf.publish', value: 360 },
+                ],
+              },
+              { name: 'notify.audit', value: 380 },
+              { name: 'cleanup', value: 220 },
+            ],
+          }}
+          height={210}
+        />
+      </article>
     </section>
   );
 }
@@ -942,6 +1210,54 @@ export function AccelerationDashboardView({ telemetry }: DashboardViewProps = {}
           <div><span>Nested</span><strong>{nestedClusters.length}</strong></div>
         </div>
       </header>
+
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <div className="panel-title">
+            <span>Accelerator utilization · polar</span>
+            <strong>{liveFeatures.length} fast paths</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <RadialBarChart
+              bars={liveFeatures.slice(0, 8).map((f) => ({ label: f.label, value: f.utilizationPercent }))}
+              size={300}
+              innerLabel="ACCEL"
+              innerValue={`${Math.round(liveFeatures.reduce((a, f) => a + f.utilizationPercent, 0) / liveFeatures.length)}%`}
+            />
+          </div>
+        </article>
+
+        <article className="dash-panel">
+          <div className="panel-title">
+            <span>NUMA · pass-through chord</span>
+            <strong>numa node ↔ device</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <ChordDiagram
+              groups={[
+                { label: 'numa-0', color: 'var(--theme-accent)' },
+                { label: 'numa-1', color: 'var(--theme-accent-2)' },
+                { label: 'gpu-A100', color: 'var(--theme-good)' },
+                { label: 'gpu-H100', color: 'var(--theme-good)' },
+                { label: 'fpga', color: 'var(--theme-warn)' },
+                { label: 'smart-NIC', color: 'var(--theme-danger)' },
+              ]}
+              links={[
+                { source: 0, target: 2, value: 18 },
+                { source: 0, target: 4, value: 12 },
+                { source: 0, target: 5, value: 14 },
+                { source: 1, target: 3, value: 22 },
+                { source: 1, target: 5, value: 10 },
+                { source: 1, target: 4, value: 8 },
+                { source: 2, target: 1, value: 6 },
+                { source: 3, target: 0, value: 9 },
+              ]}
+              size={280}
+              tick={telemetry?.tick ?? 0}
+            />
+          </div>
+        </article>
+      </div>
 
       <article className="dash-panel">
         <div className="panel-title"><span>Acceleration feature mesh</span><strong>data-path · scheduling · pass-through · nested-virt</strong></div>
