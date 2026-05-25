@@ -277,6 +277,8 @@ function App() {
             onManifestStepChange={setStep}
             includeManifestSetup={includeManifestSetup}
             onIncludeManifestSetupChange={setIncludeManifestSetup}
+          />
+        )}
         {cockpitView === 'machine' && (
           <NexusMachineWizard
             config={machineConfig}
