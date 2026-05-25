@@ -27,17 +27,26 @@ Nexus is the updated Harvester fork with:
 - GitOps support: ArgoCD, Flux, Jenkins X integration manifests.
 - Multi-cluster provisioning: federated deployment templates and cluster targeting.
 
-## What is included
+## Features
 
 - In-tree Harvester platform source under `platform/harvester` so Nexus is tracked as a standalone system instead of a UI-only add-on.
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
+- Manifest Generator wizard embedded as an option of the Machine Wizard so bare-metal install and workload manifest generation can be driven from the same surface.
 - Wizard-driven workload and manifest configuration.
-- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, iSCSI, GlusterFS, Longhorn, OpenEBS, and Portworx.
+- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass).
 - Auto-generated `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `CronJob` manifests.
 - PVC, Service, Ingress, NetworkPolicy, RBAC, monitoring, logging, GitOps, and multi-cluster manifest generation.
 - Service mesh integration support for Istio, Linkerd, and Cilium.
 - CodeMirror YAML editor preview with dark mode styling.
 - Live-adapter operation planning for Kubernetes API validation, `kubectl` apply/test runs, `vcluster` workflows, and CSI templates sourced from the imported Harvester tree.
+- Kubernetes API validation + live preview combining local structural prechecks with Nexus live-adapter endpoints and server-side dry-run command generation.
+- Manifest apply / test runner commands generated for `kubectl auth can-i`, server-side dry-run, diff, apply, and rollout status.
+- Virtual cluster support that generates `vcluster` create/connect operations from multi-cluster targets.
+- Storage backend templates that include CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester source references under `platform/harvester/deploy/charts/harvester`.
+- Eight switchable themes — Route Grid, Emerald Console, Solar Flare, Holo Quantum, Nightwatch Crimson, Tactical NVG, Ice Spectrum, Plasma Vortex — applied uniformly to every control, metric, and dashboard. Theme selection persists in `localStorage`.
+- Live Environment Ticker banner above every dashboard with rolling cluster-wide stats (workloads, IOPS, ingress / egress Mb/s, CPU %, DRAM %, power, in-flight migrations, open CVEs, trust score).
+- Mission Control overview dashboard with multi-ring radial gauges, live oscilloscope waveforms, spark-trended panels, and a route-grid spatial map of the synthetic environment.
+- Telemetry Wave dashboard with high-density oscilloscope traces, FFT bands, and rolling latency histograms for SPDK / DPDK / vhost-user / RDMA paths.
 
 ## Quick start
 
@@ -83,10 +92,3 @@ The updated Nexus version is available on the `nexus` branch in the forked repos
 
 A pull request can be created from this branch to merge Nexus back into the main repository.
 
-## Completed next steps
-
-- Kubernetes validation and live preview now combine local structural prechecks with Nexus live-adapter endpoints and server-side dry-run command generation.
-- Manifest apply / test runner commands are generated for `kubectl auth can-i`, server-side dry-run, diff, apply, and rollout status.
-- Virtual cluster support generates `vcluster` create/connect operations from multi-cluster targets.
-- Editor enhancements are implemented with CodeMirror YAML editing.
-- Storage backend templates include CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester source references under `platform/harvester/deploy/charts/harvester`.

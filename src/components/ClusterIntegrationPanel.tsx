@@ -30,7 +30,7 @@ export function ClusterIntegrationPanel({
   return (
     <section className="cluster-console hud-panel" aria-label="Nexus next steps cluster integration console">
       <div className="hud-panel-title cluster-console-title">
-        <span>README next steps console</span>
+        <span>Features</span>
         <strong>{operationBundle.mode === 'live-adapter' && applyRun.status === 'passed' ? 'live adapter staged' : 'attention required'}</strong>
       </div>
 

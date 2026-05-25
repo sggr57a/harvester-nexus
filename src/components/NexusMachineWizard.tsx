@@ -1,9 +1,24 @@
+import { useState, type ReactNode } from 'react';
 import { HarvesterMachineConfig, HarvesterMachineInstallPlan } from '../lib/harvesterMachineWizard';
+
+export type MachineWizardTab = 'platform' | 'manifest' | 'review';
 
 interface NexusMachineWizardProps {
   config: HarvesterMachineConfig;
   plan: HarvesterMachineInstallPlan;
   onChange: (config: HarvesterMachineConfig) => void;
+  /** When provided, renders the Manifest Generator wizard inside the
+   * Manifest tab of the Machine Wizard. The Machine Wizard becomes the
+   * single entry point that can drive both bare-metal install + workload
+   * manifest generation.
+   */
+  manifestWizardSlot?: ReactNode;
+  /** Optional review surface (manifest preview / diff / dry run) shown in
+   * the third tab so users can verify the combined plan before applying.
+   */
+  reviewSlot?: ReactNode;
+  /** Initial active tab (defaults to platform). */
+  initialTab?: MachineWizardTab;
 }
 
 function updateListValue(value: string): string[] {
@@ -13,14 +28,71 @@ function updateListValue(value: string): string[] {
     .filter(Boolean);
 }
 
-export function NexusMachineWizard({ config, plan, onChange }: NexusMachineWizardProps) {
+export function NexusMachineWizard({
+  config,
+  plan,
+  onChange,
+  manifestWizardSlot,
+  reviewSlot,
+  initialTab = 'platform',
+}: NexusMachineWizardProps) {
+  const [tab, setTab] = useState<MachineWizardTab>(initialTab);
+
   return (
     <section className="machine-wizard hud-panel" aria-label="Nexus new machine Harvester wizard">
       <div className="hud-panel-title machine-wizard-title">
         <span>New machine wizard</span>
-        <strong>{plan.validationIssues.length === 0 ? 'platform install ready' : 'machine fields required'}</strong>
+        <strong>
+          {plan.validationIssues.length === 0
+            ? `platform install ready · ${tab === 'platform' ? 'install' : tab === 'manifest' ? 'manifest' : 'review'} active`
+            : 'machine fields required'}
+        </strong>
       </div>
 
+      <nav className="machine-wizard-tabs" aria-label="Machine wizard sections">
+        <button type="button" className={tab === 'platform' ? 'is-active' : ''} onClick={() => setTab('platform')}>
+          <span>01</span>
+          Platform install
+        </button>
+        <button
+          type="button"
+          className={tab === 'manifest' ? 'is-active' : ''}
+          onClick={() => setTab('manifest')}
+          disabled={!manifestWizardSlot}
+          title={manifestWizardSlot ? 'Generate Kubernetes manifests' : 'Manifest wizard not connected'}
+        >
+          <span>02</span>
+          Manifest generator
+        </button>
+        <button
+          type="button"
+          className={tab === 'review' ? 'is-active' : ''}
+          onClick={() => setTab('review')}
+          disabled={!reviewSlot}
+          title={reviewSlot ? 'Review apply plan' : 'No review surface connected'}
+        >
+          <span>03</span>
+          Review &amp; apply
+        </button>
+      </nav>
+
+      {tab === 'manifest' && manifestWizardSlot && (
+        <div className="machine-wizard-embedded" aria-label="Embedded manifest wizard">
+          <p className="machine-wizard-embed-note">
+            The full Manifest Wizard is embedded here as an option of the Machine Wizard. Bare-metal install
+            and workload manifest generation can be driven from the same surface.
+          </p>
+          {manifestWizardSlot}
+        </div>
+      )}
+
+      {tab === 'review' && reviewSlot && (
+        <div className="machine-wizard-embedded" aria-label="Combined review surface">
+          {reviewSlot}
+        </div>
+      )}
+
+      {tab === 'platform' && (
       <div className="machine-wizard-grid">
         <div className="machine-wizard-form">
           <label>
@@ -243,8 +315,9 @@ export function NexusMachineWizard({ config, plan, onChange }: NexusMachineWizar
           </div>
         </div>
       </div>
+      )}
 
-      {plan.validationIssues.length > 0 && (
+      {tab === 'platform' && plan.validationIssues.length > 0 && (
         <div className="machine-issues" role="alert">
           {plan.validationIssues.map((issue) => (
             <p key={issue}>{issue}</p>
@@ -252,14 +325,16 @@ export function NexusMachineWizard({ config, plan, onChange }: NexusMachineWizar
         </div>
       )}
 
-      <div className="machine-config-preview">
-        <div className="cluster-command-ribbon">
-          {plan.bootParameters.map((parameter) => (
-            <span key={parameter}>{parameter}</span>
-          ))}
+      {tab === 'platform' && (
+        <div className="machine-config-preview">
+          <div className="cluster-command-ribbon">
+            {plan.bootParameters.map((parameter) => (
+              <span key={parameter}>{parameter}</span>
+            ))}
+          </div>
+          <pre>{plan.configYaml}</pre>
         </div>
-        <pre>{plan.configYaml}</pre>
-      </div>
+      )}
     </section>
   );
 }

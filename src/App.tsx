@@ -25,6 +25,8 @@ import {
   ProcessorMemoryDashboardView,
   StorageDashboardView,
 } from './components/dashboards/Dashboards';
+import { MissionControlView } from './components/dashboards/MissionControl';
+import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -42,7 +44,9 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
 };
 
 type CockpitView =
+  | 'mission-control'
   | 'dashboard'
+  | 'telemetry-wave'
   | 'networking'
   | 'storage'
   | 'machines'
@@ -67,7 +71,7 @@ function App() {
   const [config, setConfig] = useState<ApplicationConfig>(defaultConfig);
   const [machineConfig, setMachineConfig] = useState(buildDefaultMachineConfig);
   const [step, setStep] = useState(1);
-  const [cockpitView, setCockpitView] = useState<CockpitView>('dashboard');
+  const [cockpitView, setCockpitView] = useState<CockpitView>('mission-control');
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
   const telemetry = useLiveTelemetry(1600);
@@ -124,8 +128,14 @@ function App() {
           </div>
         </div>
         <div className="step-list">
+          <button className={cockpitView === 'mission-control' ? 'active' : ''} onClick={() => setCockpitView('mission-control')}>
+            Mission Control
+          </button>
           <button className={cockpitView === 'dashboard' ? 'active' : ''} onClick={() => setCockpitView('dashboard')}>
             HUD Dashboard
+          </button>
+          <button className={cockpitView === 'telemetry-wave' ? 'active' : ''} onClick={() => setCockpitView('telemetry-wave')}>
+            Telemetry Wave
           </button>
           <button className={cockpitView === 'networking' ? 'active' : ''} onClick={() => setCockpitView('networking')}>
             Networking
@@ -193,7 +203,9 @@ function App() {
       </aside>
       <main className="main-view">
         <EnvironmentTicker snapshot={telemetry} />
+        {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
         {cockpitView === 'dashboard' && <HudDashboard />}
+        {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
         {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
         {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
         {cockpitView === 'machines' && <MachinesDashboardView telemetry={telemetry} />}
@@ -213,8 +225,42 @@ function App() {
             config={config}
           />
         )}
-        {cockpitView === 'machine' && <NexusMachineWizard config={machineConfig} plan={machinePlan} onChange={setMachineConfig} />}
-        {cockpitView === 'wizard' && <Wizard currentStep={step} config={config} onChange={setConfig} onNext={() => setStep(Math.min(step + 1, 7))} onBack={() => setStep(Math.max(step - 1, 1))} />}
+        {cockpitView === 'machine' && (
+          <NexusMachineWizard
+            config={machineConfig}
+            plan={machinePlan}
+            onChange={setMachineConfig}
+            manifestWizardSlot={
+              <Wizard
+                currentStep={step}
+                config={config}
+                onChange={setConfig}
+                onNext={() => setStep(Math.min(step + 1, 7))}
+                onBack={() => setStep(Math.max(step - 1, 1))}
+              />
+            }
+            reviewSlot={
+              <ClusterIntegrationPanel
+                validation={validation}
+                livePreview={livePreview}
+                applyRun={applyRun}
+                vclusterPlan={vclusterPlan}
+                csiPreview={csiPreview}
+                operationBundle={operationBundle}
+                config={config}
+              />
+            }
+          />
+        )}
+        {cockpitView === 'wizard' && (
+          <Wizard
+            currentStep={step}
+            config={config}
+            onChange={setConfig}
+            onNext={() => setStep(Math.min(step + 1, 7))}
+            onBack={() => setStep(Math.max(step - 1, 1))}
+          />
+        )}
         <section className="manifest-panel">
           <div className="panel-header">
             <h2>Generated manifest</h2>
