@@ -10,7 +10,6 @@ export type ThemeId =
   | 'tactical-nvg'
   | 'ice-spectrum'
   | 'plasma-vortex'
-  | 'void-protocol'
   | 'arctic-command';
 
 export interface ThemeDefinition {

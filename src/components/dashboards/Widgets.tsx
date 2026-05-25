@@ -27,6 +27,60 @@ export function WidgetTitle({ kicker, title, trailing }: WidgetTitleProps) {
   );
 }
 
+/* -------------------- Stat helpers -------------------- */
+
+export interface SeriesStats {
+  min: number;
+  max: number;
+  avg: number;
+  peak: number;
+  current: number;
+  p50: number;
+  p95: number;
+  p99: number;
+}
+
+export function computeStats(values: number[]): SeriesStats {
+  if (values.length === 0) {
+    return { min: 0, max: 0, avg: 0, peak: 0, current: 0, p50: 0, p95: 0, p99: 0 };
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const sum = values.reduce((acc, value) => acc + value, 0);
+  const pick = (p: number): number => sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * p))];
+  return {
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+    peak: sorted[sorted.length - 1],
+    avg: sum / values.length,
+    current: values[values.length - 1],
+    p50: pick(0.5),
+    p95: pick(0.95),
+    p99: pick(0.99),
+  };
+}
+
+export interface StatReadoutsProps {
+  stats: SeriesStats;
+  unit?: string;
+  compact?: boolean;
+  includeP99?: boolean;
+}
+
+/** Inline grid of MIN / AVG / MAX / PEAK / P95 readouts used across HUD widgets. */
+export function StatReadouts({ stats, unit, compact = false, includeP99 = false }: StatReadoutsProps) {
+  const fmt = (value: number) => (Math.abs(value) >= 100 ? value.toFixed(0) : value.toFixed(compact ? 1 : 2));
+  return (
+    <div className={`stat-readouts ${compact ? 'is-compact' : ''}`}>
+      <div><span>MIN</span><strong>{fmt(stats.min)}{unit && <em>{unit}</em>}</strong></div>
+      <div><span>AVG</span><strong>{fmt(stats.avg)}{unit && <em>{unit}</em>}</strong></div>
+      <div><span>MAX</span><strong>{fmt(stats.max)}{unit && <em>{unit}</em>}</strong></div>
+      <div><span>P95</span><strong>{fmt(stats.p95)}{unit && <em>{unit}</em>}</strong></div>
+      {includeP99 && <div><span>P99</span><strong>{fmt(stats.p99)}{unit && <em>{unit}</em>}</strong></div>}
+      <div className="readout-cur"><span>NOW</span><strong>{fmt(stats.current)}{unit && <em>{unit}</em>}</strong></div>
+    </div>
+  );
+}
+
 /* -------------------- Sparkline -------------------- */
 
 interface SparklineProps {
@@ -522,4 +576,503 @@ export function useRollingSeries(value: number, length = 32, key?: string | numb
     ref.current = Array.from({ length }, () => value);
   }
   return ref.current;
+}
+
+/* ============================================================
+   HUD widget primitives v2.3 — more bars, meters, gauges,
+   richer graph detail, frosted glass styling.
+   ============================================================ */
+
+/* -------------------- Vertical meter bank -------------------- */
+
+interface VerticalMeter {
+  label: string;
+  value: number;
+  unit?: string;
+  threshold?: number;
+}
+
+interface VerticalMeterBankProps {
+  meters: VerticalMeter[];
+  height?: number;
+  scale?: number;
+}
+
+/** Audio-style vertical level meter bank — each column shows ticks, a peak indicator,
+ * and the live value, with red zone above the threshold. */
+export function VerticalMeterBank({ meters, height = 160, scale = 100 }: VerticalMeterBankProps) {
+  return (
+    <div className="vert-meter-bank" style={{ height }}>
+      {meters.map((meter) => {
+        const fill = Math.max(2, Math.min(100, (meter.value / scale) * 100));
+        const thresholdLine = meter.threshold ? (meter.threshold / scale) * 100 : 80;
+        return (
+          <div key={meter.label} className="vert-meter">
+            <div className="vert-meter-track" aria-label={meter.label}>
+              {Array.from({ length: 16 }).map((_, idx) => (
+                <i key={idx} className="vert-meter-tick" style={{ bottom: `${(idx / 15) * 100}%` }} />
+              ))}
+              <span className="vert-meter-fill" style={{ height: `${fill}%` }} />
+              <span className="vert-meter-peak" style={{ bottom: `${fill}%` }} />
+              <span className="vert-meter-threshold" style={{ bottom: `${thresholdLine}%` }} />
+            </div>
+            <small>{meter.label}</small>
+            <b>{Math.round(meter.value)}{meter.unit ?? ''}</b>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* -------------------- Horizontal bar cluster -------------------- */
+
+interface HorizontalBar {
+  label: string;
+  value: number;
+  unit?: string;
+  delta?: number;
+  detail?: string;
+  status?: 'good' | 'warn' | 'danger';
+}
+
+interface HorizontalBarClusterProps {
+  bars: HorizontalBar[];
+  scale?: number;
+}
+
+/** Cluster of horizontal bars with label, value, delta arrow, and a sub-detail line.
+ * Used for "top N by X" style breakdowns where you want a quick visual ranking. */
+export function HorizontalBarCluster({ bars, scale }: HorizontalBarClusterProps) {
+  const inferredScale = scale ?? Math.max(...bars.map((b) => b.value));
+  return (
+    <ul className="hbar-cluster">
+      {bars.map((bar) => {
+        const pct = Math.max(2, Math.min(100, (bar.value / inferredScale) * 100));
+        const deltaCls = bar.delta === undefined || bar.delta === 0 ? '' : bar.delta > 0 ? ' delta-up' : ' delta-down';
+        return (
+          <li key={bar.label} className={`hbar-row status-${bar.status ?? 'neutral'}${deltaCls}`}>
+            <div className="hbar-label">
+              <strong>{bar.label}</strong>
+              {bar.detail && <small>{bar.detail}</small>}
+            </div>
+            <div className="hbar-track">
+              <i style={{ width: `${pct}%` }} />
+              <span className="hbar-tickline" />
+            </div>
+            <div className="hbar-value">
+              <b>{bar.value.toLocaleString()}{bar.unit && <em>{bar.unit}</em>}</b>
+              {bar.delta !== undefined && bar.delta !== 0 && (
+                <small>{bar.delta > 0 ? '▲' : '▼'} {Math.abs(bar.delta).toFixed(0)}</small>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* -------------------- Semicircular dial gauge -------------------- */
+
+interface DialGaugeProps {
+  value: number; // 0 - max
+  max?: number;
+  label: string;
+  unit?: string;
+  status?: 'good' | 'warn' | 'danger' | 'neutral';
+  bands?: { from: number; to: number; color: string }[];
+  size?: number;
+}
+
+/** Semicircular dial gauge with needle, range bands, tick marks, and digital readout. */
+export function DialGauge({ value, max = 100, label, unit, status = 'neutral', bands, size = 160 }: DialGaugeProps) {
+  const clamped = Math.max(0, Math.min(max, value));
+  const angle = (clamped / max) * 180 - 90;
+  const accent = status === 'good' ? 'var(--theme-good)' : status === 'warn' ? 'var(--theme-warn)' : status === 'danger' ? 'var(--theme-danger)' : 'var(--theme-accent)';
+  const cx = 50;
+  const cy = 60;
+  const r = 40;
+  return (
+    <div className="dial-gauge" style={{ width: size }}>
+      <svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet">
+        {/* range bands */}
+        {bands?.map((band, idx) => {
+          const startAngle = (band.from / max) * Math.PI - Math.PI;
+          const endAngle = (band.to / max) * Math.PI - Math.PI;
+          const x1 = cx + Math.cos(startAngle) * r;
+          const y1 = cy + Math.sin(startAngle) * r;
+          const x2 = cx + Math.cos(endAngle) * r;
+          const y2 = cy + Math.sin(endAngle) * r;
+          const largeArc = Math.abs(endAngle - startAngle) > Math.PI ? 1 : 0;
+          return (
+            <path
+              key={idx}
+              d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
+              stroke={band.color}
+              strokeWidth="3"
+              fill="none"
+              opacity="0.45"
+            />
+          );
+        })}
+        {/* baseline arc */}
+        <path d={`M 10 60 A 40 40 0 0 1 90 60`} stroke="rgba(255,255,255,0.08)" strokeWidth="6" fill="none" strokeLinecap="round" />
+        {/* fill arc */}
+        <path
+          d={`M 10 60 A 40 40 0 0 1 90 60`}
+          stroke={accent}
+          strokeWidth="6"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${Math.PI * r}`}
+          strokeDashoffset={Math.PI * r - (clamped / max) * Math.PI * r}
+          style={{ filter: `drop-shadow(0 0 4px ${accent}) drop-shadow(0 0 10px ${accent})` }}
+        />
+        {/* tick marks */}
+        {Array.from({ length: 11 }).map((_, idx) => {
+          const tickAngle = (idx / 10) * Math.PI - Math.PI;
+          const r1 = 44;
+          const r2 = idx % 5 === 0 ? 36 : 40;
+          return (
+            <line
+              key={idx}
+              x1={cx + Math.cos(tickAngle) * r1}
+              y1={cy + Math.sin(tickAngle) * r1}
+              x2={cx + Math.cos(tickAngle) * r2}
+              y2={cy + Math.sin(tickAngle) * r2}
+              stroke={idx % 5 === 0 ? accent : 'var(--theme-text-dim)'}
+              strokeWidth={idx % 5 === 0 ? 0.7 : 0.4}
+              opacity={idx % 5 === 0 ? 0.85 : 0.4}
+            />
+          );
+        })}
+        {/* needle */}
+        <g transform={`rotate(${angle} ${cx} ${cy})`}>
+          <line x1={cx} y1={cy} x2={cx} y2={cy - 34} stroke={accent} strokeWidth="1.6" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${accent})` }} />
+          <circle cx={cx} cy={cy} r="2.4" fill={accent} style={{ filter: `drop-shadow(0 0 4px ${accent})` }} />
+        </g>
+        {/* min/max labels */}
+        <text x="8" y="68" className="dial-tick-label" textAnchor="middle">0</text>
+        <text x="50" y="14" className="dial-tick-label" textAnchor="middle">{Math.round(max / 2)}</text>
+        <text x="92" y="68" className="dial-tick-label" textAnchor="middle">{max}</text>
+      </svg>
+      <div className="dial-readout">
+        <strong style={{ color: accent }}>{Math.round(clamped)}{unit && <em>{unit}</em>}</strong>
+        <span>{label}</span>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- Annotated oscilloscope (richer graph) -------------------- */
+
+interface AnnotatedOscilloscopeProps {
+  channels: { label: string; color?: string; series: number[]; unit?: string }[];
+  snapshot?: EnvironmentSnapshot;
+  height?: number;
+  yMax?: number;
+  yMin?: number;
+  divisionsX?: number;
+  divisionsY?: number;
+  timeScale?: string;
+  voltScale?: string;
+}
+
+/** Oscilloscope with X/Y axis ticks, division labels, per-channel readouts
+ * (min/avg/max/peak), and time/volt scale annotations like a real scope. */
+export function AnnotatedOscilloscope({
+  channels,
+  snapshot,
+  height = 200,
+  yMax = 100,
+  yMin = 0,
+  divisionsX = 10,
+  divisionsY = 8,
+  timeScale = '1.6 s / div',
+  voltScale = '12.5 % / div',
+}: AnnotatedOscilloscopeProps) {
+  const range = yMax - yMin;
+  const seriesLen = Math.max(...channels.map((c) => c.series.length));
+  const seed = snapshot?.tick ?? 0;
+  return (
+    <div className="osc-annotated" style={{ height }}>
+      <svg viewBox="0 0 220 110" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <pattern id="osc-anno-grid" width="20" height="11" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 11" fill="none" stroke="var(--theme-grid)" strokeWidth="0.3" />
+          </pattern>
+        </defs>
+        <rect x="20" y="2" width="200" height="100" fill="url(#osc-anno-grid)" opacity="0.6" />
+        {/* major divisions */}
+        {Array.from({ length: divisionsX + 1 }).map((_, idx) => (
+          <line
+            key={`vx-${idx}`}
+            x1={20 + (idx / divisionsX) * 200}
+            y1="2"
+            x2={20 + (idx / divisionsX) * 200}
+            y2="102"
+            stroke="var(--theme-accent-soft)"
+            strokeWidth="0.35"
+            strokeDasharray="1.5 2"
+          />
+        ))}
+        {Array.from({ length: divisionsY + 1 }).map((_, idx) => (
+          <line
+            key={`hy-${idx}`}
+            x1="20"
+            y1={2 + (idx / divisionsY) * 100}
+            x2="220"
+            y2={2 + (idx / divisionsY) * 100}
+            stroke="var(--theme-accent-soft)"
+            strokeWidth="0.35"
+            strokeDasharray="1.5 2"
+          />
+        ))}
+        {/* y-axis tick labels */}
+        {Array.from({ length: divisionsY + 1 }).map((_, idx) => (
+          <text
+            key={`yl-${idx}`}
+            x="17"
+            y={102 - (idx / divisionsY) * 100 + 1.5}
+            className="osc-axis-label"
+            textAnchor="end"
+          >
+            {Math.round(yMin + (idx / divisionsY) * range)}
+          </text>
+        ))}
+        {/* x-axis tick labels */}
+        {Array.from({ length: divisionsX + 1 }).map((_, idx) => (
+          <text
+            key={`xl-${idx}`}
+            x={20 + (idx / divisionsX) * 200}
+            y="108"
+            className="osc-axis-label"
+            textAnchor="middle"
+          >
+            t-{divisionsX - idx}
+          </text>
+        ))}
+        {/* zero line */}
+        <line x1="20" y1="52" x2="220" y2="52" stroke="var(--theme-accent)" strokeWidth="0.4" opacity="0.7" strokeDasharray="2 2" />
+        {/* channels */}
+        {channels.map((channel, channelIdx) => {
+          const color = channel.color ?? ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)', 'var(--theme-warn)'][channelIdx % 4];
+          const points = channel.series
+            .map((value, idx) => {
+              const x = 20 + (idx / (seriesLen - 1)) * 200;
+              const y = 102 - ((value - yMin) / range) * 100;
+              return `${x},${Math.max(2, Math.min(102, y))}`;
+            })
+            .join(' ');
+          const peakValue = Math.max(...channel.series);
+          const peakIdx = channel.series.indexOf(peakValue);
+          const peakX = 20 + (peakIdx / (seriesLen - 1)) * 200;
+          const peakY = 102 - ((peakValue - yMin) / range) * 100;
+          return (
+            <g key={channelIdx} className="osc-anno-channel">
+              <polyline points={points} fill="none" stroke={color} strokeWidth="0.5" opacity="0.25" style={{ filter: 'blur(2px)' }} />
+              <polyline points={points} fill="none" stroke={color} strokeWidth="0.85" style={{ filter: `drop-shadow(0 0 2px ${color}) drop-shadow(0 0 6px ${color})` }} />
+              <circle cx={peakX} cy={peakY} r="1.2" fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />
+              <text x={peakX} y={peakY - 2.5} fill={color} className="osc-peak-label" textAnchor="middle">peak {Math.round(peakValue)}</text>
+            </g>
+          );
+        })}
+        {/* sweep cursor */}
+        <line x1={20 + ((seed % 10) / 10) * 200} y1="2" x2={20 + ((seed % 10) / 10) * 200} y2="102" stroke="var(--theme-accent)" strokeWidth="0.3" opacity="0.5" />
+      </svg>
+      <div className="osc-anno-meta">
+        <span>TIME · {timeScale}</span>
+        <span>VOLT · {voltScale}</span>
+        <span>BW · 200 MHz</span>
+        <span>SAMP · 62.5 ms/pt</span>
+      </div>
+      <div className="osc-anno-readouts">
+        {channels.map((channel, channelIdx) => {
+          const stats = computeStats(channel.series);
+          const color = channel.color ?? ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)', 'var(--theme-warn)'][channelIdx % 4];
+          return (
+            <div key={channelIdx} className="osc-anno-readout" style={{ borderLeftColor: color }}>
+              <header>
+                <i style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                <strong style={{ color }}>CH{channelIdx + 1} · {channel.label}</strong>
+              </header>
+              <dl>
+                <div><dt>MIN</dt><dd>{stats.min.toFixed(1)}{channel.unit}</dd></div>
+                <div><dt>AVG</dt><dd>{stats.avg.toFixed(1)}{channel.unit}</dd></div>
+                <div><dt>MAX</dt><dd>{stats.max.toFixed(1)}{channel.unit}</dd></div>
+                <div><dt>NOW</dt><dd style={{ color }}>{stats.current.toFixed(1)}{channel.unit}</dd></div>
+              </dl>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- Annotated FFT spectrum (with frequency band labels) -------------------- */
+
+interface AnnotatedFftProps {
+  snapshot?: EnvironmentSnapshot;
+  bars?: number;
+  height?: number;
+  freqLabels?: string[];
+}
+
+export function AnnotatedFft({ snapshot, bars = 64, height = 160, freqLabels = ['0', '125 MHz', '250 MHz', '500 MHz', '1 GHz', '2 GHz', '4 GHz'] }: AnnotatedFftProps) {
+  const seed = snapshot?.tick ?? 0;
+  const values = useMemo(() => {
+    return Array.from({ length: bars }, (_, idx) => {
+      const phase = (seed + idx) / 4;
+      const decay = 1 - Math.pow(idx / bars, 1.3);
+      const peakBoost = idx === Math.floor(bars * 0.18) || idx === Math.floor(bars * 0.42) ? 1.4 : 1;
+      const v = (Math.sin(phase * 1.4 + idx * 0.3) * 0.4 + Math.sin(phase * 0.7 + idx * 0.12) * 0.5 + 0.5) * decay * peakBoost * 100;
+      return Math.max(6, Math.min(98, Math.round(v + (Math.random() * 8 - 4))));
+    });
+  }, [seed, bars]);
+  const peak = Math.max(...values);
+  const peakIdx = values.indexOf(peak);
+  return (
+    <div className="fft-annotated" style={{ height }}>
+      <div className="fft-anno-yaxis">
+        <span>0 dB</span>
+        <span>-10</span>
+        <span>-20</span>
+        <span>-30</span>
+        <span>-40</span>
+      </div>
+      <div className="fft-anno-plot">
+        <div className="fft-anno-bars">
+          {values.map((value, idx) => {
+            const isPeak = idx === peakIdx;
+            return (
+              <span key={idx} className={`fft-bar ${isPeak ? 'is-peak' : ''}`} style={{ height: `${value}%`, animationDelay: `${idx * 12}ms` } as CSSProperties}>
+                <i style={{ height: '100%' }} />
+                {isPeak && <em>peak</em>}
+              </span>
+            );
+          })}
+        </div>
+        <div className="fft-anno-xaxis">
+          {freqLabels.map((label, idx) => (
+            <span key={idx} style={{ left: `${(idx / (freqLabels.length - 1)) * 100}%` }}>{label}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- Annotated latency histogram (with mean/median/P50/P95/P99) -------------------- */
+
+export interface LatencyDatum {
+  label: string;
+  value: number;
+  highlight?: 'mean' | 'p50' | 'p95' | 'p99';
+}
+
+interface AnnotatedLatencyHistogramProps {
+  buckets: LatencyDatum[];
+  height?: number;
+  yUnit?: string;
+  summary?: { p50: string; p95: string; p99: string; mean: string };
+}
+
+export function AnnotatedLatencyHistogram({ buckets, height = 170, yUnit = '%', summary }: AnnotatedLatencyHistogramProps) {
+  const max = Math.max(...buckets.map((b) => b.value));
+  return (
+    <div className="lat-annotated">
+      <div className="lat-anno-yaxis">
+        <span>{max}{yUnit}</span>
+        <span>{Math.round(max * 0.75)}{yUnit}</span>
+        <span>{Math.round(max * 0.5)}{yUnit}</span>
+        <span>{Math.round(max * 0.25)}{yUnit}</span>
+        <span>0</span>
+      </div>
+      <div className="lat-anno-plot" style={{ height }}>
+        {buckets.map((bucket) => {
+          const pct = (bucket.value / max) * 100;
+          return (
+            <div key={bucket.label} className={`lat-anno-col ${bucket.highlight ? `is-${bucket.highlight}` : ''}`}>
+              <div className="lat-anno-bar">
+                <i style={{ height: `${pct}%` }} />
+                {bucket.highlight && <em>{bucket.highlight.toUpperCase()}</em>}
+                <b>{bucket.value}</b>
+              </div>
+              <small>{bucket.label}</small>
+            </div>
+          );
+        })}
+      </div>
+      {summary && (
+        <div className="lat-anno-summary">
+          <div><span>MEAN</span><strong>{summary.mean}</strong></div>
+          <div><span>P50</span><strong>{summary.p50}</strong></div>
+          <div className="is-warn"><span>P95</span><strong>{summary.p95}</strong></div>
+          <div className="is-danger"><span>P99</span><strong>{summary.p99}</strong></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------- Bar cluster with grouped percentile markers -------------------- */
+
+interface PercentileBarProps {
+  label: string;
+  p50: number;
+  p95: number;
+  p99: number;
+  unit?: string;
+  scale?: number;
+}
+
+export function PercentileBar({ label, p50, p95, p99, unit = 'µs', scale = 200 }: PercentileBarProps) {
+  const pos = (v: number) => `${Math.min(100, (v / scale) * 100)}%`;
+  return (
+    <div className="pctile-bar">
+      <header>
+        <strong>{label}</strong>
+        <span>{p50}{unit} / {p95}{unit} / {p99}{unit}</span>
+      </header>
+      <div className="pctile-track">
+        <i className="pctile-mid" style={{ width: pos(p99) }} />
+        <span className="pctile-mark mark-p50" style={{ left: pos(p50) }}>P50</span>
+        <span className="pctile-mark mark-p95" style={{ left: pos(p95) }}>P95</span>
+        <span className="pctile-mark mark-p99" style={{ left: pos(p99) }}>P99</span>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- Compact "stat grid" - dense metric tiles -------------------- */
+
+export interface StatGridItem {
+  label: string;
+  value: string | number;
+  unit?: string;
+  hint?: string;
+  status?: 'good' | 'warn' | 'danger' | 'neutral';
+  delta?: number;
+}
+
+export function StatGrid({ items, columns = 4 }: { items: StatGridItem[]; columns?: number }) {
+  return (
+    <div className="stat-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+      {items.map((item) => {
+        const deltaCls = item.delta === undefined || item.delta === 0 ? '' : item.delta > 0 ? 'delta-up' : 'delta-down';
+        return (
+          <div key={item.label} className={`stat-grid-item status-${item.status ?? 'neutral'} ${deltaCls}`}>
+            <span>{item.label}</span>
+            <strong>{item.value}{item.unit && <em>{item.unit}</em>}</strong>
+            {item.hint && <small>{item.hint}</small>}
+            {item.delta !== undefined && item.delta !== 0 && (
+              <i className="stat-delta">{item.delta > 0 ? '▲' : '▼'} {Math.abs(item.delta).toFixed(1)}</i>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
