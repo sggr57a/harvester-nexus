@@ -1,15 +1,10 @@
 export type ThemeId =
   | 'route-grid'
   | 'emerald-console'
-  | 'solar-flare'
   | 'arctic-hologram'
-  | 'violet-nebula'
   | 'noir-radar'
-  | 'holo-quantum'
-  | 'nightwatch-crimson'
   | 'tactical-nvg'
   | 'ice-spectrum'
-  | 'plasma-vortex'
   | 'cyber-wireframe'
   | 'arctic-command';
 
@@ -37,25 +32,11 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     swatches: ['#020608', '#082015', '#1f7a52', '#36d399', '#a8ffd0'],
   },
   {
-    id: 'solar-flare',
-    name: 'Solar Flare',
-    tagline: 'Charcoal blueprint with amber contours',
-    visualStyle: 'warm amber instrumentation, graphite plates, hazard rails',
-    swatches: ['#0d0a06', '#2a1c08', '#ff8c2a', '#ffd166', '#ffeeb0'],
-  },
-  {
     id: 'arctic-hologram',
     name: 'Arctic Hologram',
     tagline: 'Icy glass telemetry with electric blue depth',
     visualStyle: 'translucent ice layers, azure glow, soft holographic rings',
     swatches: ['#03111f', '#0b3150', '#7dd3fc', '#38bdf8', '#e0f7ff'],
-  },
-  {
-    id: 'violet-nebula',
-    name: 'Violet Nebula',
-    tagline: 'Purple orbital lab with magenta command energy',
-    visualStyle: 'orbital arcs, violet fog, magenta and cyan control pulses',
-    swatches: ['#09051a', '#21104a', '#8b5cf6', '#f472b6', '#67e8f9'],
   },
   {
     id: 'noir-radar',
@@ -65,35 +46,18 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     swatches: ['#030303', '#151515', '#f8fafc', '#9ca3af', '#a3ff12'],
   },
   {
-    id: 'holo-quantum',
-    name: 'Holo Quantum',
-    tagline: 'Violet holographic mesh with cyan accents',
-    visualStyle: 'violet holographic mesh, quantum lattice, cyan edge glow',
-    swatches: ['#0a0418', '#1d0a3a', '#7c3bff', '#b86bff', '#36ecff'],
-  },
-  {
-    id: 'nightwatch-crimson',
-    name: 'Nightwatch Crimson',
-    tagline: 'Carbon black bunker with crimson tactical overlays',
-    swatches: ['#08040a', '#1c0709', '#ff2e63', '#ff7a59', '#ffd6c2'],
-  },
-  {
     id: 'tactical-nvg',
     name: 'Tactical NVG',
     tagline: 'Night-vision CRT phosphor on graphite chassis',
+    visualStyle: 'night-vision green phosphor, CRT scan, military spec',
     swatches: ['#020a06', '#072014', '#3aff8e', '#9dff66', '#caffaa'],
   },
   {
     id: 'ice-spectrum',
     name: 'Ice Spectrum',
     tagline: 'Glacial cobalt panes with prismatic spectrum',
+    visualStyle: 'glacial cobalt layers, prismatic white highlights',
     swatches: ['#040a14', '#0a1f3a', '#8be9ff', '#ffffff', '#b6c8ff'],
-  },
-  {
-    id: 'plasma-vortex',
-    name: 'Plasma Vortex',
-    tagline: 'Magenta-electric plasma over deep void',
-    swatches: ['#06030d', '#1a0533', '#ff4af7', '#ffd166', '#5bf2ff'],
   },
   {
     id: 'cyber-wireframe',
@@ -101,13 +65,6 @@ export const THEME_CATALOG: ThemeDefinition[] = [
     tagline: 'Pure-black void with holographic wireframe outlines',
     visualStyle: 'absolute-black background, transparent panels, neon wireframe borders, draw/redraw animations',
     swatches: ['#000000', '#050505', '#00ffc8', '#00b8ff', '#00ff88'],
-  },
-  {
-    id: 'void-protocol',
-    name: 'Void Protocol',
-    tagline: 'Neon violet cyberpunk on absolute black',
-    visualStyle: 'absolute-black glass, ultraviolet rails, high-contrast neon glyphs',
-    swatches: ['#060010', '#130028', '#7c3aed', '#c084fc', '#e9d5ff'],
   },
   {
     id: 'arctic-command',

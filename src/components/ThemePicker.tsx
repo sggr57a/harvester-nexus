@@ -6,30 +6,30 @@ interface ThemePickerProps {
 }
 
 export function ThemePicker({ active, onSelect }: ThemePickerProps) {
+  const activeTheme = THEME_CATALOG.find((t) => t.id === active);
   return (
-    <div className="theme-picker" aria-label="Dashboard theme">
-      <span className="theme-picker-title">Theme</span>
-      <div className="theme-picker-options">
-        {THEME_CATALOG.map((theme) => (
-          <button
-            key={theme.id}
-            type="button"
-            className={`theme-option ${active === theme.id ? 'is-selected' : ''}`}
-            onClick={() => onSelect(theme.id)}
-            aria-pressed={active === theme.id}
-            title={`${theme.tagline}: ${theme.visualStyle}`}
+    <div className="theme-picker-dropdown" aria-label="Dashboard theme">
+      <label className="theme-dropdown-label">
+        <span className="theme-dropdown-title">THEME</span>
+        <div className="theme-dropdown-wrapper">
+          <select
+            className="theme-dropdown-select"
+            value={active}
+            onChange={(e) => onSelect(e.target.value as ThemeId)}
           >
-            <span className="theme-swatches" aria-hidden="true">
-              {theme.swatches.map((color, index) => (
-                <i key={`${theme.id}-${index}`} style={{ background: color }} />
-              ))}
-            </span>
-            <span className="theme-name">{theme.name}</span>
-            <small>{theme.tagline}</small>
-            <em>{theme.visualStyle}</em>
-          </button>
-        ))}
-      </div>
+            {THEME_CATALOG.map((theme) => (
+              <option key={theme.id} value={theme.id}>
+                {theme.name}
+              </option>
+            ))}
+          </select>
+          <span className="theme-dropdown-swatches" aria-hidden="true">
+            {activeTheme?.swatches.slice(0, 4).map((color, index) => (
+              <i key={index} style={{ background: color }} />
+            ))}
+          </span>
+        </div>
+      </label>
     </div>
   );
 }

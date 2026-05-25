@@ -3973,71 +3973,80 @@ select {
 }
 
 /* ============================================================
-   Theme picker (sidebar)
+   Theme picker dropdown (sidebar)
    ============================================================ */
-.theme-picker {
-  margin-top: 1.4rem;
-  padding: 0.9rem;
+.theme-picker-dropdown {
+  margin-top: 0.8rem;
+  padding: 0.6rem 0.7rem;
   border: 1px solid var(--theme-panel-border);
   background: var(--theme-panel);
-  border-radius: 6px;
-  display: grid;
-  gap: 0.7rem;
+  border-radius: 4px;
 }
-.theme-picker-title {
-  font-size: 0.7rem;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: var(--theme-text-dim);
-}
-.theme-picker-options {
+.theme-dropdown-label {
   display: grid;
   gap: 0.4rem;
 }
-.theme-option {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.5rem 0.6rem;
-  align-items: center;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.42);
-  color: var(--theme-text);
-  text-align: left;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: border-color 0.18s ease, background 0.18s ease;
-}
-.theme-option small {
-  grid-column: 1 / -1;
-  color: var(--theme-text-dim);
-  font-size: 0.68rem;
-  line-height: 1.25;
-  letter-spacing: 0.04em;
-}
-.theme-option:hover { border-color: var(--theme-panel-border); }
-.theme-option.is-selected {
-  border-color: var(--theme-accent);
-  background: var(--theme-accent-soft);
-  box-shadow: var(--theme-route-glow);
-}
-.theme-option .theme-name {
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+.theme-dropdown-title {
+  font-size: 0.6rem;
+  letter-spacing: 0.36em;
   text-transform: uppercase;
+  color: var(--theme-text-dim);
 }
-.theme-swatches {
+.theme-dropdown-wrapper {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+.theme-dropdown-select {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 3px;
+  border: 1px solid var(--theme-panel-border);
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--theme-text);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.5)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  padding-right: 1.8rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.theme-dropdown-select:hover,
+.theme-dropdown-select:focus {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 8px var(--theme-accent-soft);
+  outline: none;
+}
+.theme-dropdown-select option {
+  background: #0a0a0a;
+  color: #e0e0e0;
+}
+.theme-dropdown-swatches {
   display: inline-flex;
   gap: 2px;
-  padding: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
 }
-.theme-swatches i {
-  width: 10px;
-  height: 18px;
+.theme-dropdown-swatches i {
+  width: 6px;
+  height: 16px;
   display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
+
+/* Legacy theme picker classes (kept for backward compat) */
+.theme-picker { display: none; }
+.theme-picker-title { display: none; }
+.theme-picker-options { display: none; }
+.theme-option { display: none; }
+.theme-option small { display: none; }
+.theme-option .theme-name { display: none; }
+.theme-swatches { display: none; }
+.theme-swatches i { display: none; }
 
 /* ============================================================
    Shared dashboard frame
@@ -9462,6 +9471,16 @@ select option {
 :root[data-theme='cyber-wireframe'] .theme-picker {
   background: transparent;
   border: 1px solid rgba(0, 255, 200, 0.25);
+}
+:root[data-theme='cyber-wireframe'] .theme-picker-dropdown {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 200, 0.25);
+  border-radius: 0;
+}
+:root[data-theme='cyber-wireframe'] .theme-dropdown-select {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 200, 0.35);
+  border-radius: 0;
 }
 :root[data-theme='cyber-wireframe'] .theme-option {
   background: transparent;
