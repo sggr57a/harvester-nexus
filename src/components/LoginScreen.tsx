@@ -10,12 +10,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (isLoading) return;
     setIsLoading(true);
     setError('');
-
-    // Simulate login delay for demo
     setTimeout(() => {
       const loginAccepted = onLogin(username, password);
       if (!loginAccepted) {
@@ -23,6 +22,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       }
       setIsLoading(false);
     }, 1000);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   return (
@@ -49,7 +55,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               type="text"
               autoComplete="username"
               aria-label="Username"
+              autoFocus
               value={username}
+              onKeyDown={handleKeyDown}
               onChange={(e) => {
                 setUsername(e.target.value);
                 setError('');
@@ -65,6 +73,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               autoComplete="current-password"
               aria-label="Password"
               value={password}
+              onKeyDown={handleKeyDown}
               onChange={(e) => {
                 setPassword(e.target.value);
                 setError('');
@@ -74,6 +83,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </div>
 
           {error && <div className="login-error" role="alert">{error}</div>}
+          {isLoading && (
+            <div className="login-pending" role="status" aria-live="polite">
+              <div className="spinner-small" />
+              Elevating...
+            </div>
+          )}
 
           {isLoading && (
             <div className="login-loading" aria-live="polite">

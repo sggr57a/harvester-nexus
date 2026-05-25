@@ -131,11 +131,14 @@ function App() {
     { id: 'storage', label: 'Storage', sig: 'CSI_IO', group: 'MONITOR' },
     { id: 'machines', label: 'Machines', sig: 'VM_LXC', group: 'MONITOR' },
     { id: 'processor-memory', label: 'Processor & Memory', sig: 'CPU_MEM', group: 'MONITOR' },
+    { id: 'environment', label: 'Environment Intel', sig: 'ENV_IQ', group: 'MONITOR' },
+    { id: 'activity', label: 'Activity Command', sig: 'ACT_CM', group: 'MONITOR' },
     { id: 'poly-compute', label: 'Poly-Compute', sig: 'PCE_04', group: 'COMPUTE' },
     { id: 'acceleration', label: 'Acceleration', sig: 'ACCEL', group: 'COMPUTE' },
     { id: 'operations', label: 'Operations', sig: 'OPS_CM', group: 'COMPUTE' },
     { id: 'resource-monitoring', label: 'Resource Monitor', sig: 'RES_WK', group: 'COMPUTE' },
     { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
+    { id: 'setup', label: 'Setup Wizard', sig: 'SETUP', group: 'DEPLOY' },
     { id: 'machine', label: 'Machine Wizard', sig: 'MACH_W', group: 'DEPLOY' },
     { id: 'wizard', label: 'Manifest Wizard', sig: 'MFT_WZ', group: 'DEPLOY' },
     { id: 'setup', label: 'Setup Wizard', sig: 'SET_UP', group: 'DEPLOY' },
@@ -153,9 +156,10 @@ function App() {
           <div className="brand-wordmark">
             <h1>Harvester</h1>
             <span className="brand-sub">Nexus</span>
-            <p className="brand-tagline">Dark-mode workload & storage manifest generator</p>
+            <p className="brand-tagline">HCI cockpit · poly-compute · storage fabric</p>
           </div>
         </div>
+
         <nav className="cockpit-nav" aria-label="Cockpit views">
           {navGroups.map((group) => (
             <div className="nav-group" key={group}>
@@ -192,7 +196,7 @@ function App() {
           })}
         </div>
         <div className="storage-summary">
-          <h2>Storage template</h2>
+          <span className="nav-group-label">STORAGE TEMPLATE</span>
           <p>{STORAGE_TEMPLATES[config.storage.storageType]}</p>
         </div>
       </aside>
@@ -205,6 +209,8 @@ function App() {
         {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
         {cockpitView === 'machines' && <MachinesDashboardView telemetry={telemetry} />}
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
+        {cockpitView === 'environment' && <EnvironmentDashboardView />}
+        {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
         {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
         {cockpitView === 'environment' && <EnvironmentDashboardView />}
@@ -233,42 +239,6 @@ function App() {
             onManifestStepChange={setStep}
             includeManifestSetup={includeManifestSetup}
             onIncludeManifestSetupChange={setIncludeManifestSetup}
-          />
-        )}
-        {cockpitView === 'machine' && (
-          <NexusMachineWizard
-            config={machineConfig}
-            plan={machinePlan}
-            onChange={setMachineConfig}
-            manifestWizardSlot={
-              <Wizard
-                currentStep={step}
-                config={config}
-                onChange={setConfig}
-                onNext={() => setStep(Math.min(step + 1, 7))}
-                onBack={() => setStep(Math.max(step - 1, 1))}
-              />
-            }
-            reviewSlot={
-              <ClusterIntegrationPanel
-                validation={validation}
-                livePreview={livePreview}
-                applyRun={applyRun}
-                vclusterPlan={vclusterPlan}
-                csiPreview={csiPreview}
-                operationBundle={operationBundle}
-                config={config}
-              />
-            }
-          />
-        )}
-        {cockpitView === 'wizard' && (
-          <Wizard
-            currentStep={step}
-            config={config}
-            onChange={setConfig}
-            onNext={() => setStep(Math.min(step + 1, 7))}
-            onBack={() => setStep(Math.max(step - 1, 1))}
           />
         )}
         <section className="manifest-panel">

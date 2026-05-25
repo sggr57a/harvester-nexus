@@ -7,15 +7,25 @@ import {
   buildStorageDashboard,
 } from '../../lib/dashboards';
 import {
+  ActivityHeatmap,
+  ActivityTimeline,
   AnnotatedFft,
   AnnotatedOscilloscope,
+  AnomalyStream,
+  ApiRateGauge,
+  Cluster3DMap,
   DialGauge,
+  FlowDiagram,
+  GitOpsSyncBank,
+  GpuMemoryGrid,
   HorizontalBarCluster,
   KpiTile,
   LiveEventFeed,
   MultiRingGauge,
   PercentileBar,
-  RouteMap,
+  RingMeterCluster,
+  SparklineGrid,
+  StackedAreaChart,
   StatGrid,
   StatReadouts,
   VerticalMeterBank,
@@ -113,7 +123,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
         detail: `${backend.kind} · ${backend.usagePercent}% used`,
         delta: telemetry ? (telemetry.deltas.totalIops / 12_000) | 0 : 0,
         status:
-          backend.usagePercent > 75 ? ('warn' as const) : backend.usagePercent > 90 ? ('danger' as const) : ('good' as const),
+          backend.usagePercent > 90 ? ('danger' as const) : backend.usagePercent > 75 ? ('warn' as const) : ('good' as const),
       })),
     [telemetry],
   );
@@ -146,13 +156,111 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
     return result;
   }, []);
 
+  const heatmapRows = useMemo(() => {
+    const seed = telemetry?.tick ?? 0;
+    const cpuFactor = (telemetry?.cpuPercent ?? 58) / 58;
+    return [
+      'compute-01',
+      'compute-02',
+      'compute-03',
+      'edge-a',
+      'edge-b',
+      'ceph-rack',
+      'control-plane',
+    ].map((node) => ({
+      label: node,
+      cells: Array.from({ length: 24 }, (_, idx) => {
+        const base = (node.charCodeAt(0) + idx * 4 + seed) % 100;
+        return Math.max(8, Math.min(99, Math.round(base * cpuFactor + Math.sin((idx + seed) / 3) * 18)));
+      }),
+    }));
+  }, [telemetry]);
+
+  const sparkItems = useMemo(() => {
+    const seed = telemetry?.tick ?? 0;
+    return [
+      { label: 'kubelet rps', current: 1842 + (seed % 80), unit: '/s', status: 'good' as const },
+      { label: 'apiserver rps', current: 412 + (seed % 30), unit: '/s', status: 'good' as const },
+      { label: 'etcd commit/s', current: 1240 + (seed % 90), unit: '', status: 'good' as const },
+      { label: 'cilium drops', current: 6 + (seed % 4), unit: '', status: 'warn' as const },
+      { label: 'pod restarts', current: 2 + (seed % 2), unit: '', status: 'warn' as const },
+      { label: 'oom kills 24h', current: 0, unit: '', status: 'good' as const },
+      { label: 'csi attach/s', current: 18 + (seed % 6), unit: '', status: 'good' as const },
+      { label: 'image pulls/min', current: 42 + (seed % 8), unit: '', status: 'good' as const },
+      { label: 'pvc bind/s', current: 4 + (seed % 3), unit: '', status: 'good' as const },
+      { label: 'snapshots/h', current: 22 + (seed % 5), unit: '', status: 'good' as const },
+      { label: 'live migrations', current: telemetry?.activeMigrations ?? 3, unit: '', status: 'warn' as const },
+      { label: 'audit events/s', current: 88 + (seed % 18), unit: '', status: 'good' as const },
+    ].map((item) => ({
+      ...item,
+      values: Array.from({ length: 20 }, (_, i) => 40 + Math.sin((i + seed + item.label.length) / 2) * 22 + Math.random() * 8),
+    }));
+  }, [telemetry]);
+
+  const ringMeters = useMemo(
+    () => [
+      { label: 'Ceph', value: 72, status: 'good' as const },
+      { label: 'Longhorn', value: 58, status: 'good' as const },
+      { label: 'NVMe-oF', value: 41, status: 'good' as const },
+      { label: 'RDMA', value: 36, status: 'warn' as const },
+      { label: 'ZFS', value: 68, status: 'good' as const },
+      { label: 'Vitastor', value: 38, status: 'good' as const },
+      { label: 'NFS', value: 64, status: 'good' as const },
+      { label: 'OpenEBS', value: 33, status: 'good' as const },
+    ],
+    [],
+  );
+
+  // Stacked area: workload mix over a rolling window
+  const stackedAreaSeries = useMemo(() => {
+    const seed = telemetry?.tick ?? 0;
+    const len = 32;
+    const buildSeries = (base: number, amp: number, phase: number) =>
+      Array.from({ length: len }, (_, i) => Math.max(2, base + Math.sin((i + seed + phase) / 4) * amp + Math.random() * 4));
+    return [
+      { label: 'KubeVirt VMs', values: buildSeries(34, 8, 0), color: 'var(--theme-accent)' },
+      { label: 'LXC system', values: buildSeries(22, 6, 3), color: 'var(--theme-accent-2)' },
+      { label: 'K8s pods', values: buildSeries(18, 5, 7), color: 'var(--theme-good)' },
+      { label: 'Docker', values: buildSeries(8, 3, 11), color: 'var(--theme-warn)' },
+    ];
+  }, [telemetry]);
+
+  // Sankey: source-VLAN → destination-service flow
+  const flowNodes = useMemo(
+    () => [
+      { id: 'mgmt', label: 'mgmt-bo', value: 22, side: 'left' as const, color: 'var(--theme-accent-2)' },
+      { id: 'workload', label: 'workload-bo', value: 86, side: 'left' as const, color: 'var(--theme-accent)' },
+      { id: 'storage-bo', label: 'storage-bo', value: 64, side: 'left' as const, color: 'var(--theme-warn)' },
+      { id: 'rdma', label: 'rdma-bo', value: 48, side: 'left' as const, color: 'var(--theme-good)' },
+      { id: 'payments', label: 'payments-api', value: 64, side: 'right' as const },
+      { id: 'ledger', label: 'ledger-svc', value: 38, side: 'right' as const },
+      { id: 'fraud', label: 'fraud-detect', value: 42, side: 'right' as const },
+      { id: 'analytics', label: 'analytics-vm', value: 56, side: 'right' as const },
+      { id: 'argo', label: 'argocd', value: 20, side: 'right' as const },
+    ],
+    [],
+  );
+  const flowLinks = useMemo(
+    () => [
+      { from: 'mgmt', to: 'argo', value: 18 },
+      { from: 'workload', to: 'payments', value: 42 },
+      { from: 'workload', to: 'fraud', value: 30 },
+      { from: 'workload', to: 'analytics', value: 22 },
+      { from: 'storage-bo', to: 'analytics', value: 28 },
+      { from: 'storage-bo', to: 'ledger', value: 26 },
+      { from: 'rdma', to: 'payments', value: 20 },
+      { from: 'rdma', to: 'analytics', value: 16 },
+    ],
+    [],
+  );
+
   return (
     <section className="dash dash-mission" aria-label="Mission Control overview dashboard">
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CMD // MISSION CONTROL</span>
           <h2>Mission Control</h2>
-          <p>Frosted-glass HUD overview — multi-ring posture, dual oscilloscopes, dial gauges, vertical level meters, horizontal bar clusters, percentile bands, spatial route-map, and a streaming event log.</p>
+          <p>Dark-mode HUD command surface — frosted-glass panels over a near-black backplate. Posture, oscilloscope, dial cluster, vertical meters, route-map, percentile bands, FFT, anomaly stream, heatmap, sparkline grid, GitOps sync bank, GPU memory grid, API rate gauges, activity timeline.</p>
         </div>
         <div className="dash-totals">
           <div><span>Workloads</span><strong>{telemetry?.totalWorkloads ?? 642}</strong></div>
@@ -181,7 +289,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
             centerLabel="POSTURE"
             centerValue={`${telemetry?.trustScore ?? 87}`}
             centerSub="trust score"
-            size={260}
+            size={240}
           />
           <StatReadouts stats={computeStats(cpuSeries)} unit="%" compact />
         </article>
@@ -197,7 +305,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
             divisionsY={8}
             timeScale="1.6 s / div"
             voltScale="12.5 % / div"
-            height={260}
+            height={240}
           />
         </article>
 
@@ -216,14 +324,59 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           <VerticalMeterBank meters={verticalMeters} height={170} scale={100} />
         </article>
 
+        <article className="dash-panel mission-ring-cluster">
+          <WidgetTitle kicker="BACKENDS" title="Storage backend ring meters" trailing={<span className="osc-readout">{storage.backends.length} drivers</span>} />
+          <RingMeterCluster meters={ringMeters} size={84} />
+        </article>
+
+        <article className="dash-panel mission-anomaly">
+          <WidgetTitle kicker="ANOMALY" title="Anomaly stream · AUTH / NET / IO" trailing={<span className="osc-readout">threshold 70</span>} />
+          <AnomalyStream snapshot={telemetry} height={130} />
+        </article>
+
         <article className="dash-panel mission-map">
-          <WidgetTitle kicker="ROUTE-MAP" title="Spatial cluster map" trailing={<span className="osc-readout">{networking.topology.nodes.length} nodes · {networking.topology.edges.length} routes</span>} />
-          <RouteMap nodes={mapNodes} edges={mapEdges} snapshot={telemetry} />
+          <WidgetTitle kicker="3D-CITY" title="Cluster topology · isometric pillars" trailing={<span className="osc-readout">live activity</span>} />
+          <Cluster3DMap nodes={mapNodes} edges={mapEdges} snapshot={telemetry} height={360} />
         </article>
 
         <article className="dash-panel mission-feed">
           <WidgetTitle kicker="STREAM" title="Live event log" trailing={<span className="env-ticker-live">stream live</span>} />
           <LiveEventFeed snapshot={telemetry} height={260} maxLines={10} />
+        </article>
+
+        <article className="dash-panel mission-heatmap">
+          <WidgetTitle kicker="HEATMAP" title="Node activity heatmap · last 24 ticks" trailing={<span className="osc-readout">7 nodes</span>} />
+          <ActivityHeatmap rows={heatmapRows} />
+        </article>
+
+        <article className="dash-panel mission-activity">
+          <WidgetTitle kicker="NOW-PLAYING" title="Workload activity timeline" trailing={<span className="osc-readout">live</span>} />
+          <ActivityTimeline />
+        </article>
+
+        <article className="dash-panel mission-sparkgrid">
+          <WidgetTitle kicker="SIGNALS" title="12-channel signal grid" trailing={<span className="osc-readout">/s &amp; /min</span>} />
+          <SparklineGrid items={sparkItems} columns={3} />
+        </article>
+
+        <article className="dash-panel mission-gitops">
+          <WidgetTitle kicker="GITOPS" title="Sync state bank · argocd / flux / jenkins-x" />
+          <GitOpsSyncBank />
+        </article>
+
+        <article className="dash-panel mission-gpus">
+          <WidgetTitle kicker="ACCEL" title="GPU memory + utilisation grid" trailing={<span className="osc-readout">vfio-pci · mdev</span>} />
+          <GpuMemoryGrid />
+        </article>
+
+        <article className="dash-panel mission-api">
+          <WidgetTitle kicker="API" title="Request rate gauges" trailing={<span className="osc-readout">vs budget</span>} />
+          <div className="mission-api-grid">
+            <ApiRateGauge label="payments-api" current={1840} budget={2200} max={3000} series={Array.from({ length: 22 }, () => 1500 + Math.random() * 700)} />
+            <ApiRateGauge label="ledger-svc" current={920} budget={1200} max={2000} series={Array.from({ length: 22 }, () => 700 + Math.random() * 400)} />
+            <ApiRateGauge label="fraud-detect" current={1640} budget={1500} max={2200} series={Array.from({ length: 22 }, () => 1200 + Math.random() * 600)} />
+            <ApiRateGauge label="argocd-api" current={48} budget={120} max={300} series={Array.from({ length: 22 }, () => 30 + Math.random() * 40)} />
+          </div>
         </article>
 
         <article className="dash-panel mission-bars">
@@ -234,6 +387,45 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
         <article className="dash-panel mission-bars">
           <WidgetTitle kicker="PASS-THROUGH" title="GPU / FPGA / smart-NIC utilisation" />
           <HorizontalBarCluster bars={passThroughBars} scale={100} />
+        </article>
+
+        <article className="dash-panel mission-stack">
+          <WidgetTitle kicker="STACK" title="Workload mix · last 32 ticks" trailing={<span className="osc-readout">vm + lxc + pod + docker</span>} />
+          <StackedAreaChart
+            height={140}
+            series={[
+              { label: 'pods', values: cpuSeries.map((v, i) => 220 + Math.sin((i + (telemetry?.tick ?? 0)) / 3) * 14 + (v / 5)), color: 'var(--theme-accent)' },
+              { label: 'lxc', values: cpuSeries.map((_, i) => 90 + Math.sin((i + (telemetry?.tick ?? 0)) / 4) * 8), color: 'var(--theme-accent-2)' },
+              { label: 'vms', values: cpuSeries.map((_, i) => 46 + Math.sin((i + (telemetry?.tick ?? 0)) / 5) * 4), color: 'var(--theme-good)' },
+              { label: 'docker', values: cpuSeries.map((_, i) => 18 + Math.sin((i + (telemetry?.tick ?? 0)) / 2) * 3), color: 'var(--theme-warn)' },
+            ]}
+          />
+        </article>
+
+        <article className="dash-panel mission-flow">
+          <WidgetTitle kicker="FLOW" title="VLAN → service mesh ribbons" trailing={<span className="osc-readout">Mb/s</span>} />
+          <FlowDiagram
+            height={220}
+            nodes={[
+              { id: 'vlan-mgmt', label: 'mgmt-bo', value: 220, side: 'left' },
+              { id: 'vlan-workload', label: 'workload-bo', value: 1820, side: 'left' },
+              { id: 'vlan-storage', label: 'storage-bo', value: 6420, side: 'left' },
+              { id: 'vlan-tenant-a', label: 'tenant-a', value: 410, side: 'left' },
+              { id: 'svc-payments', label: 'payments', value: 2400, side: 'right' },
+              { id: 'svc-ledger', label: 'ledger', value: 1800, side: 'right' },
+              { id: 'svc-fraud', label: 'fraud', value: 1640, side: 'right' },
+              { id: 'svc-platform', label: 'platform', value: 3030, side: 'right' },
+            ]}
+            links={[
+              { from: 'vlan-mgmt', to: 'svc-platform', value: 220 },
+              { from: 'vlan-workload', to: 'svc-payments', value: 1100 },
+              { from: 'vlan-workload', to: 'svc-fraud', value: 720 },
+              { from: 'vlan-storage', to: 'svc-ledger', value: 1800 },
+              { from: 'vlan-storage', to: 'svc-platform', value: 2810 },
+              { from: 'vlan-storage', to: 'svc-payments', value: 1300 },
+              { from: 'vlan-tenant-a', to: 'svc-fraud', value: 410 },
+            ]}
+          />
         </article>
 
         <article className="dash-panel mission-fft">
@@ -247,6 +439,16 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           <PercentileBar label="api.payments → fraud" p50={42} p95={88} p99={142} scale={200} />
           <PercentileBar label="argocd → control-plane" p50={18} p95={36} p99={64} scale={200} />
           <PercentileBar label="prometheus → siem" p50={12} p95={28} p99={52} scale={200} />
+        </article>
+
+        <article className="dash-panel mission-stacked">
+          <WidgetTitle kicker="STACKED" title="Workload mix over time" trailing={<span className="osc-readout">VM · LXC · POD · DOCKER</span>} />
+          <StackedAreaChart series={stackedAreaSeries} height={150} />
+        </article>
+
+        <article className="dash-panel mission-flow">
+          <WidgetTitle kicker="FLOW" title="VLAN → service traffic flow" trailing={<span className="osc-readout">sankey · live</span>} />
+          <FlowDiagram nodes={flowNodes} links={flowLinks} height={210} />
         </article>
 
         <article className="dash-panel mission-stats">
