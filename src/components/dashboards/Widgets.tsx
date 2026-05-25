@@ -722,8 +722,68 @@ function projectGeo(lat: number, lng: number): [number, number] {
   return [x, y];
 }
 
-/** Simplified world continents — purposely low-detail outlines for the HUD aesthetic.
- * Equirectangular, viewBox 0 0 360 180. Drawn as polygon point lists for speed. */
+/** Simplified country outlines — every country is rendered as a small polygon
+ * positioned at its real geographic centre on the equirectangular projection.
+ * All countries render faded / ghostly by default; the widget brightens any
+ * country that matches an active source or threat country-code. The shapes are
+ * deliberately rough quadrilaterals so the file stays compact, but the rough
+ * geographic positioning is enough to read at a glance. */
+const COUNTRIES: { code: string; name: string; d: string }[] = [
+  { code: 'US', name: 'United States', d: 'M 24 50 L 88 48 L 92 56 L 90 70 L 70 70 L 60 64 L 28 60 Z' },
+  { code: 'CA', name: 'Canada', d: 'M 18 24 L 96 22 L 102 36 L 98 48 L 88 48 L 24 50 L 24 38 Z' },
+  { code: 'MX', name: 'Mexico', d: 'M 60 64 L 76 64 L 82 70 L 76 78 L 64 78 L 60 70 Z' },
+  { code: 'BR', name: 'Brazil', d: 'M 102 100 L 122 102 L 128 116 L 124 132 L 116 138 L 108 130 L 100 116 Z' },
+  { code: 'AR', name: 'Argentina', d: 'M 108 138 L 122 138 L 122 152 L 116 162 L 110 154 Z' },
+  { code: 'CL', name: 'Chile', d: 'M 100 120 L 106 120 L 112 152 L 108 164 L 102 156 Z' },
+  { code: 'PE', name: 'Peru', d: 'M 92 110 L 102 108 L 102 124 L 96 122 Z' },
+  { code: 'CO', name: 'Colombia', d: 'M 92 96 L 102 96 L 104 106 L 96 108 Z' },
+  { code: 'VE', name: 'Venezuela', d: 'M 100 92 L 112 90 L 112 100 L 104 100 Z' },
+  { code: 'UK', name: 'United Kingdom', d: 'M 170 46 L 180 44 L 182 56 L 174 58 Z' },
+  { code: 'IE', name: 'Ireland', d: 'M 164 50 L 170 48 L 170 56 L 164 56 Z' },
+  { code: 'FR', name: 'France', d: 'M 174 56 L 188 54 L 190 64 L 178 66 Z' },
+  { code: 'ES', name: 'Spain', d: 'M 170 64 L 184 62 L 184 70 L 174 72 Z' },
+  { code: 'PT', name: 'Portugal', d: 'M 168 64 L 174 64 L 174 70 L 168 72 Z' },
+  { code: 'DE', name: 'Germany', d: 'M 184 50 L 196 48 L 196 58 L 186 60 Z' },
+  { code: 'IT', name: 'Italy', d: 'M 188 58 L 200 58 L 200 70 L 192 72 Z' },
+  { code: 'NL', name: 'Netherlands', d: 'M 184 48 L 190 47 L 190 52 L 184 53 Z' },
+  { code: 'PL', name: 'Poland', d: 'M 196 48 L 208 47 L 208 56 L 198 56 Z' },
+  { code: 'SE', name: 'Sweden', d: 'M 192 24 L 204 24 L 206 44 L 196 46 Z' },
+  { code: 'NO', name: 'Norway', d: 'M 186 22 L 200 20 L 202 40 L 192 42 Z' },
+  { code: 'FI', name: 'Finland', d: 'M 204 22 L 218 22 L 218 42 L 206 42 Z' },
+  { code: 'RU', name: 'Russia', d: 'M 198 22 L 350 18 L 350 50 L 218 50 L 208 44 Z' },
+  { code: 'UA', name: 'Ukraine', d: 'M 200 54 L 220 54 L 220 64 L 204 64 Z' },
+  { code: 'TR', name: 'Türkiye', d: 'M 200 64 L 224 64 L 226 72 L 204 74 Z' },
+  { code: 'IL', name: 'Israel', d: 'M 210 76 L 213 75 L 213 80 L 210 81 Z' },
+  { code: 'EG', name: 'Egypt', d: 'M 204 76 L 218 76 L 218 86 L 206 86 Z' },
+  { code: 'SA', name: 'Saudi Arabia', d: 'M 214 78 L 234 78 L 234 92 L 218 92 Z' },
+  { code: 'AE', name: 'United Arab Emirates', d: 'M 232 84 L 240 84 L 240 90 L 232 90 Z' },
+  { code: 'IR', name: 'Iran', d: 'M 224 64 L 244 64 L 244 78 L 226 78 Z' },
+  { code: 'PK', name: 'Pakistan', d: 'M 240 70 L 252 70 L 252 80 L 242 80 Z' },
+  { code: 'IN', name: 'India', d: 'M 244 76 L 264 76 L 268 92 L 252 102 L 246 92 Z' },
+  { code: 'CN', name: 'China', d: 'M 248 50 L 308 48 L 314 70 L 270 76 L 252 70 Z' },
+  { code: 'KP', name: 'North Korea', d: 'M 296 50 L 304 50 L 304 58 L 296 58 Z' },
+  { code: 'KR', name: 'South Korea', d: 'M 296 58 L 304 58 L 304 64 L 296 64 Z' },
+  { code: 'JP', name: 'Japan', d: 'M 308 50 L 320 48 L 324 64 L 314 70 Z' },
+  { code: 'TW', name: 'Taiwan', d: 'M 296 72 L 302 72 L 302 76 L 296 76 Z' },
+  { code: 'TH', name: 'Thailand', d: 'M 274 80 L 284 80 L 286 92 L 276 90 Z' },
+  { code: 'VN', name: 'Vietnam', d: 'M 282 80 L 290 80 L 292 92 L 284 92 Z' },
+  { code: 'MY', name: 'Malaysia', d: 'M 274 92 L 290 92 L 290 96 L 276 96 Z' },
+  { code: 'SG', name: 'Singapore', d: 'M 282 90 L 285 90 L 285 92 L 282 92 Z' },
+  { code: 'ID', name: 'Indonesia', d: 'M 268 96 L 318 96 L 318 102 L 274 104 Z' },
+  { code: 'PH', name: 'Philippines', d: 'M 296 80 L 306 80 L 306 92 L 298 92 Z' },
+  { code: 'AU', name: 'Australia', d: 'M 286 122 L 326 120 L 332 134 L 318 144 L 292 142 L 286 132 Z' },
+  { code: 'NZ', name: 'New Zealand', d: 'M 332 144 L 340 144 L 342 156 L 334 156 Z' },
+  { code: 'NG', name: 'Nigeria', d: 'M 184 90 L 196 90 L 198 100 L 188 100 Z' },
+  { code: 'KE', name: 'Kenya', d: 'M 210 100 L 220 100 L 220 110 L 212 110 Z' },
+  { code: 'ZA', name: 'South Africa', d: 'M 196 124 L 214 122 L 218 134 L 208 138 L 198 134 Z' },
+  { code: 'MA', name: 'Morocco', d: 'M 168 70 L 180 70 L 180 80 L 170 80 Z' },
+  { code: 'DZ', name: 'Algeria', d: 'M 180 70 L 198 70 L 198 84 L 184 84 Z' },
+  { code: 'IS', name: 'Iceland', d: 'M 162 30 L 172 30 L 172 38 L 162 38 Z' },
+];
+
+/** Simplified world continents — fallback ghostly silhouettes underneath the
+ * country polygons so the world still reads as a unified shape even where
+ * we don't have country detail. Equirectangular, viewBox 0 0 360 180. */
 const CONTINENT_PATHS: { id: string; d: string }[] = [
   // North America
   { id: 'n-america', d: 'M 24 48 L 38 36 L 56 30 L 72 32 L 80 38 L 90 38 L 96 44 L 96 52 L 102 60 L 104 70 L 100 78 L 88 86 L 80 96 L 76 110 L 70 120 L 62 122 L 56 116 L 50 116 L 44 110 L 36 102 L 30 92 L 28 80 L 22 70 L 18 56 Z' },
@@ -1322,13 +1382,47 @@ export function ThreatIntelMap({
           <line x1="0" y1="90" x2="360" y2="90" stroke="var(--theme-accent)" strokeWidth="0.25" strokeDasharray="2 3" opacity="0.4" />
           <line x1="0" y1="66" x2="360" y2="66" stroke="var(--theme-accent-soft)" strokeWidth="0.18" strokeDasharray="1 4" opacity="0.5" />
           <line x1="0" y1="114" x2="360" y2="114" stroke="var(--theme-accent-soft)" strokeWidth="0.18" strokeDasharray="1 4" opacity="0.5" />
-          {/* Continents */}
+          {/* Continents — faded ghostly silhouettes (underlay) */}
           {CONTINENT_PATHS.map((c) => (
             <g key={c.id}>
-              <path d={c.d} fill="var(--theme-accent-soft)" fillOpacity="0.34" stroke="var(--theme-accent)" strokeWidth="0.35" opacity="0.7" />
-              <path d={c.d} fill="none" stroke="var(--theme-accent)" strokeWidth="0.2" opacity="0.5" style={{ filter: 'drop-shadow(0 0 3px var(--theme-accent))' }} />
+              <path d={c.d} fill="var(--theme-accent-soft)" fillOpacity="0.16" stroke="var(--theme-accent)" strokeWidth="0.2" opacity="0.45" />
             </g>
           ))}
+          {/* Countries — every country drawn as a faded outline. Active
+              countries (from sources or threats) get highlighted on top. */}
+          {COUNTRIES.map((country) => {
+            const isThreat = threats.some((t) => t.country === country.code);
+            const isSource = sources.some((s) => s.country === country.code);
+            const isActive = isThreat || isSource;
+            const fill = isThreat ? '#ff2d4a' : isSource ? 'var(--theme-accent)' : 'var(--theme-accent-soft)';
+            return (
+              <g key={country.code} className={`tim-country ${isActive ? 'is-active' : 'is-passive'} ${isThreat ? 'is-threat' : ''}`}>
+                {/* Faded base layer — every country always visible */}
+                <path
+                  d={country.d}
+                  fill={fill}
+                  fillOpacity={isThreat ? 0.32 : isSource ? 0.28 : 0.12}
+                  stroke={isThreat ? '#ff2d4a' : isSource ? 'var(--theme-accent)' : 'var(--theme-text-dim)'}
+                  strokeWidth={isActive ? '0.4' : '0.18'}
+                  opacity={isActive ? 1 : 0.55}
+                  style={isActive ? { filter: `drop-shadow(0 0 2px ${isThreat ? '#ff2d4a' : 'var(--theme-accent)'}) drop-shadow(0 0 5px ${isThreat ? '#ff2d4a' : 'var(--theme-accent)'})` } : undefined}
+                />
+                {isActive && (
+                  /* Bright highlight stroke pass on top */
+                  <path
+                    d={country.d}
+                    fill="none"
+                    stroke={isThreat ? '#ff2d4a' : 'var(--theme-accent)'}
+                    strokeWidth="0.55"
+                    opacity="0.95"
+                    style={{ filter: `drop-shadow(0 0 3px ${isThreat ? '#ff2d4a' : 'var(--theme-accent)'})` }}
+                  >
+                    <animate attributeName="stroke-width" values="0.45;0.85;0.45" dur="2s" repeatCount="indefinite" />
+                  </path>
+                )}
+              </g>
+            );
+          })}
           {/* City lights at night */}
           {CITY_LIGHTS.map((light, idx) => (
             <circle
