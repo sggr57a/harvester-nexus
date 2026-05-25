@@ -2,16 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_THEME_ID, getTheme, isThemeId, THEME_CATALOG } from './themes';
 
 describe('theme catalog', () => {
-  it('offers multiple visual styles for the cockpit mockup', () => {
-    expect(THEME_CATALOG).toHaveLength(8);
+  it('offers a curated palette of cool/amber visual styles', () => {
+    expect(THEME_CATALOG).toHaveLength(4);
     expect(THEME_CATALOG.map((theme) => theme.id)).toEqual([
       'route-grid',
-      'emerald-console',
       'solar-flare',
       'arctic-hologram',
-      'violet-nebula',
-      'noir-radar',
-      'void-protocol',
       'arctic-command',
     ]);
     expect(THEME_CATALOG.every((theme) => theme.swatches.length >= 5)).toBe(true);
@@ -20,9 +16,13 @@ describe('theme catalog', () => {
 
   it('validates and resolves only catalog-backed theme ids', () => {
     expect(isThemeId(DEFAULT_THEME_ID)).toBe(true);
-    expect(isThemeId('violet-nebula')).toBe(true);
-    expect(isThemeId('void-protocol')).toBe(true);
+    expect(isThemeId('arctic-hologram')).toBe(true);
+    expect(isThemeId('solar-flare')).toBe(true);
+    expect(isThemeId('emerald-console')).toBe(false);
+    expect(isThemeId('violet-nebula')).toBe(false);
+    expect(isThemeId('noir-radar')).toBe(false);
+    expect(isThemeId('void-protocol')).toBe(false);
     expect(isThemeId('unknown-theme')).toBe(false);
-    expect(getTheme('noir-radar').name).toBe('Noir Radar');
+    expect(getTheme('arctic-command').name).toBe('Arctic Command');
   });
 });
