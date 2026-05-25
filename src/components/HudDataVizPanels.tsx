@@ -963,10 +963,28 @@ export function BubblePackPanel(_props: CommonProps) {
             <g key={p.s.id} className="hud-bubble" style={{ animationDelay: `${i * 45}ms` } as CSSProperties}>
               <circle cx={p.cx} cy={p.cy} r={p.r + 0.6} className="hud-bubble-ring" stroke={ring} />
               <circle cx={p.cx} cy={p.cy} r={p.r} fill={color} fillOpacity={0.75} stroke={color} strokeWidth="0.3" />
-              {p.r > 4 && (
+              {p.r > 3.6 && (
                 <>
-                  <text x={p.cx} y={p.cy - 0.4} textAnchor="middle" className="hud-bubble-label">{p.s.label}</text>
-                  <text x={p.cx} y={p.cy + 2.4} textAnchor="middle" className="hud-bubble-sub">{p.s.rps}</text>
+                  <text
+                    x={p.cx}
+                    y={p.cy - 0.4}
+                    textAnchor="middle"
+                    className="hud-bubble-label"
+                    style={{ fontSize: `${Math.min(2.1, Math.max(1.2, p.r * 0.32))}px` } as CSSProperties}
+                  >
+                    {p.s.label.length * 0.55 > p.r ? p.s.label.slice(0, Math.max(3, Math.floor(p.r / 0.55))) : p.s.label}
+                  </text>
+                  {p.r > 5 && (
+                    <text
+                      x={p.cx}
+                      y={p.cy + 2.4}
+                      textAnchor="middle"
+                      className="hud-bubble-sub"
+                      style={{ fontSize: `${Math.min(1.6, Math.max(1, p.r * 0.22))}px` } as CSSProperties}
+                    >
+                      {p.s.rps}
+                    </text>
+                  )}
                 </>
               )}
             </g>
