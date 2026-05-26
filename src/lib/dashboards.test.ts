@@ -38,9 +38,9 @@ describe('networking dashboard data', () => {
 });
 
 describe('storage dashboard data', () => {
-  it('covers every backend named in the README plus the v2.0 Vitastor addition', () => {
+  it('covers every backend named in the README plus the v2.0 Vitastor addition and ZFS AnyRAID', () => {
     const ids = buildStorageDashboard().backends.map((backend) => backend.id);
-    for (const required of ['ceph', 'longhorn', 'nvme-of', 'rdma', 'zfs', 'iscsi', 'nfs', 'smb', 'glusterfs', 'openebs', 'portworx', 'vitastor', 'local']) {
+    for (const required of ['ceph', 'longhorn', 'nvme-of', 'rdma', 'zfs', 'zfs-anyraid', 'iscsi', 'nfs', 'smb', 'glusterfs', 'openebs', 'portworx', 'vitastor', 'local']) {
       expect(ids).toContain(required);
     }
   });

@@ -10,12 +10,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (isLoading) return;
     setIsLoading(true);
     setError('');
-
-    // Simulate login delay for demo
     setTimeout(() => {
       const loginAccepted = onLogin(username, password);
       if (!loginAccepted) {
@@ -23,6 +22,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       }
       setIsLoading(false);
     }, 1000);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   return (
@@ -47,13 +53,15 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <input
               id="username"
               type="text"
+              autoComplete="username"
               aria-label="Username"
+              autoFocus
               value={username}
+              onKeyDown={handleKeyDown}
               onChange={(e) => {
                 setUsername(e.target.value);
                 setError('');
               }}
-              placeholder="USER"
               required
             />
           </div>
@@ -62,33 +70,37 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               aria-label="Password"
               value={password}
+              onKeyDown={handleKeyDown}
               onChange={(e) => {
                 setPassword(e.target.value);
                 setError('');
               }}
-              placeholder="PASSWORD"
               required
             />
           </div>
 
           {error && <div className="login-error" role="alert">{error}</div>}
+          {isLoading && (
+            <div className="login-pending" role="status" aria-live="polite">
+              <div className="spinner-small" />
+              Elevating...
+            </div>
+          )}
 
-          <button
-            type="submit"
-            className="login-btn"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <div className="spinner-small"></div>
-                Elevating...
-              </>
-            ) : (
-              'Enter'
-            )}
-          </button>
+          {isLoading && (
+            <div className="login-loading" aria-live="polite">
+              <div className="spinner-small" aria-hidden="true" />
+              <span>Elevating&hellip;</span>
+            </div>
+          )}
+
+          {/* No visible submit button — pressing Enter inside the form still submits.
+              `type="submit"` with `hidden` is required so the form has an implicit
+              submitter for keyboard activation. */}
+          <button type="submit" className="login-submit-hidden" tabIndex={-1} aria-hidden="true" />
         </form>
       </div>
     </div>

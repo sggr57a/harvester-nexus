@@ -39,6 +39,7 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
   nvme: 'NVMe-oF over TCP volume claim',
   rdma: 'RDMA-backed CSI volume',
   zfs: 'ZFS over iSCSI or ZFS CSI driver',
+  'zfs-anyraid': 'ZFS AnyRAID — slab-based pool over heterogeneous-capacity drives',
   iscsi: 'iSCSI block storage with CSI driver',
   glusterfs: 'GlusterFS distributed filesystem with CSI',
   longhorn: 'Longhorn cloud-native distributed block storage',
@@ -131,13 +132,14 @@ function App() {
     { id: 'storage', label: 'Storage', sig: 'CSI_IO', group: 'MONITOR' },
     { id: 'machines', label: 'Machines', sig: 'VM_LXC', group: 'MONITOR' },
     { id: 'processor-memory', label: 'Processor & Memory', sig: 'CPU_MEM', group: 'MONITOR' },
+    { id: 'environment', label: 'Environment Intel', sig: 'ENV_IQ', group: 'MONITOR' },
+    { id: 'activity', label: 'Activity Command', sig: 'ACT_CM', group: 'MONITOR' },
     { id: 'poly-compute', label: 'Poly-Compute', sig: 'PCE_04', group: 'COMPUTE' },
     { id: 'acceleration', label: 'Acceleration', sig: 'ACCEL', group: 'COMPUTE' },
     { id: 'operations', label: 'Operations', sig: 'OPS_CM', group: 'COMPUTE' },
     { id: 'resource-monitoring', label: 'Resource Monitor', sig: 'RES_WK', group: 'COMPUTE' },
     { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
-    { id: 'machine', label: 'Machine Wizard', sig: 'MACH_W', group: 'DEPLOY' },
-    { id: 'wizard', label: 'Manifest Wizard', sig: 'MFT_WZ', group: 'DEPLOY' },
+    { id: 'setup', label: 'Setup Wizard', sig: 'SETUP', group: 'DEPLOY' },
   ];
 
   const navGroups = ['MONITOR', 'COMPUTE', 'DEPLOY'] as const;
@@ -150,49 +152,8 @@ function App() {
           <div className="brand-wordmark">
             <h1>Harvester</h1>
             <span className="brand-sub">Nexus</span>
-            <p className="brand-tagline">Dark-mode workload & storage manifest generator</p>
+            <p className="brand-tagline">HCI cockpit · poly-compute · storage fabric</p>
           </div>
-        </div>
-        <div className="step-list">
-          <button className={cockpitView === 'dashboard' ? 'active' : ''} onClick={() => setCockpitView('dashboard')}>
-            HUD Dashboard
-          </button>
-          <button className={cockpitView === 'networking' ? 'active' : ''} onClick={() => setCockpitView('networking')}>
-            Networking
-          </button>
-          <button className={cockpitView === 'storage' ? 'active' : ''} onClick={() => setCockpitView('storage')}>
-            Storage
-          </button>
-          <button className={cockpitView === 'machines' ? 'active' : ''} onClick={() => setCockpitView('machines')}>
-            Machines &amp; Containers
-          </button>
-          <button className={cockpitView === 'processor-memory' ? 'active' : ''} onClick={() => setCockpitView('processor-memory')}>
-            Processor &amp; Memory
-          </button>
-          <button className={cockpitView === 'poly-compute' ? 'active' : ''} onClick={() => setCockpitView('poly-compute')}>
-            Poly-Compute Engine
-          </button>
-          <button className={cockpitView === 'acceleration' ? 'active' : ''} onClick={() => setCockpitView('acceleration')}>
-            Acceleration
-          </button>
-          <button className={cockpitView === 'environment' ? 'active' : ''} onClick={() => setCockpitView('environment')}>
-            Environment Intelligence
-          </button>
-          <button className={cockpitView === 'activity' ? 'active' : ''} onClick={() => setCockpitView('activity')}>
-            Activity Command
-          </button>
-          <button className={cockpitView === 'operations' ? 'active' : ''} onClick={() => setCockpitView('operations')}>
-            Operations &amp; Compliance
-          </button>
-          <button className={cockpitView === 'resource-monitoring' ? 'active' : ''} onClick={() => setCockpitView('resource-monitoring')}>
-            Resource Monitoring
-          </button>
-          <button className={cockpitView === 'cluster' ? 'active' : ''} onClick={() => setCockpitView('cluster')}>
-            Cluster Console
-          </button>
-          <button className={cockpitView === 'setup' ? 'active' : ''} onClick={() => setCockpitView('setup')}>
-            Setup Wizard
-          </button>
         </div>
 
         <nav className="cockpit-nav" aria-label="Cockpit views">
@@ -231,19 +192,21 @@ function App() {
           })}
         </div>
         <div className="storage-summary">
-          <h2>Storage template</h2>
+          <span className="nav-group-label">STORAGE TEMPLATE</span>
           <p>{STORAGE_TEMPLATES[config.storage.storageType]}</p>
         </div>
       </aside>
       <main className="main-view">
         <EnvironmentTicker snapshot={telemetry} />
         {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
-        {cockpitView === 'dashboard' && <HudDashboard activeTheme={theme} telemetry={telemetry} />}
+        {cockpitView === 'dashboard' && <HudDashboard activeTheme={theme} />}
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
         {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
         {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
         {cockpitView === 'machines' && <MachinesDashboardView telemetry={telemetry} />}
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
+        {cockpitView === 'environment' && <EnvironmentDashboardView />}
+        {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
         {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
         {cockpitView === 'environment' && <EnvironmentDashboardView />}
@@ -272,42 +235,6 @@ function App() {
             onManifestStepChange={setStep}
             includeManifestSetup={includeManifestSetup}
             onIncludeManifestSetupChange={setIncludeManifestSetup}
-          />
-        )}
-        {cockpitView === 'machine' && (
-          <NexusMachineWizard
-            config={machineConfig}
-            plan={machinePlan}
-            onChange={setMachineConfig}
-            manifestWizardSlot={
-              <Wizard
-                currentStep={step}
-                config={config}
-                onChange={setConfig}
-                onNext={() => setStep(Math.min(step + 1, 7))}
-                onBack={() => setStep(Math.max(step - 1, 1))}
-              />
-            }
-            reviewSlot={
-              <ClusterIntegrationPanel
-                validation={validation}
-                livePreview={livePreview}
-                applyRun={applyRun}
-                vclusterPlan={vclusterPlan}
-                csiPreview={csiPreview}
-                operationBundle={operationBundle}
-                config={config}
-              />
-            }
-          />
-        )}
-        {cockpitView === 'wizard' && (
-          <Wizard
-            currentStep={step}
-            config={config}
-            onChange={setConfig}
-            onNext={() => setStep(Math.min(step + 1, 7))}
-            onBack={() => setStep(Math.max(step - 1, 1))}
           />
         )}
         <section className="manifest-panel">

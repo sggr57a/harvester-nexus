@@ -16,6 +16,7 @@ const storageOptions: { value: StorageType; label: string; description: string }
   { value: 'nvme', label: 'NVMe-oF', description: 'NVMe over TCP with high-performance block storage' },
   { value: 'rdma', label: 'RDMA', description: 'Low-latency RDMA-backed CSI volumes' },
   { value: 'zfs', label: 'ZFS', description: 'ZFS-backed persistent volumes via CSI or iSCSI' },
+  { value: 'zfs-anyraid', label: 'ZFS AnyRAID', description: 'Slab-based ZFS pool over mixed-capacity drives — accepts heterogeneous disk sizes' },
   { value: 'iscsi', label: 'iSCSI', description: 'Block storage via iSCSI protocol' },
   { value: 'glusterfs', label: 'GlusterFS', description: 'Distributed filesystem with CSI support' },
   { value: 'longhorn', label: 'Longhorn', description: 'Cloud-native distributed block storage' },
@@ -413,6 +414,117 @@ export function Wizard({ currentStep, config, onChange, onNext, onBack }: Wizard
                   placeholder="/dev/sda, /dev/sdb, /dev/sdc"
                 />
               </label>
+            </div>
+          )}
+
+          {config.storage.storageType === 'zfs-anyraid' && (
+            <div className="storage-config-section anyraid-config">
+              <h4>ZFS AnyRAID configuration</h4>
+              <p className="anyraid-blurb">
+                AnyRAID accepts a heterogeneous set of drives — different vendors, different
+                capacities — and carves each disk into uniform <strong>slabs</strong>. The
+                redundancy profile is enforced at the slab layer, so a 4 TB drive contributes
+                eight 512 GiB slabs, a 1 TB drive contributes two, and any of them can fail.
+              </p>
+              <div className="grid-2">
+                <label>
+                  Pool name
+                  <input
+                    value={config.storage.zfsPoolName || ''}
+                    onChange={(e) => onChange({ ...config, storage: { ...config.storage, zfsPoolName: e.target.value } })}
+                    placeholder="anyraid-tank"
+                  />
+                </label>
+                <label>
+                  Dataset
+                  <input
+                    value={config.storage.zfsDataset || ''}
+                    onChange={(e) => onChange({ ...config, storage: { ...config.storage, zfsDataset: e.target.value } })}
+                    placeholder="kubernetes"
+                  />
+                </label>
+              </div>
+              <div className="grid-3">
+                <label>
+                  Redundancy profile
+                  <select
+                    value={config.storage.anyraidProfile || 'raidz1'}
+                    onChange={(e) => onChange({ ...config, storage: { ...config.storage, anyraidProfile: e.target.value as 'mirror' | 'striped-mirror' | 'raidz1' | 'raidz2' | 'raidz3' } })}
+                  >
+                    <option value="mirror">Mirror (2-way)</option>
+                    <option value="striped-mirror">Striped mirror (RAID 10)</option>
+                    <option value="raidz1">RAID-Z1 (single parity)</option>
+                    <option value="raidz2">RAID-Z2 (double parity)</option>
+                    <option value="raidz3">RAID-Z3 (triple parity)</option>
+                  </select>
+                </label>
+                <label>
+                  Slab size (MiB)
+                  <input
+                    type="number"
+                    min={4}
+                    max={4096}
+                    step={4}
+                    value={config.storage.anyraidSlabSizeMiB ?? 64}
+                    onChange={(e) => onChange({ ...config, storage: { ...config.storage, anyraidSlabSizeMiB: Number(e.target.value) || 64 } })}
+                  />
+                </label>
+                <label>
+                  Hot-spare slabs / disk
+                  <input
+                    type="number"
+                    min={0}
+                    max={64}
+                    value={config.storage.anyraidHotSpareSlabs ?? 2}
+                    onChange={(e) => onChange({ ...config, storage: { ...config.storage, anyraidHotSpareSlabs: Number(e.target.value) || 0 } })}
+                  />
+                </label>
+              </div>
+              <div className="grid-2">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={config.storage.anyraidAllowHeterogeneous ?? true}
+                    onChange={(e) => onChange({ ...config, storage: { ...config.storage, anyraidAllowHeterogeneous: e.target.checked } })}
+                  />
+                  Allow mixed-capacity drives in one pool
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={config.storage.anyraidAutoRebalance ?? true}
+                    onChange={(e) => onChange({ ...config, storage: { ...config.storage, anyraidAutoRebalance: e.target.checked } })}
+                  />
+                  Auto-rebalance new drives into the pool
+                </label>
+              </div>
+              <label>
+                Per-disk inventory (one per line: <code>/dev/sdX,&nbsp;capacity-GiB[,&nbsp;role]</code>)
+                <textarea
+                  value={(config.storage.anyraidDisks ?? []).map((d) => `${d.device}, ${d.capacityGiB}${d.role ? `, ${d.role}` : ''}`).join('\n')}
+                  rows={5}
+                  onChange={(e) => {
+                    const disks = e.target.value
+                      .split('\n')
+                      .map((line) => line.trim())
+                      .filter(Boolean)
+                      .map((line) => {
+                        const parts = line.split(',').map((p) => p.trim());
+                        const [device, capRaw, roleRaw] = parts;
+                        const capacityGiB = Number(capRaw) || 0;
+                        const role = roleRaw === 'cache' || roleRaw === 'log' ? (roleRaw as 'cache' | 'log') : roleRaw === 'data' ? ('data' as const) : undefined;
+                        return { device, capacityGiB, role };
+                      })
+                      .filter((d) => d.device.length > 0);
+                    onChange({ ...config, storage: { ...config.storage, anyraidDisks: disks } });
+                  }}
+                  placeholder={'/dev/sda, 4000\n/dev/sdb, 1000\n/dev/sdc, 8000\n/dev/nvme0n1, 1000, cache'}
+                />
+              </label>
+              <small className="anyraid-hint">
+                Effective capacity is computed automatically from the slab map, the redundancy
+                profile, and any reserved hot-spare slabs.
+              </small>
             </div>
           )}
 
