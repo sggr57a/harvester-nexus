@@ -21,7 +21,7 @@ Highlights:
 
 Nexus is the updated Harvester fork with:
 
-- Extended storage backend support: iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, NFS, SMB, Vitastor, and local storage.
+- Extended storage backend support: iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **ZFS AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local storage.
 - Networking and service mesh support: Istio, Linkerd, Cilium, Service, Ingress, and NetworkPolicy.
 - Security and compliance scaffolding: RBAC, Pod Security Standards, service accounts, and workload annotations.
 - Observability tooling templates: Prometheus monitoring, Fluentd / Loki / Splunk logging.
@@ -45,7 +45,7 @@ Nexus is the updated Harvester fork with:
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
 - Manifest Wizard embedded inside the unified Setup Wizard as an optional setup section, allowing workload manifest generation without leaving the provisioning flow.
 - Wizard-driven workload and manifest configuration.
-- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass).
+- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, **ZFS AnyRAID**, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass). The AnyRAID wizard step accepts heterogeneous drive capacities, computes the effective usable capacity from a slab-based redundancy plan, and renders a `StorageClass` whose parameters carry the per-disk inventory through to the CSI driver.
 - Auto-generated `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `CronJob` manifests.
 - PVC, Service, Ingress, NetworkPolicy, RBAC, monitoring, logging, GitOps, and multi-cluster manifest generation.
 - Service mesh integration support for Istio, Linkerd, and Cilium.
