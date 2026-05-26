@@ -37,6 +37,7 @@ import {
 
 interface HudDashboardProps {
   activeTheme: ThemeId;
+  telemetry?: EnvironmentSnapshot;
 }
 
 /* ---------------- Static visualisation datasets ---------------- */
