@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useLiveTelemetry } from '../lib/liveTelemetry';
+import { useLiveTelemetry, type EnvironmentSnapshot } from '../lib/liveTelemetry';
 import { getTheme, type ThemeId } from '../lib/themes';
 import {
   AnnotatedFft,
@@ -37,6 +37,7 @@ import {
 
 interface HudDashboardProps {
   activeTheme: ThemeId;
+  telemetry?: EnvironmentSnapshot;
 }
 
 /* ---------------- Static visualisation datasets ---------------- */
