@@ -34,7 +34,6 @@ Nexus is the updated Harvester fork with:
 - **Mission Control** overview dashboard with multi-ring radial gauges, live oscilloscope waveforms, dial cluster, vertical level meters, ring meters, anomaly stream, 3D isometric cluster map, GitOps sync bank, GPU memory grid, API rate gauges, stacked area chart, sankey flow, percentile bands, and a dense stat grid.
 - **Telemetry Wave** dashboard with high-density annotated oscilloscope traces (per-channel `MIN / AVG / MAX / NOW` readouts), 64-bin FFT spectrum bands with peak hold, and rolling latency histograms with `MEAN / P50 / P95 / P99` callouts for SPDK / DPDK / vhost-user / RDMA paths.
 - **Networking dashboard** with a big **Threat-Intel Map** (MDR/XDR overlay): 50 country outlines as ghostly faded base + outline-only highlight for active source/threat countries, scarlet-red attack trajectories converging on the Frankfurt VIP, 80+ city lights, 60+ inter-DC network paths, threat hotspots, Iron-Man unfold info panels, MITRE kill-chain strip, DEFCON + 8 live XDR stat tiles. Followed by a sonar-style **Cluster Radar** widget (concentric tier rings + rotating sweep + traffic chords + tier roll-up + top talkers + flagged nodes).
-- **HUD Dashboard** with instrument-style topology, radial gauges, scoped traces, segmented throughput bars, control toggles, event feed, and cluster stat tiles.
 - **Environment Intelligence** and **Activity Command** dashboards for facility telemetry, automation queues, approvals, migrations, backups, and security scan activity.
 - **Live Environment Ticker** banner above every dashboard with rolling cluster-wide stats (workloads, IOPS, ingress / egress Mb/s, CPU %, DRAM %, power, in-flight migrations, open CVEs, trust score).
 - **Four cool-tone cockpit themes** (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum) with persistent `localStorage` selection; every panel, gauge, control, and background adapts to the active theme. Theme picker is a compact dropdown in the sidebar.
@@ -57,6 +56,111 @@ Nexus is the updated Harvester fork with:
 - Manifest apply / test runner commands generated for `kubectl auth can-i`, server-side dry-run, diff, apply, and rollout status.
 - Virtual-cluster support generating `vcluster` create/connect operations from multi-cluster targets.
 - Storage backend templates that include CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester chart references under `platform/harvester/deploy/charts/harvester`.
+
+## Screenshots
+
+A tour of the live cockpit. Every screen below is from the running
+[Vite dev server](#install-on-a-fresh-ubuntu-host) on the current branch.
+
+### Mission Control
+
+The default landing — frosted-glass HUD with KPI tiles, multi-ring cluster
+posture, 4-channel oscilloscope, dial cluster, vertical level meters,
+storage-backend ring meters, anomaly stream, 3D isometric cluster map,
+live event log, node activity heatmap, workload activity timeline,
+12-channel sparkline grid, GitOps sync bank, GPU memory grid, API rate
+gauges, stacked area chart, sankey flow, percentile bands, FFT spectrum,
+and a 12-tile dense stat grid.
+
+![Mission Control dashboard](docs/screenshots/01-mission-control.webp)
+
+### Telemetry Wave
+
+Annotated oscilloscope traces (per-channel `MIN / AVG / MAX / NOW`
+readouts) for DPDK / SPDK / vhost-user / RDMA fast paths, 64-bin FFT
+spectrum bands with peak hold, rolling latency histograms with
+`MEAN / P50 / P95 / P99` summary callouts.
+
+![Telemetry Wave dashboard](docs/screenshots/02-telemetry-wave.webp)
+
+### Networking · MDR/XDR threat-intelligence hero panel
+
+50 country outlines as a ghostly base layer; active source countries
+highlighted with a cyan outline, active threat countries with a scarlet-red
+outline; red attack trajectories converging on the Frankfurt VIP; Iron-Man
+unfold info panels showing IP / host / method / status / RPS / bytes per
+active source; left rail of active threats (APT actor + CVE + malware +
+MITRE ATT&CK tactic); right rail of live XDR stats (DEFCON, alerts/min,
+blocked 24h, escalated, isolated, IOC, MTTD / MTTR, active APTs, critical
+CVEs); bottom MITRE kill-chain strip with threat counts per phase.
+
+![Networking dashboard · ThreatIntelMap](docs/screenshots/03-networking-threat-intel.webp)
+
+### Storage dashboard
+
+Ring meters for every storage backend — Ceph, Longhorn, NVMe-oF, RDMA,
+ZFS, **ZFS AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS, OpenEBS,
+Portworx, local path — plus the live IOPS / capacity / read / write
+breakdowns.
+
+![Storage dashboard](docs/screenshots/05-storage-dashboard.webp)
+
+### Setup Wizard
+
+Unified Machine Foundation + optional Manifest Wizard. Drives bare-metal
+install (create / join / binaries) and Kubernetes workload manifest
+generation from the same surface.
+
+![Setup Wizard](docs/screenshots/06-setup-wizard.webp)
+
+### ZFS AnyRAID configuration
+
+Slab-based ZFS pool over heterogeneous-capacity drives. The wizard
+accepts a per-disk inventory of mixed sizes, computes effective usable
+capacity from a slab redundancy plan, and renders a `StorageClass` whose
+parameters carry the disk inventory through to the CSI driver.
+
+![ZFS AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
+
+### Manifest Wizard · workload types
+
+All five Kubernetes workload kinds (Deployment, StatefulSet, DaemonSet,
+Job, CronJob) selectable from the wizard.
+
+![Workload type selection](docs/screenshots/08-workload-types.webp)
+
+### Generated Kubernetes manifest
+
+CodeMirror YAML editor with live validation. Edit the YAML directly and
+the validation status updates inline; the cluster console picks up the
+edits for the dry-run / apply / rollout commands.
+
+![Generated manifest](docs/screenshots/09-generated-manifest.webp)
+
+### Cluster Console
+
+Live-adapter integration surface — Kubernetes API validation, `kubectl`
+apply / test runner, `vcluster` multi-cluster operations, CodeMirror YAML
+editor, and real CSI storage templates with provisioner-specific
+parameters.
+
+![Cluster Console](docs/screenshots/10-cluster-console.webp)
+
+### Sidebar navigation
+
+Grouped cockpit nav (MONITOR / COMPUTE / DEPLOY) with sig-code chips,
+hover state, active-item left accent bar, and a pulsing live dot on the
+active view. Compact theme dropdown sits below the nav.
+
+![Sidebar navigation](docs/screenshots/11-sidebar.webp)
+
+### Theme dropdown
+
+Four cool-tone themes — Route Grid, Arctic Hologram, Arctic Command, and
+Ice Spectrum — selectable from a compact popover dropdown. Theme
+selection persists in `localStorage`.
+
+![Theme dropdown](docs/screenshots/12-theme-dropdown.webp)
 
 ## Install on a fresh Ubuntu host
 
