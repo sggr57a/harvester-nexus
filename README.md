@@ -58,6 +58,118 @@ Nexus is the updated Harvester fork with:
 - Virtual-cluster support generating `vcluster` create/connect operations from multi-cluster targets.
 - Storage backend templates that include CSI StorageClass, VolumeSnapshotClass, PVC manifests, and Harvester chart references under `platform/harvester/deploy/charts/harvester`.
 
+## Screenshots
+
+A tour of the live cockpit. Every screen below is from the running
+[Vite dev server](#install-on-a-fresh-ubuntu-host) on the current branch.
+
+### Mission Control
+
+The default landing — frosted-glass HUD with KPI tiles, multi-ring cluster
+posture, 4-channel oscilloscope, dial cluster, vertical level meters,
+storage-backend ring meters, anomaly stream, 3D isometric cluster map,
+live event log, node activity heatmap, workload activity timeline,
+12-channel sparkline grid, GitOps sync bank, GPU memory grid, API rate
+gauges, stacked area chart, sankey flow, percentile bands, FFT spectrum,
+and a 12-tile dense stat grid.
+
+![Mission Control dashboard](docs/screenshots/01-mission-control.webp)
+
+### Telemetry Wave
+
+Annotated oscilloscope traces (per-channel `MIN / AVG / MAX / NOW`
+readouts) for DPDK / SPDK / vhost-user / RDMA fast paths, 64-bin FFT
+spectrum bands with peak hold, rolling latency histograms with
+`MEAN / P50 / P95 / P99` summary callouts.
+
+![Telemetry Wave dashboard](docs/screenshots/02-telemetry-wave.webp)
+
+### Networking · MDR/XDR threat-intelligence hero panel
+
+50 country outlines as a ghostly base layer; active source countries
+highlighted with a cyan outline, active threat countries with a scarlet-red
+outline; red attack trajectories converging on the Frankfurt VIP; Iron-Man
+unfold info panels showing IP / host / method / status / RPS / bytes per
+active source; left rail of active threats (APT actor + CVE + malware +
+MITRE ATT&CK tactic); right rail of live XDR stats (DEFCON, alerts/min,
+blocked 24h, escalated, isolated, IOC, MTTD / MTTR, active APTs, critical
+CVEs); bottom MITRE kill-chain strip with threat counts per phase.
+
+![Networking dashboard · ThreatIntelMap](docs/screenshots/03-networking-threat-intel.webp)
+
+### HUD Dashboard
+
+Instrument-style topology, arc radial gauges, sparklines, throughput bars,
+control toggles, event feed, and cluster stat tiles.
+
+![HUD Dashboard](docs/screenshots/04-hud-dashboard.webp)
+
+### Storage dashboard
+
+Ring meters for every storage backend — Ceph, Longhorn, NVMe-oF, RDMA,
+ZFS, **ZFS AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS, OpenEBS,
+Portworx, local path — plus the live IOPS / capacity / read / write
+breakdowns.
+
+![Storage dashboard](docs/screenshots/05-storage-dashboard.webp)
+
+### Setup Wizard
+
+Unified Machine Foundation + optional Manifest Wizard. Drives bare-metal
+install (create / join / binaries) and Kubernetes workload manifest
+generation from the same surface.
+
+![Setup Wizard](docs/screenshots/06-setup-wizard.webp)
+
+### ZFS AnyRAID configuration
+
+Slab-based ZFS pool over heterogeneous-capacity drives. The wizard
+accepts a per-disk inventory of mixed sizes, computes effective usable
+capacity from a slab redundancy plan, and renders a `StorageClass` whose
+parameters carry the disk inventory through to the CSI driver.
+
+![ZFS AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
+
+### Manifest Wizard · workload types
+
+All five Kubernetes workload kinds (Deployment, StatefulSet, DaemonSet,
+Job, CronJob) selectable from the wizard.
+
+![Workload type selection](docs/screenshots/08-workload-types.webp)
+
+### Generated Kubernetes manifest
+
+CodeMirror YAML editor with live validation. Edit the YAML directly and
+the validation status updates inline; the cluster console picks up the
+edits for the dry-run / apply / rollout commands.
+
+![Generated manifest](docs/screenshots/09-generated-manifest.webp)
+
+### Cluster Console
+
+Live-adapter integration surface — Kubernetes API validation, `kubectl`
+apply / test runner, `vcluster` multi-cluster operations, CodeMirror YAML
+editor, and real CSI storage templates with provisioner-specific
+parameters.
+
+![Cluster Console](docs/screenshots/10-cluster-console.webp)
+
+### Sidebar navigation
+
+Grouped cockpit nav (MONITOR / COMPUTE / DEPLOY) with sig-code chips,
+hover state, active-item left accent bar, and a pulsing live dot on the
+active view. Compact theme dropdown sits below the nav.
+
+![Sidebar navigation](docs/screenshots/11-sidebar.webp)
+
+### Theme dropdown
+
+Four cool-tone themes — Route Grid, Arctic Hologram, Arctic Command, and
+Ice Spectrum — selectable from a compact popover dropdown. Theme
+selection persists in `localStorage`.
+
+![Theme dropdown](docs/screenshots/12-theme-dropdown.webp)
+
 ## Install on a fresh Ubuntu host
 
 The Nexus cockpit ships as a React + TypeScript single-page app built with Vite. The instructions below get you from a clean Ubuntu 22.04 / 24.04 box to a running Nexus dev server on `http://localhost:4173`.

@@ -459,13 +459,14 @@ export function LatencyViolinPanel(_props: CommonProps) {
         {violins.map((v, i) => {
           const w = 100;
           const h = 40;
+          const denom = Math.max(1, v.samples.length - 1);
           const top = v.samples.map((s, idx) => {
-            const x = (idx / (v.samples.length - 1)) * w;
+            const x = (idx / denom) * w;
             const y = h / 2 - (s * h * 0.5);
             return `${x},${y}`;
           }).join(' ');
           const bot = v.samples.map((s, idx) => {
-            const x = (idx / (v.samples.length - 1)) * w;
+            const x = (idx / denom) * w;
             const y = h / 2 + (s * h * 0.5);
             return `${x},${y}`;
           }).reverse().join(' ');
@@ -833,8 +834,9 @@ export function StreamgraphPanel({ telemetry }: CommonProps) {
           <line key={`g-${y}`} x1="0" y1={y} x2={w} y2={y} className="hud-stream-grid" />
         ))}
         {stacked.map((layer) => {
-          const top = layer.top.map((y, i) => `${(i / (length - 1)) * w},${y}`).join(' ');
-          const bot = layer.bot.map((y, i) => `${(i / (length - 1)) * w},${y}`).reverse().join(' ');
+          const denom = Math.max(1, length - 1);
+          const top = layer.top.map((y, i) => `${(i / denom) * w},${y}`).join(' ');
+          const bot = layer.bot.map((y, i) => `${(i / denom) * w},${y}`).reverse().join(' ');
           return (
             <polygon
               key={layer.id}
@@ -848,13 +850,19 @@ export function StreamgraphPanel({ telemetry }: CommonProps) {
           );
         })}
         {/* playhead */}
-        <line
-          x1={(playhead / (length - 1)) * w}
-          y1="0"
-          x2={(playhead / (length - 1)) * w}
-          y2={h}
-          className="hud-stream-playhead"
-        />
+        {(() => {
+          const denom = Math.max(1, length - 1);
+          const px = (playhead / denom) * w;
+          return (
+            <line
+              x1={px}
+              y1="0"
+              x2={px}
+              y2={h}
+              className="hud-stream-playhead"
+            />
+          );
+        })()}
       </svg>
       <ul className="hud-stream-legend">
         {stream.map((s) => {

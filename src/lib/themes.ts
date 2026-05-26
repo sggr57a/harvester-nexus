@@ -46,6 +46,8 @@ export const THEME_CATALOG: ThemeDefinition[] = [
 
 export const DEFAULT_THEME_ID: ThemeId = 'route-grid';
 
+const THEME_IDS: ThemeId[] = THEME_CATALOG.map((theme) => theme.id);
+
 export function isThemeId(value: string | null | undefined): value is ThemeId {
   return typeof value === 'string' && (THEME_IDS as string[]).includes(value);
 }
