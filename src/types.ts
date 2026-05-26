@@ -1,4 +1,17 @@
-export type StorageType = 'local' | 'nfs' | 'smb' | 'ceph' | 'nvme' | 'rdma' | 'zfs' | 'iscsi' | 'glusterfs' | 'longhorn' | 'openebs' | 'portworx';
+export type StorageType =
+  | 'local'
+  | 'nfs'
+  | 'smb'
+  | 'ceph'
+  | 'nvme'
+  | 'rdma'
+  | 'zfs'
+  | 'zfs-anyraid'
+  | 'iscsi'
+  | 'glusterfs'
+  | 'longhorn'
+  | 'openebs'
+  | 'portworx';
 
 export type WorkloadType = 'Deployment' | 'StatefulSet' | 'DaemonSet' | 'Job' | 'CronJob';
 
@@ -68,6 +81,22 @@ export interface StorageConfig {
   zfsDevices?: string[];
   zfsRaidType?: 'single' | 'mirror' | 'raidz' | 'raidz2' | 'raidz3';
   zfsIscsiTarget?: string;
+
+  // ZFS AnyRAID specific — accepts heterogeneous-capacity drives in one pool
+  // by carving each disk into uniformly-sized "slabs" and striping/parity-ing
+  // those slabs across the heterogeneous fleet. The effective parity policy
+  // and minimum drive count come from the chosen redundancy profile.
+  anyraidProfile?: 'mirror' | 'striped-mirror' | 'raidz1' | 'raidz2' | 'raidz3';
+  /** Slab (chunk) size in MiB (default 64) — units of allocation across drives */
+  anyraidSlabSizeMiB?: number;
+  /** Per-disk entries describing capacity in GiB and an optional drive role */
+  anyraidDisks?: { device: string; capacityGiB: number; role?: 'data' | 'cache' | 'log' }[];
+  /** Whether mismatched-size drives can mix freely (true) or must be padded to the smallest (false) */
+  anyraidAllowHeterogeneous?: boolean;
+  /** Auto-rebalance newly-added drives into the existing pool. */
+  anyraidAutoRebalance?: boolean;
+  /** Number of hot-spare slabs reserved per drive */
+  anyraidHotSpareSlabs?: number;
 
   // iSCSI specific
   iscsiTarget?: string;

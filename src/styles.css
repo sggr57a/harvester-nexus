@@ -9791,6 +9791,9 @@ select option {
   color: var(--theme-accent);
   background: var(--theme-accent-soft);
   box-shadow: var(--theme-route-glow, 0 0 14px var(--theme-accent-soft));
+}
+
+/* ============================================================
    Advanced visualization widgets (v4 HUD redesign)
    Heatmap, Chord, Sankey, GeoMap, Treemap, RadialBar,
    FlameGraph, StreamGraph, ScatterPlot
@@ -12604,14 +12607,6 @@ select option {
 
 /* Hide the old topology-panel CSS path if any DOM still references it */
 .dash-networking .topology-panel { display: none !important; }
-  left: -1px;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--theme-accent);
-  box-shadow: 0 0 6px var(--theme-accent);
-  border-radius: 2px;
-}
 .cockpit-nav .nav-sig {
   font-family: var(--theme-mono, monospace);
   font-size: 0.58rem;
@@ -13162,4 +13157,69 @@ select option {
   letter-spacing: 0.08em;
   color: var(--theme-text-dim);
   line-height: 1.3;
+}
+
+/* ============================================================
+   ZFS AnyRAID wizard block
+   ============================================================ */
+.storage-config-section.anyraid-config {
+  border: 1px solid var(--theme-panel-border);
+  background: rgba(0, 0, 0, 0.42);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.storage-config-section.anyraid-config h4 {
+  color: var(--theme-accent);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.84rem;
+  margin: 0;
+  text-shadow: 0 0 6px var(--theme-accent);
+}
+.anyraid-blurb {
+  font-size: 0.78rem;
+  color: var(--theme-text-dim);
+  line-height: 1.45;
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  border-left: 2px solid var(--theme-accent);
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 0 3px 3px 0;
+}
+.anyraid-blurb strong {
+  color: var(--theme-accent);
+  text-shadow: 0 0 4px var(--theme-accent);
+}
+.anyraid-config textarea {
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 3px;
+  padding: 0.5rem 0.6rem;
+  resize: vertical;
+  letter-spacing: 0.04em;
+}
+.anyraid-config textarea:focus {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 10px var(--theme-accent-soft);
+  outline: none;
+}
+.anyraid-hint {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--theme-text-dim);
+  letter-spacing: 0.04em;
+}
+.anyraid-config code {
+  background: rgba(0, 0, 0, 0.55);
+  padding: 0.05rem 0.3rem;
+  border-radius: 2px;
+  border: 1px dashed var(--theme-panel-border);
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.78rem;
+  color: var(--theme-accent);
 }

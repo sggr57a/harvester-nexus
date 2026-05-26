@@ -95,9 +95,10 @@ export function Sparkline({ values, height = 28, fill = true, className }: Spark
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(1, max - min);
+  const denom = Math.max(1, values.length - 1);
   const points = values
     .map((value, index) => {
-      const x = (index / (values.length - 1)) * 100;
+      const x = (index / denom) * 100;
       const y = 100 - ((value - min) / range) * 90 - 5;
       return `${x},${y}`;
     })
@@ -112,7 +113,7 @@ export function Sparkline({ values, height = 28, fill = true, className }: Spark
       </defs>
       {fill && <polyline className="spark-fill" points={`0,100 ${points} 100,100`} fill="url(#spark-fill)" />}
       <polyline className="spark-line" points={points} fill="none" />
-      <circle className="spark-tip" cx="100" cy={100 - ((values[values.length - 1] - min) / range) * 90 - 5} r="1.6" />
+      <circle className="spark-tip" cx="100" cy={Number.isFinite(((values[values.length - 1] - min) / range)) ? 100 - ((values[values.length - 1] - min) / range) * 90 - 5 : 50} r="1.6" />
     </svg>
   );
 }
@@ -308,7 +309,8 @@ export function Oscilloscope({ series, snapshot, channels = 3, height = 180, lab
         <rect x="0" y="0" width="200" height="100" fill="url(#osc-grid)" opacity="0.6" />
         <line x1="0" y1="50" x2="200" y2="50" stroke="var(--theme-accent-soft)" strokeWidth="0.4" strokeDasharray="2 2" />
         {channelSeries.map((channel, channelIdx) => {
-          const points = channel.map((value, i) => `${(i / (channel.length - 1)) * 200},${100 - Math.max(2, Math.min(98, value))}`).join(' ');
+          const denom = Math.max(1, channel.length - 1);
+          const points = channel.map((value, i) => `${(i / denom) * 200},${100 - Math.max(2, Math.min(98, value))}`).join(' ');
           const color = colors[channelIdx % colors.length];
           return (
             <g key={channelIdx} className={`osc-channel channel-${channelIdx}`}>
@@ -1475,8 +1477,8 @@ export function ThreatIntelMap({
             </circle>
             <circle r="2.4" fill="var(--theme-accent)" style={{ filter: 'drop-shadow(0 0 5px var(--theme-accent)) drop-shadow(0 0 12px var(--theme-accent))' }} />
             <circle r="1" fill="var(--theme-text)" />
-            <text y="-3.4" textAnchor="middle" className="tim-home-label">{SYSTEM_HOME.city}</text>
-            <text y="6.4" textAnchor="middle" className="tim-home-coord">VIP · {SYSTEM_HOME.country}</text>
+            <text y="-3.4" textAnchor="middle" className="tim-home-label" fontSize="2.6" style={{ fontSize: '2.6px' }}>{SYSTEM_HOME.city}</text>
+            <text y="6.4" textAnchor="middle" className="tim-home-coord" fontSize="2.2" style={{ fontSize: '2.2px' }}>VIP · {SYSTEM_HOME.country}</text>
           </g>
           {/* Passive locations — every major city shown as a dim hollow dot.
               These stay quiet unless they coincide with an active source / threat. */}
@@ -1545,8 +1547,8 @@ export function ThreatIntelMap({
                 <line x1={tx} y1={ty - 4} x2={tx} y2={ty - 8} stroke={ATTACK_RED} strokeWidth="0.4" opacity="0.92" />
                 <line x1={tx + 4} y1={ty} x2={tx + 8} y2={ty} stroke={ATTACK_RED} strokeWidth="0.4" opacity="0.92" />
                 <line x1={tx - 4} y1={ty} x2={tx - 8} y2={ty} stroke={ATTACK_RED} strokeWidth="0.4" opacity="0.92" />
-                <text x={tx} y={ty - 9.5} textAnchor="middle" className="tim-threat-label" style={{ fill: ATTACK_RED }}>{t.actor.split(' ')[0]}</text>
-                <text x={tx} y={ty + 11} textAnchor="middle" className="tim-threat-cve" style={{ fill: ATTACK_RED }}>{t.cve}</text>
+                <text x={tx} y={ty - 9.5} textAnchor="middle" className="tim-threat-label" fontSize="2.4" style={{ fill: ATTACK_RED, fontSize: '2.4px' }}>{t.actor.split(' ')[0]}</text>
+                <text x={tx} y={ty + 11} textAnchor="middle" className="tim-threat-cve" fontSize="2" style={{ fill: ATTACK_RED, fontSize: '2px' }}>{t.cve}</text>
               </g>
             );
           })}
@@ -1581,7 +1583,7 @@ export function ThreatIntelMap({
                   <animate attributeName="r" values="2.6;5;2.6" dur="2.2s" repeatCount="indefinite" begin={`${idx * 0.13}s`} />
                   <animate attributeName="opacity" values="0.55;0;0.55" dur="2.2s" repeatCount="indefinite" begin={`${idx * 0.13}s`} />
                 </circle>
-                <text x={x1} y={y1 - 2.2} textAnchor="middle" className="tim-source-label">{src.country}</text>
+                <text x={x1} y={y1 - 2.2} textAnchor="middle" className="tim-source-label" fontSize="2.4" style={{ fontSize: '2.4px' }}>{src.country}</text>
               </g>
             );
           })}
@@ -3076,7 +3078,8 @@ export function AnomalyStream({ snapshot, height = 110 }: AnomalyStreamProps) {
         {(Object.entries(series) as [string, number[]][]).map(([key, values], channelIdx) => {
           const color = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-warn)'][channelIdx];
           const fill = `url(#anomaly-fill-${key})`;
-          const points = values.map((v, i) => `${(i / (values.length - 1)) * 200},${100 - v}`).join(' ');
+          const denom = Math.max(1, values.length - 1);
+          const points = values.map((v, i) => `${(i / denom) * 200},${100 - v}`).join(' ');
           return (
             <g key={key}>
               <polyline points={`0,100 ${points} 200,100`} fill={fill} />

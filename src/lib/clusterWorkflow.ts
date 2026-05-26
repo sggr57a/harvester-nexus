@@ -290,6 +290,7 @@ function driverName(storageType: StorageConfig['storageType']): string {
     nvme: 'nvme.csi.k8s.io',
     rdma: 'rdma.csi.nexus.io',
     zfs: 'zfs.csi.openebs.io',
+    'zfs-anyraid': 'anyraid.zfs.csi.nexus.io',
     iscsi: 'iscsi.csi.k8s.io',
     glusterfs: 'glusterfs.csi.k8s.io',
     longhorn: 'driver.longhorn.io',
@@ -313,6 +314,23 @@ export function buildCsiTemplatePreview(storage: StorageConfig): CsiTemplatePrev
     if (storage.nvmeTargetIP) {
       storageParameters.targetIP = storage.nvmeTargetIP;
     }
+  }
+
+  if (storage.storageType === 'zfs-anyraid') {
+    storageParameters.poolName = storage.zfsPoolName || 'anyraid-tank';
+    storageParameters.dataset = storage.zfsDataset || 'kubernetes';
+    storageParameters.profile = storage.anyraidProfile || 'raidz1';
+    storageParameters.slabSizeMiB = String(storage.anyraidSlabSizeMiB ?? 64);
+    storageParameters.allowHeterogeneous = String(storage.anyraidAllowHeterogeneous ?? true);
+    storageParameters.autoRebalance = String(storage.anyraidAutoRebalance ?? true);
+    storageParameters.hotSpareSlabsPerDisk = String(storage.anyraidHotSpareSlabs ?? 2);
+    if (storage.anyraidDisks && storage.anyraidDisks.length > 0) {
+      storageParameters.diskInventory = storage.anyraidDisks
+        .map((d) => `${d.device}:${d.capacityGiB}GiB${d.role ? `:${d.role}` : ''}`)
+        .join(',');
+    }
+    if (storage.zfsCompression) storageParameters.compression = 'on';
+    if (storage.zfsDedup) storageParameters.dedup = 'on';
   }
 
   const storageClassYaml = YAML.stringify({

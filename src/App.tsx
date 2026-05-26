@@ -39,6 +39,7 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
   nvme: 'NVMe-oF over TCP volume claim',
   rdma: 'RDMA-backed CSI volume',
   zfs: 'ZFS over iSCSI or ZFS CSI driver',
+  'zfs-anyraid': 'ZFS AnyRAID — slab-based pool over heterogeneous-capacity drives',
   iscsi: 'iSCSI block storage with CSI driver',
   glusterfs: 'GlusterFS distributed filesystem with CSI',
   longhorn: 'Longhorn cloud-native distributed block storage',
@@ -139,11 +140,6 @@ function App() {
     { id: 'resource-monitoring', label: 'Resource Monitor', sig: 'RES_WK', group: 'COMPUTE' },
     { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
     { id: 'setup', label: 'Setup Wizard', sig: 'SETUP', group: 'DEPLOY' },
-    { id: 'machine', label: 'Machine Wizard', sig: 'MACH_W', group: 'DEPLOY' },
-    { id: 'wizard', label: 'Manifest Wizard', sig: 'MFT_WZ', group: 'DEPLOY' },
-    { id: 'setup', label: 'Setup Wizard', sig: 'SET_UP', group: 'DEPLOY' },
-    { id: 'environment', label: 'Environment Intel', sig: 'ENV_IO', group: 'COMPUTE' },
-    { id: 'activity', label: 'Activity Command', sig: 'ACT_CM', group: 'COMPUTE' },
   ];
 
   const navGroups = ['MONITOR', 'COMPUTE', 'DEPLOY'] as const;
