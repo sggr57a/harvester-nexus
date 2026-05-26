@@ -34,7 +34,6 @@ Nexus is the updated Harvester fork with:
 - **Mission Control** overview dashboard with multi-ring radial gauges, live oscilloscope waveforms, dial cluster, vertical level meters, ring meters, anomaly stream, 3D isometric cluster map, GitOps sync bank, GPU memory grid, API rate gauges, stacked area chart, sankey flow, percentile bands, and a dense stat grid.
 - **Telemetry Wave** dashboard with high-density annotated oscilloscope traces (per-channel `MIN / AVG / MAX / NOW` readouts), 64-bin FFT spectrum bands with peak hold, and rolling latency histograms with `MEAN / P50 / P95 / P99` callouts for SPDK / DPDK / vhost-user / RDMA paths.
 - **Networking dashboard** with a big **Threat-Intel Map** (MDR/XDR overlay): 50 country outlines as ghostly faded base + outline-only highlight for active source/threat countries, scarlet-red attack trajectories converging on the Frankfurt VIP, 80+ city lights, 60+ inter-DC network paths, threat hotspots, Iron-Man unfold info panels, MITRE kill-chain strip, DEFCON + 8 live XDR stat tiles. Followed by a sonar-style **Cluster Radar** widget (concentric tier rings + rotating sweep + traffic chords + tier roll-up + top talkers + flagged nodes).
-- **HUD Dashboard** with instrument-style topology, radial gauges, scoped traces, segmented throughput bars, control toggles, event feed, and cluster stat tiles.
 - **Environment Intelligence** and **Activity Command** dashboards for facility telemetry, automation queues, approvals, migrations, backups, and security scan activity.
 - **Live Environment Ticker** banner above every dashboard with rolling cluster-wide stats (workloads, IOPS, ingress / egress Mb/s, CPU %, DRAM %, power, in-flight migrations, open CVEs, trust score).
 - **Four cool-tone cockpit themes** (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum) with persistent `localStorage` selection; every panel, gauge, control, and background adapts to the active theme. Theme picker is a compact dropdown in the sidebar.
@@ -96,13 +95,6 @@ blocked 24h, escalated, isolated, IOC, MTTD / MTTR, active APTs, critical
 CVEs); bottom MITRE kill-chain strip with threat counts per phase.
 
 ![Networking dashboard · ThreatIntelMap](docs/screenshots/03-networking-threat-intel.webp)
-
-### HUD Dashboard
-
-Instrument-style topology, arc radial gauges, sparklines, throughput bars,
-control toggles, event feed, and cluster stat tiles.
-
-![HUD Dashboard](docs/screenshots/04-hud-dashboard.webp)
 
 ### Storage dashboard
 

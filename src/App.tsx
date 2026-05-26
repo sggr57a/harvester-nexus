@@ -11,7 +11,6 @@ import { ResourceMonitoringPage } from './components/ActiveWorkPage';
 import { EnvironmentTicker, SidebarRouteDecoration } from './components/EnvironmentTicker';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
-import { HudDashboard } from './components/HudDashboard';
 import { NexusMachineWizard } from './components/NexusMachineWizard';
 import { ThemePicker } from './components/ThemePicker';
 import { UnifiedSetupWizard } from './components/UnifiedSetupWizard';
@@ -49,7 +48,6 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
 
 type CockpitView =
   | 'mission-control'
-  | 'dashboard'
   | 'telemetry-wave'
   | 'networking'
   | 'storage'
@@ -126,7 +124,6 @@ function App() {
 
   const NAV_ITEMS: { id: CockpitView; label: string; sig: string; group: string }[] = [
     { id: 'mission-control', label: 'Mission Control', sig: 'CMD_00', group: 'MONITOR' },
-    { id: 'dashboard', label: 'HUD Dashboard', sig: 'TX_001', group: 'MONITOR' },
     { id: 'telemetry-wave', label: 'Telemetry Wave', sig: 'WAVE_S', group: 'MONITOR' },
     { id: 'networking', label: 'Networking', sig: 'NET_02', group: 'MONITOR' },
     { id: 'storage', label: 'Storage', sig: 'CSI_IO', group: 'MONITOR' },
@@ -199,7 +196,6 @@ function App() {
       <main className="main-view">
         <EnvironmentTicker snapshot={telemetry} />
         {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
-        {cockpitView === 'dashboard' && <HudDashboard activeTheme={theme} />}
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
         {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
         {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
