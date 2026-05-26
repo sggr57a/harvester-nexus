@@ -9791,6 +9791,9 @@ select option {
   color: var(--theme-accent);
   background: var(--theme-accent-soft);
   box-shadow: var(--theme-route-glow, 0 0 14px var(--theme-accent-soft));
+}
+
+/* ============================================================
    Advanced visualization widgets (v4 HUD redesign)
    Heatmap, Chord, Sankey, GeoMap, Treemap, RadialBar,
    FlameGraph, StreamGraph, ScatterPlot
@@ -12604,14 +12607,6 @@ select option {
 
 /* Hide the old topology-panel CSS path if any DOM still references it */
 .dash-networking .topology-panel { display: none !important; }
-  left: -1px;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--theme-accent);
-  box-shadow: 0 0 6px var(--theme-accent);
-  border-radius: 2px;
-}
 .cockpit-nav .nav-sig {
   font-family: var(--theme-mono, monospace);
   font-size: 0.58rem;

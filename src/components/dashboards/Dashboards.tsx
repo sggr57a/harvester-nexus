@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   buildAccelerationDashboard,
   buildActivityDashboard,
@@ -346,8 +346,8 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
             <span />
             {targets.map((target) => <span key={target} className="policy-col">{target}</span>)}
             {sources.map((source) => (
-              <>
-                <span key={`r-${source}`} className="policy-row">{source}</span>
+              <Fragment key={`row-${source}`}>
+                <span className="policy-row">{source}</span>
                 {targets.map((target) => {
                   const cell = policyMatrix.find((entry) => entry.source === source && entry.target === target);
                   if (!cell || source === target) return <span key={`${source}-${target}`} className="policy-cell policy-na" />;
@@ -357,7 +357,7 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
                     </span>
                   );
                 })}
-              </>
+              </Fragment>
             ))}
           </div>
         </article>
