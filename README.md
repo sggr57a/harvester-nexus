@@ -71,7 +71,7 @@ Nexus is the updated Harvester fork with:
 ## Screenshots
 
 A tour of the live cockpit. Every screen below is captured from the running
-[Vite dev server](#install-on-a-fresh-ubuntu-host) on the current branch.
+[Vite dev server](#installation) on the current branch.
 The captions describe what each surface **does**, not how it's laid out.
 
 ### Mission Control
@@ -230,9 +230,65 @@ lighting in the SOC. Theme selection persists in `localStorage`.
 
 ![Theme dropdown](docs/screenshots/12-theme-dropdown.webp)
 
-## Install on a fresh Ubuntu host
+## Installation
 
 The Nexus cockpit ships as a React + TypeScript single-page app built with Vite. The instructions below get you from a clean Ubuntu 22.04 / 24.04 box to a running Nexus dev server on `http://localhost:4173`.
+
+### Hardware requirements
+
+Two profiles apply: the **cockpit** (the React app you install via the steps in this section, which configures and orchestrates the platform) and the **Nexus platform** itself (the bare-metal HCI host or cluster that the cockpit ultimately provisions and protects with the bundled XDR / MDR stack).
+
+#### Cockpit (dev / preview host)
+
+| Resource | Minimum | Optimal |
+|---|---|---|
+| CPU | 2 cores, x86_64 or arm64 | 4+ cores |
+| Memory | 4 GB RAM | 8 GB RAM |
+| Disk | 2 GB free (≈ 500 MB `node_modules`, 50 MB build output, headroom for Playwright / Chromium) | 10 GB free on SSD/NVMe |
+| OS | Ubuntu 22.04 / 24.04 (any modern Linux works) | Ubuntu 24.04 LTS |
+| Network | Outbound HTTPS to npm registry + GitHub for `npm install` and `git clone` | Same |
+| Browser | Chromium / Firefox / Safari with ES2020 + `backdrop-filter` support | Chromium-based browser at 1920×1080 or wider for the full HUD layout |
+
+#### Nexus platform — single-node lab
+
+A single host running the bundled Harvester base + Kubernetes + KubeVirt + XDR sensors. Suitable for development, proofs-of-concept, and small edge deployments.
+
+| Resource | Minimum | Optimal |
+|---|---|---|
+| CPU | 8 cores, x86_64 with VT-x / AMD-V, SSE4.2, `xsave` | 16+ cores with AVX2, IOMMU enabled (VT-d / AMD-Vi) for SR-IOV and GPU pass-through |
+| Memory | 32 GB RAM | 64+ GB RAM with at least one NUMA node free for 1 GiB hugepages |
+| Boot disk | 200 GB SSD | 500 GB NVMe |
+| Data disks | 1× 500 GB SSD for ZFS / Longhorn / OpenEBS | 2+ NVMe drives for the storage fabric (ZFS AnyRAID accepts heterogeneous capacities) |
+| Network | 1× 1 GbE | 1× 10 GbE + 1× 25 GbE for storage / east-west, or RDMA-capable NIC for the NVMe-oF fast path |
+| Accelerators | none | optional GPU / FPGA / smart-NIC with vfio-pci binding for AI/ML and SmartNIC offload pools |
+| Firmware | UEFI with secure boot **off** (KubeVirt + eBPF require unsigned kernel modules in some kernels) | UEFI + TPM 2.0 for Wazuh FIM and OpenSCAP host hardening evidence |
+
+#### Nexus platform — production HCI cluster
+
+A 3+ node hyperconverged cluster running the full Poly-Compute Engine (KubeVirt VMs + Incus / LXC + pods on every node), the Universal Storage Fabric, and every XDR sensor in the **Maximum** Security Posture profile.
+
+| Resource | Minimum (per node) | Optimal (per node) |
+|---|---|---|
+| Nodes | 3 control-plane + worker (hyperconverged) | 5+ nodes with separate control-plane and worker classes for blast-radius isolation |
+| CPU | 16 cores with VT-x/AMD-V, VT-d/AMD-Vi, AVX2 | 32+ cores, dual-socket, NUMA-aware |
+| Memory | 64 GB RAM with 8 GB reserved for hugepages | 256+ GB RAM with 64 GB reserved for 1 GiB hugepages, one socket-local pool per workload class |
+| Boot disk | 200 GB NVMe (mirrored) | 2× 500 GB NVMe in mirror |
+| Storage tier | 2× 1 TB NVMe per node for the hot tier, 4× 4 TB SATA SSD for the warm tier | 4+ NVMe per node bound to SPDK userspace queues, plus a slower SATA SSD / HDD warm tier; ZFS AnyRAID handles mixed capacities |
+| Network — front | 2× 10 GbE (LACP) for north-south | 2× 25 GbE (LACP) for north-south |
+| Network — fabric | 2× 25 GbE for east-west and storage replication | 2× 100 GbE RDMA (RoCEv2) for east-west, storage replication, and the NVMe-oF target plane |
+| Accelerators | none required | GPU pool (NVIDIA / AMD), FPGA pool (Xilinx / Intel), smart-NIC pool (BlueField / Stingray) all bound via vfio-pci / SR-IOV / mdev |
+| Firmware | UEFI, IOMMU on | UEFI + TPM 2.0 + measured boot; firmware managed via Lifecycle Controller / iLO / iDRAC / Redfish |
+| Power / cooling | redundant PSU per node | redundant PSU, hot-aisle containment, environmental telemetry exposed to the Environment Intelligence dashboard |
+
+#### XDR / MDR sensor overhead (cluster-wide, all 17 sensors in Maximum profile)
+
+| Resource | Minimum | Optimal |
+|---|---|---|
+| CPU | 4 cores total | 8+ cores total, headroom for OpenSearch indexing under burst |
+| Memory | 8 GB RAM total (OpenSearch + Wazuh Manager + MISP) | 24+ GB RAM total — OpenSearch heap 4 GB, Wazuh Manager 4 GB, MISP + ThreatFox replica 4 GB, the rest distributed across host DaemonSets |
+| Disk | 100 GB for the event lake (≈ 30 days at low event rate) | 1+ TB NVMe for the OpenSearch event lake (≥ 90 days hot retention, plus warm-tier archive for compliance evidence) |
+
+> The cockpit will start and run on the **Cockpit minimum**. The Nexus platform requirements only apply when you actually deploy the manifests the cockpit generates onto real hardware.
 
 ### 1. System prerequisites
 
@@ -351,41 +407,9 @@ docs/mockups/                 Reference screenshots & videos
 - `npm run test` — 178 / 178 Vitest tests pass (cockpit + XDR engine + rules + responses + manifests)
 - `npm run build` — production bundle succeeds
 
-## Demo installation
+## GitHub branches and pull requests
 
-This prototype is the front-end Nexus demo for Harvester-style workload
-generation and the bundled XDR / MDR platform. After launching the app
-locally:
-
-1. Open the **Setup Wizard** to provision the bare-metal install plan,
-   then optionally enable the embedded **Manifest Wizard** to select
-   storage, networking, security, monitoring, GitOps, and multi-cluster
-   options. Generated manifests appear in the built-in CodeMirror YAML
-   editor.
-2. Open the **Cluster Console** for live-adapter Kubernetes API
-   validation, `kubectl` apply / test runs, and `vcluster` multi-cluster
-   operations.
-3. Open the **Security Posture** wizard to pick an XDR profile
-   (Baseline / Hardened / Maximum), tune the sensor catalog, preview the
-   generated Kubernetes bundle, and read the detection-rule catalog.
-4. Open **XDR Operations** to watch the live SOC dashboard. The bundled
-   deterministic 14-step attack-scenario simulator drives the page in
-   demo mode so you can see alerts firing, response actions dispatched,
-   and APT actors being attributed in real time.
-
-### GitHub branches and pull requests
-
-The XDR / MDR platform lives on:
-
-- Branch: <https://github.com/sggr57a/harvester-nexus/tree/cursor/xdr-mdr-foss-d3bc>
-- Pull request: <https://github.com/sggr57a/harvester-nexus/pull/27>
-
-The themed cockpit + ZFS AnyRAID work lives on:
-
-- Branch: <https://github.com/sggr57a/harvester-nexus/tree/cursor/multi-theme-live-mockup-d3bc>
-- Default branch: <https://github.com/sggr57a/harvester-nexus/tree/main>
-
-The Harvester platform fork lives on:
-
-- Branch: <https://github.com/sggr57a/harvester/tree/nexus>
-- Pull request: <https://github.com/sggr57a/harvester/pull/1>
+- Default branch (everything merged): <https://github.com/sggr57a/harvester-nexus/tree/main>
+- XDR / MDR platform: PR <https://github.com/sggr57a/harvester-nexus/pull/27> (merged)
+- Themed cockpit + ZFS AnyRAID: branch <https://github.com/sggr57a/harvester-nexus/tree/cursor/multi-theme-live-mockup-d3bc>
+- Harvester platform fork: branch <https://github.com/sggr57a/harvester/tree/nexus>, PR <https://github.com/sggr57a/harvester/pull/1>
