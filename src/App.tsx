@@ -31,6 +31,7 @@ import { MissionControlView } from './components/dashboards/MissionControl';
 import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
 import { XdrOperationsCenter } from './components/dashboards/XdrOperationsCenter';
 import { SecurityPostureWizard } from './components/SecurityPostureWizard';
+import { LaunchMockupsGallery } from './components/LaunchMockupsGallery';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -64,6 +65,7 @@ type CockpitView =
   | 'cluster'
   | 'xdr-operations'
   | 'security-posture'
+  | 'launch-mockups'
   | 'setup'
   | 'machine'
   | 'wizard';
@@ -142,6 +144,7 @@ function App() {
     { id: 'xdr-operations', label: 'XDR Operations', sig: 'SOC_HQ', group: 'SECURE' },
     { id: 'security-posture', label: 'Security Posture', sig: 'XDR_MD', group: 'SECURE' },
     { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
+    { id: 'launch-mockups', label: 'Launch Mockups', sig: 'LNCH_M', group: 'DEPLOY' },
     { id: 'setup', label: 'Setup Wizard', sig: 'SETUP', group: 'DEPLOY' },
   ];
 
@@ -217,6 +220,7 @@ function App() {
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
         {cockpitView === 'xdr-operations' && <XdrOperationsCenter />}
         {cockpitView === 'security-posture' && <SecurityPostureWizard />}
+        {cockpitView === 'launch-mockups' && <LaunchMockupsGallery />}
         {cockpitView === 'cluster' && (
           <ClusterIntegrationPanel
             validation={validation}

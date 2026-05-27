@@ -1,45 +1,23 @@
-import { buildLaunchSequence } from '../lib/launchSequence';
+import { useMemo } from 'react';
+import {
+  LAUNCH_VARIANTS,
+  readLaunchVariant,
+  useLaunchFeed,
+} from './launchVariants';
 
-const launchSequence = buildLaunchSequence();
-
+/**
+ * Runtime launch screen — picks the variant the operator chose in the
+ * Launch Mockups gallery (defaulting to "Concentric Boot" if none has
+ * been saved). The variant runs once for ~3.2 s with the feed in
+ * one-shot mode, after which the parent App swaps in the cockpit.
+ */
 export function LaunchSequence() {
+  const variantId = useMemo(() => readLaunchVariant(), []);
+  const variant = LAUNCH_VARIANTS.find((v) => v.id === variantId) ?? LAUNCH_VARIANTS[0];
+  const feed = useLaunchFeed({ loop: false });
   return (
-    <section className="launch-sequence" aria-label="Nexus interface loading sequence">
-      <div className="launch-grid" />
-      <div className="launch-wordmark-group">
-        <div className="launch-wordmark">HARVESTER</div>
-        <div className="launch-subwordmark">NEXUS</div>
-      </div>
-      <div className="launch-meter-shell">
-        <div className="launch-meter">
-          <span />
-        </div>
-        <div className="launch-meter-labels">
-          <span>00</span>
-          <strong>loading interface</strong>
-          <span>100</span>
-        </div>
-      </div>
-      <div className="launch-lab-elements">
-        <div className="launch-reticle">
-          <i />
-          <b />
-        </div>
-        <div className="launch-waveform">
-          {launchSequence.steps.map((step, index) => (
-            <span key={step.signal} style={{ height: `${28 + index * 15}%`, animationDelay: `${index * 120}ms` }} />
-          ))}
-        </div>
-      </div>
-      <ol className="launch-steps">
-        {launchSequence.steps.map((step, index) => (
-          <li key={step.signal} style={{ animationDelay: `${index * 360}ms` }}>
-            <span>{String(index + 1).padStart(2, '0')}</span>
-            <p>{step.label}</p>
-            <strong>{step.progress}%</strong>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <main className="launch-runtime">
+      <variant.Component feed={feed} />
+    </main>
   );
 }
