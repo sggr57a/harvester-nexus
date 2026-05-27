@@ -13731,3 +13731,344 @@ select option {
   letter-spacing: 0.1em;
 }
 .xdr-sensor small { color: var(--theme-text-muted); font-size: 0.7rem; }
+
+/* ============================================================
+   Threat Surface 3D — XDR/SOC heightmap widget
+   ============================================================ */
+
+.threat-surface-3d {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--theme-panel-glass, rgba(8, 14, 24, 0.7));
+  border: 1px solid var(--theme-panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.threat-surface-3d::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(78, 200, 255, 0.04) 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 0, 0, 0.18) 3px 4px);
+  opacity: 0.55;
+  z-index: 0;
+}
+
+.threat-surface-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1.5rem;
+}
+.threat-surface-header h3 {
+  margin: 0.25rem 0 0.3rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+  color: var(--theme-accent);
+}
+.threat-surface-sub {
+  margin: 0;
+  max-width: 72ch;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--theme-text-muted);
+}
+
+.threat-surface-dials {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0.6rem;
+}
+.threat-dial {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.threat-dial svg .dial-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 3;
+}
+.threat-dial svg .dial-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 280ms ease;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.threat-dial svg .dial-value {
+  fill: var(--theme-accent);
+  font-family: var(--theme-mono, monospace);
+  font-size: 9px;
+  text-anchor: middle;
+  font-weight: 700;
+}
+.threat-dial svg .dial-unit {
+  fill: var(--theme-text-muted);
+  font-family: var(--theme-mono, monospace);
+  font-size: 5px;
+  text-anchor: middle;
+  letter-spacing: 0.2em;
+}
+.threat-dial.sev-low svg .dial-fill { stroke: #4ec8ff; color: #4ec8ff; }
+.threat-dial.sev-medium svg .dial-fill { stroke: #50dc82; color: #50dc82; }
+.threat-dial.sev-high svg .dial-fill { stroke: #ff8c4a; color: #ff8c4a; }
+.threat-dial.sev-critical svg .dial-fill { stroke: #ff4d6d; color: #ff4d6d; }
+
+.threat-surface-stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: var(--threat-surface-height, 520px);
+  overflow: hidden;
+  border-top: 1px solid rgba(78, 200, 255, 0.12);
+  border-bottom: 1px solid rgba(78, 200, 255, 0.12);
+}
+.threat-surface-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+.terrain-wire {
+  fill: none;
+  stroke: rgba(78, 200, 255, 0.22);
+  stroke-width: 0.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.terrain-stem {
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+
+.threat-rings {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 80%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) perspective(900px) rotateX(78deg);
+  pointer-events: none;
+  z-index: 1;
+}
+.threat-rings .ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border: 1px dashed rgba(255, 196, 100, 0.32);
+  border-radius: 50%;
+  animation: threat-ring-spin linear infinite;
+}
+.threat-rings .ring-mid {
+  inset: 8%;
+  border-style: solid;
+  border-color: rgba(255, 196, 100, 0.18);
+  animation-direction: reverse;
+}
+.threat-rings .ring-inner {
+  inset: 22%;
+  border: 1px dotted rgba(255, 196, 100, 0.24);
+}
+.threat-rings .ring-tick {
+  inset: 14%;
+  border: 1px solid rgba(255, 196, 100, 0.12);
+  background: repeating-conic-gradient(rgba(255, 196, 100, 0) 0deg 8deg, rgba(255, 196, 100, 0.18) 8deg 8.6deg);
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(circle, transparent 60%, black 60%);
+  mask: radial-gradient(circle, transparent 60%, black 60%);
+  animation-direction: reverse;
+}
+@keyframes threat-ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+.threat-reticles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.threat-reticles .rt {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid rgba(255, 196, 100, 0.7);
+  filter: drop-shadow(0 0 6px rgba(255, 196, 100, 0.45));
+}
+.threat-reticles .rt-tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+.threat-reticles .rt-tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+.threat-reticles .rt-bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+.threat-reticles .rt-br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+.threat-sweep .sweep-beam {
+  stroke: #ff4d6d;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 12px #ff4d6d);
+  animation: threat-sweep 700ms ease-out forwards;
+  transform-origin: center;
+}
+@keyframes threat-sweep {
+  0% { opacity: 0; stroke-width: 0.4; }
+  18% { opacity: 1; stroke-width: 4; }
+  100% { opacity: 0; stroke-width: 1; transform: translateX(0); }
+}
+
+.reticle-lock .lock-ring {
+  fill: none;
+  stroke: var(--theme-accent);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 4px var(--theme-accent));
+  animation: lock-pulse 1600ms ease-in-out infinite;
+}
+.reticle-lock .lock-ring-outer {
+  stroke-dasharray: 4 4;
+  animation-direction: reverse;
+}
+.reticle-lock .lock-tick {
+  stroke: var(--theme-accent);
+  stroke-width: 1.4;
+}
+.reticle-lock .lock-label {
+  fill: var(--theme-accent);
+  font-family: var(--theme-mono, monospace);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.reticle-lock.sev-critical .lock-ring,
+.reticle-lock.sev-critical .lock-tick { stroke: #ff4d6d; filter: drop-shadow(0 0 6px #ff4d6d); }
+.reticle-lock.sev-critical .lock-label { fill: #ff4d6d; }
+.reticle-lock.sev-high .lock-ring,
+.reticle-lock.sev-high .lock-tick { stroke: #ff8c4a; filter: drop-shadow(0 0 5px #ff8c4a); }
+.reticle-lock.sev-high .lock-label { fill: #ff8c4a; }
+@keyframes lock-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.08); }
+}
+
+.threat-surface-footer {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.threat-surface-side h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: var(--theme-text-muted);
+}
+
+.threat-side-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.threat-side-bars .sev-bar {
+  display: grid;
+  grid-template-columns: 80px 1fr 32px;
+  gap: 0.55rem;
+  align-items: center;
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.7rem;
+}
+.threat-side-bars .sev-label {
+  color: var(--theme-text);
+  letter-spacing: 0.14em;
+}
+.threat-side-bars .sev-track {
+  display: block;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.threat-side-bars .sev-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--theme-accent);
+  transition: width 320ms ease;
+}
+.threat-side-bars .sev-count {
+  text-align: right;
+  color: var(--theme-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.threat-side-bars .sev-info .sev-fill { background: #6e7eb8; }
+.threat-side-bars .sev-low .sev-fill { background: #4ec8ff; }
+.threat-side-bars .sev-medium .sev-fill { background: #50dc82; }
+.threat-side-bars .sev-high .sev-fill { background: #ff8c4a; }
+.threat-side-bars .sev-critical .sev-fill { background: #ff4d6d; }
+
+.threat-side-talkers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-family: var(--theme-mono, monospace);
+  font-size: 0.72rem;
+}
+.threat-side-talkers .talker {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 1.2fr;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-left: 2px solid rgba(78, 200, 255, 0.4);
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+}
+.threat-side-talkers .talker.sev-critical { border-left-color: #ff4d6d; }
+.threat-side-talkers .talker.sev-high { border-left-color: #ff8c4a; }
+.threat-side-talkers .talker.sev-medium { border-left-color: #50dc82; }
+.threat-side-talkers .talker-id { color: var(--theme-accent); }
+.threat-side-talkers .talker-tactic { color: var(--theme-text-muted); letter-spacing: 0.14em; font-size: 0.65rem; }
+.threat-side-talkers .talker-meter {
+  display: block;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.threat-side-talkers .talker-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 280ms ease, background 280ms ease;
+}
+.threat-side-empty {
+  color: var(--theme-text-muted);
+  font-style: italic;
+  font-size: 0.72rem;
+}
+
+.threat-surface-side-right { text-align: right; }
+.threat-surface-side-right h4 { text-align: right; }
+
+@media (max-width: 1100px) {
+  .threat-surface-header { flex-direction: column; align-items: flex-start; }
+  .threat-surface-dials { flex-wrap: wrap; }
+  .threat-surface-footer { grid-template-columns: 1fr; }
+}
