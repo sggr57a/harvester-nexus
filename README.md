@@ -4,40 +4,51 @@ Nexus is a next-generation, high-performance, open-source hyperconverged infrast
 
 By unifying the bare-metal agility of Proxmox and Incus (LXC) with the massive cloud-native orchestration of Kubernetes (KubeVirt) and VMware vSphere class enterprise storage/scheduling, nexus represents the ultimate consolidation of computing, storage, and specialized hardware accelerators, including a HUD interface, wizard-driven machine provisioning, Kubernetes manifest generation, storage backend provisioning, and multi-cluster deployment workflows.
 
-> **Version 2.0** lands the features described in [`UPDATED.md`](./UPDATED.md): the Poly-Compute Engine, the Universal Storage Fabric (now including Vitastor with SPDK bypass), hyper-efficient data path acceleration (SPDK / DPDK / vhost-user / NUMA pinning / 1 GiB hugepages), and advanced acceleration (GPU + FPGA + smart-NIC pass-through, nested virtualization for AI / ML). See the [Nexus 2.0 release](#nexus-20-release) section.
+> **Version 2.0** lands the features described in [`UPDATED.md`](./UPDATED.md): the Poly-Compute Engine, the Universal Storage Fabric (now including Vitastor with SPDK bypass), hyper-efficient data path acceleration (SPDK / DPDK / vhost-user / NUMA pinning / 1 GiB hugepages), advanced acceleration (GPU + FPGA + smart-NIC pass-through, nested virtualization for AI / ML), **and a built-in 100% open-source XDR / MDR platform** that detects, attributes, and auto-responds to threats across every host, VM, container, pod, and edge endpoint. See the [Nexus 2.0 release](#nexus-20-release) section.
 
 ## Nexus 2.0 release
 
 Highlights:
 
-- **Poly-Compute Engine dashboard** — runs KubeVirt VMs, Incus / LXC system containers, and native Kubernetes pods on the same bare-metal loop. Includes mixed-mode density per node and topology-aware scheduling policies (NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, cross-socket cost penalty).
-- **Universal Storage Fabric** — every storage backend in the catalog is wired to Nexus's CSI / direct-host integration paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath volume driver for RWX shares.
-- **Acceleration & Hardware Pass-Through dashboard** — SPDK userspace NVMe-oF queues, DPDK polled-mode ring buffers, vhost-user fast paths, topology-aware NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
-- **Machine Wizard 2.0** — extends the install YAML with `poly_compute` and `hardware_acceleration` blocks and adds boot-parameter switches such as `nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, and `nexus.acceleration.gpu_passthrough=true`. Validation refuses a config that turns off every runtime or enables GPU pass-through without NUMA pinning.
-- **Themable cockpit** — four cool-tone switchable themes (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum) so all dashboards adapt to operator preference. Theme selection persists in `localStorage`.
-- **Geometric glass cockpit expansion** — redesigned instrument widgets, environment intelligence, and activity command dashboards for transparent control-room mockups.
+- **Poly-Compute Engine** — runs KubeVirt VMs, Incus / LXC system containers, and native Kubernetes pods on the same bare-metal loop, with NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, and cross-socket cost penalties on the scheduler.
+- **Universal Storage Fabric** — every storage backend in the catalog is wired into CSI / direct-host paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, **ZFS AnyRAID** with heterogeneous-capacity drive slabbing, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath driver for RWX shares.
+- **Hardware acceleration** — SPDK userspace NVMe-oF queues, DPDK polled-mode rings, vhost-user fast paths, NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
+- **Machine Wizard 2.0** — install YAML with `poly_compute` and `hardware_acceleration` blocks plus boot-parameter switches (`nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, `nexus.acceleration.gpu_passthrough=true`). Validation refuses configs that turn off every runtime or enable GPU pass-through without NUMA pinning.
+- **Built-in XDR / MDR platform (100% FOSS)** — every Nexus install ships with a complete detect-and-respond stack: 17 open-source sensors (Falco, Tetragon, Wazuh, Trivy, Grype, Syft, Suricata, Hubble, OpenSearch, MISP, kube-bench, kube-hunter, Polaris, OpenCanary, OpenSCAP, Lynis), 10 free threat-intel feeds (MISP, OTX, ThreatFox, URLhaus, Feodotracker, ETOpen, MITRE ATT&CK, NVD, OSV, internal allowlist), 18 Sigma-style detection rules covering all seven MITRE ATT&CK kill-chain phases, 10 automated response actions that emit real Kubernetes manifests (Cilium NetworkPolicy isolate, Harvester host cordon/drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot, Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback, Trivy image block, Cilium CCNP egress-domain block), and APT geo-attribution that maps sources to actors like APT28 / LAZARUS. No paid SKUs, no subscriptions.
+- **Themable cockpit** — four cool-tone switchable themes (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum). Theme selection persists in `localStorage`.
 
 ## Overview
 
 Nexus is the updated Harvester fork with:
 
-- Extended storage backend support: iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **ZFS AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local storage.
-- Networking and service mesh support: Istio, Linkerd, Cilium, Service, Ingress, and NetworkPolicy.
-- Security and compliance scaffolding: RBAC, Pod Security Standards, service accounts, and workload annotations.
-- Observability tooling templates: Prometheus monitoring, Fluentd / Loki / Splunk logging.
-- GitOps support: ArgoCD, Flux, Jenkins X integration manifests.
-- Multi-cluster provisioning: federated deployment templates and cluster targeting.
+- **Universal storage fabric** — iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **ZFS AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local-path storage with CSI templates per backend.
+- **Network fabric and service mesh** — Istio, Linkerd, Cilium, plus Service, Ingress, and NetworkPolicy generation.
+- **Built-in XDR / MDR detect-and-respond** — eBPF runtime security, HIDS, IDS/IPS, image-scan admission, K8s benchmark, host hardening, threat intel, honeypots, and automated response actions, all driven by 100% FOSS components.
+- **Identity, RBAC, and policy** — RBAC roles, Pod Security Standards enforcement, service accounts, workload annotations, and admission-time best-practice gating (Polaris).
+- **Observability templates** — Prometheus monitoring, Fluentd / Loki / Splunk logging, with the in-cockpit telemetry dashboards driven by a 1.6 s live tick.
+- **GitOps and multi-cluster** — ArgoCD, Flux, Jenkins X integration manifests; federated deployment templates; `vcluster` virtual-cluster operations.
 
 ## Features
 
 ### Cockpit & visualization
-- **Mission Control** overview dashboard with multi-ring radial gauges, live oscilloscope waveforms, dial cluster, vertical level meters, ring meters, anomaly stream, 3D isometric cluster map, GitOps sync bank, GPU memory grid, API rate gauges, stacked area chart, sankey flow, percentile bands, and a dense stat grid.
-- **Telemetry Wave** dashboard with high-density annotated oscilloscope traces (per-channel `MIN / AVG / MAX / NOW` readouts), 64-bin FFT spectrum bands with peak hold, and rolling latency histograms with `MEAN / P50 / P95 / P99` callouts for SPDK / DPDK / vhost-user / RDMA paths.
-- **Networking dashboard** with a big **Threat-Intel Map** (MDR/XDR overlay): 50 country outlines as ghostly faded base + outline-only highlight for active source/threat countries, scarlet-red attack trajectories converging on the Frankfurt VIP, 80+ city lights, 60+ inter-DC network paths, threat hotspots, Iron-Man unfold info panels, MITRE kill-chain strip, DEFCON + 8 live XDR stat tiles. Followed by a sonar-style **Cluster Radar** widget (concentric tier rings + rotating sweep + traffic chords + tier roll-up + top talkers + flagged nodes).
-- **Environment Intelligence** and **Activity Command** dashboards for facility telemetry, automation queues, approvals, migrations, backups, and security scan activity.
-- **Live Environment Ticker** banner above every dashboard with rolling cluster-wide stats (workloads, IOPS, ingress / egress Mb/s, CPU %, DRAM %, power, in-flight migrations, open CVEs, trust score).
-- **Four cool-tone cockpit themes** (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum) with persistent `localStorage` selection; every panel, gauge, control, and background adapts to the active theme. Theme picker is a compact dropdown in the sidebar.
-- Eight additional themed data dashboards: Networking, Storage, Machines & Containers, Processor & Memory, Poly-Compute Engine, Acceleration, Operations & Compliance, and Resource Monitoring.
+- **Mission Control** — single-pane situational awareness for the entire cluster: KPI roll-ups, multi-ring cluster posture, four-channel telemetry traces, dial clusters per fast-path lane, vertical level meters per node, ring meters per storage backend, anomaly streaming, a 3D isometric cluster topology, live event log, node-by-hour activity heatmap, workload activity timeline, 12-channel sparkline grid, GitOps sync bank, GPU memory grid, API-rate gauges, stacked area charts, sankey flow, percentile bands, FFT spectrum, and dense stat grids — every widget driven by the live telemetry tick.
+- **Telemetry Wave** — deep-dive performance scope for SPDK / DPDK / vhost-user / RDMA fast paths with per-channel `MIN / AVG / MAX / NOW` readouts, 64-bin FFT spectrum with peak hold, and rolling latency histograms with `MEAN / P50 / P95 / P99` callouts.
+- **Networking dashboard** — geographic threat-intelligence map (the "Threat-Intel Map" hero widget) that visualises which countries are sourcing traffic to the cluster and which are actively attacking it, with live IP / host / method / status / RPS / bytes overlays per active source, a rail of active APT actor + CVE + malware + MITRE ATT&CK tactic attributions, a live XDR stat strip (DEFCON, alerts/min, blocked 24h, escalated, isolated, IOC count, MTTD / MTTR, active APTs, critical CVEs), and a MITRE kill-chain strip with per-phase threat counts. Paired with a sonar-style **Cluster Radar** for east-west traffic, tier roll-ups, top talkers, and flagged nodes.
+- **Environment Intelligence** and **Activity Command** — facility telemetry, automation queues, approval flows, in-flight migrations, backup status, and security-scan activity.
+- **Live Environment Ticker** — rolling cluster-wide stats (workloads, IOPS, ingress / egress Mb/s, CPU %, DRAM %, power, in-flight migrations, open CVEs, trust score) pinned above every dashboard.
+- **Four cool-tone cockpit themes** (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum) with persistent `localStorage` selection.
+- **Eight additional themed data dashboards**: Networking, Storage, Machines & Containers, Processor & Memory, Poly-Compute Engine, Acceleration, Operations & Compliance, Resource Monitoring.
+
+### Security · Detection &amp; response (XDR / MDR)
+- **Endpoint coverage** — every host, KubeVirt VM, Incus / LXC container, Docker container, Kubernetes pod, edge node, and third-party integration is enrolled and inventoried.
+- **Sensor stack (17 FOSS components)** — eBPF runtime security (**Falco**, **Tetragon**), HIDS + SIEM (**Wazuh Agent** + **Wazuh Manager** + **OpenSearch** event lake), IDS / IPS (**Suricata** with ETOpen rules), container-image and SBOM scanning (**Trivy**, **Grype**, **Syft**), Kubernetes admission control (**Trivy operator**, **Polaris**), Kubernetes benchmark and pen-test (**kube-bench**, **kube-hunter**), host hardening (**OpenSCAP**, **Lynis**), L4/L7 flow telemetry (**Hubble**), threat-intel platform (**MISP**), deception (**OpenCanary**).
+- **Threat intelligence (10 free feeds)** — MISP, AlienVault OTX, abuse.ch ThreatFox / URLhaus / Feodotracker, Emerging Threats Open, MITRE ATT&CK, NVD, OSV, and an internal allowlist; indicators (IPs, domains, hashes, CVEs) are indexed for O(1) matching on every event.
+- **Detection rules (18 Sigma-style)** — coverage across all seven MITRE ATT&CK kill-chain phases: reconnaissance, initial access, execution, persistence, privilege escalation, defense evasion, credential access, lateral movement, command-and-control, exfiltration, and impact (including ransomware syscall pattern, honeypot interaction, known-bad hash exec, known C2 IP/domain, anomalous east-west drops, shadow-file read, and large egress bursts).
+- **Automated response (10 action types)** — every action emits real Kubernetes YAML: Cilium `NetworkPolicy` endpoint isolation, Harvester host cordon + drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot, Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback to a known-good revision, Trivy image-block admission rule, Cilium `ClusterwideCiliumNetworkPolicy` egress-domain block, token rotation, and alert-only.
+- **APT attribution** — source IPs are geo-mapped and correlated with the indicator catalog to attribute alerts to actors such as APT28 / Fancy Bear, LAZARUS, and others, complete with country, city, CVE, malware hash, and MITRE tactic.
+- **XDR Operations Center** — live SOC dashboard with KPI roll-ups (alerts/min, blocked 24h, isolated hosts, active APTs), endpoint inventory with sensor coverage, recent alerts with IOC details, auto-dispatched response actions, MITRE ATT&CK kill-chain heatmap that lights up as tactics get hit, threat attribution panel, and sensor health grid. Powered by an in-app `XdrEngine` and a deterministic 14-step attack-scenario simulator for demos.
+- **Security Posture wizard** — three presets (Baseline, Hardened, Maximum), per-sensor opt-in for add-ons, live previews of generated Kubernetes manifests (`DaemonSet`, `Deployment`, `Service`, `CronJob`, `ValidatingWebhookConfiguration`), and a one-liner `kubectl apply` to stand the entire stack up.
+- **Rolling SLA metrics** — MTTD and MTTR are computed from the engine's detection and response latencies, exposed on every snapshot.
 
 ### Wizards & workflows
 - In-tree Harvester platform source under `platform/harvester` so Nexus is tracked as a standalone system instead of a UI-only add-on.
@@ -59,106 +70,163 @@ Nexus is the updated Harvester fork with:
 
 ## Screenshots
 
-A tour of the live cockpit. Every screen below is from the running
+A tour of the live cockpit. Every screen below is captured from the running
 [Vite dev server](#install-on-a-fresh-ubuntu-host) on the current branch.
+The captions describe what each surface **does**, not how it's laid out.
 
 ### Mission Control
 
-The default landing — frosted-glass HUD with KPI tiles, multi-ring cluster
-posture, 4-channel oscilloscope, dial cluster, vertical level meters,
-storage-backend ring meters, anomaly stream, 3D isometric cluster map,
-live event log, node activity heatmap, workload activity timeline,
-12-channel sparkline grid, GitOps sync bank, GPU memory grid, API rate
-gauges, stacked area chart, sankey flow, percentile bands, FFT spectrum,
-and a 12-tile dense stat grid.
+Single-pane situational awareness for the entire HCI cluster. Aggregates
+posture, throughput, latency, anomalies, GitOps sync state, GPU memory
+pressure, API request rates, storage IOPS, and node-level activity into one
+view so on-call can triage the platform without bouncing between tools.
 
 ![Mission Control dashboard](docs/screenshots/01-mission-control.webp)
 
 ### Telemetry Wave
 
-Annotated oscilloscope traces (per-channel `MIN / AVG / MAX / NOW`
-readouts) for DPDK / SPDK / vhost-user / RDMA fast paths, 64-bin FFT
-spectrum bands with peak hold, rolling latency histograms with
-`MEAN / P50 / P95 / P99` summary callouts.
+Deep-dive performance scope for the data-plane fast paths
+(SPDK / DPDK / vhost-user / RDMA). Surfaces per-channel min/avg/max/now
+throughput, FFT spectral content for jitter and periodic interference, and
+end-to-end latency distributions with `MEAN / P50 / P95 / P99` percentiles
+so you can isolate which fast path is degrading.
 
 ![Telemetry Wave dashboard](docs/screenshots/02-telemetry-wave.webp)
 
-### Networking · MDR/XDR threat-intelligence hero panel
+### Networking · Threat-Intelligence Map
 
-50 country outlines as a ghostly base layer; active source countries
-highlighted with a cyan outline, active threat countries with a scarlet-red
-outline; red attack trajectories converging on the Frankfurt VIP; Iron-Man
-unfold info panels showing IP / host / method / status / RPS / bytes per
-active source; left rail of active threats (APT actor + CVE + malware +
-MITRE ATT&CK tactic); right rail of live XDR stats (DEFCON, alerts/min,
-blocked 24h, escalated, isolated, IOC, MTTD / MTTR, active APTs, critical
-CVEs); bottom MITRE kill-chain strip with threat counts per phase.
+Geographic threat-intel overlay that visualises which countries are
+sourcing traffic to the cluster and which are actively attacking it,
+attributes each active source to an APT actor / CVE / malware family /
+MITRE ATT&CK tactic, surfaces live XDR roll-ups (DEFCON, alerts/min,
+blocked 24h, escalated, isolated, IOC count, MTTD / MTTR, active APT
+count, critical CVE count), and tracks per-phase threat counts across the
+full MITRE kill chain.
 
 ![Networking dashboard · ThreatIntelMap](docs/screenshots/03-networking-threat-intel.webp)
 
 ### Storage dashboard
 
-Ring meters for every storage backend — Ceph, Longhorn, NVMe-oF, RDMA,
-ZFS, **ZFS AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS, OpenEBS,
-Portworx, local path — plus the live IOPS / capacity / read / write
-breakdowns.
+Unified view of every storage backend Nexus speaks (Ceph, Longhorn,
+NVMe-oF, RDMA, ZFS, **ZFS AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS,
+OpenEBS, Portworx, local path), with per-backend capacity, IOPS, and
+read/write breakdowns so the operator sees the whole fabric at once.
 
 ![Storage dashboard](docs/screenshots/05-storage-dashboard.webp)
 
 ### Setup Wizard
 
-Unified Machine Foundation + optional Manifest Wizard. Drives bare-metal
-install (create / join / binaries) and Kubernetes workload manifest
-generation from the same surface.
+End-to-end provisioning — bare-metal install plan (create / join /
+binaries) and Kubernetes workload manifest generation in the same flow.
+Lets you stand up a Harvester host and the workloads that target it
+without leaving the wizard.
 
 ![Setup Wizard](docs/screenshots/06-setup-wizard.webp)
 
 ### ZFS AnyRAID configuration
 
-Slab-based ZFS pool over heterogeneous-capacity drives. The wizard
-accepts a per-disk inventory of mixed sizes, computes effective usable
-capacity from a slab redundancy plan, and renders a `StorageClass` whose
-parameters carry the disk inventory through to the CSI driver.
+Accepts a heterogeneous-capacity drive inventory and produces a single
+slab-based ZFS pool, computing effective usable capacity and emitting a
+`StorageClass` whose CSI parameters carry the per-disk plan through to
+the driver. Lets operators reuse mixed older + newer drives instead of
+forcing matched sets.
 
 ![ZFS AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
 
 ### Manifest Wizard · workload types
 
-All five Kubernetes workload kinds (Deployment, StatefulSet, DaemonSet,
-Job, CronJob) selectable from the wizard.
+Generates production-ready manifests for all five core Kubernetes
+workload kinds (`Deployment`, `StatefulSet`, `DaemonSet`, `Job`,
+`CronJob`) along with the supporting `PVC`, `Service`, `Ingress`,
+`NetworkPolicy`, RBAC, and monitoring resources for the chosen workload.
 
 ![Workload type selection](docs/screenshots/08-workload-types.webp)
 
 ### Generated Kubernetes manifest
 
-CodeMirror YAML editor with live validation. Edit the YAML directly and
-the validation status updates inline; the cluster console picks up the
-edits for the dry-run / apply / rollout commands.
+Live YAML editor with structural validation — edits update the validation
+status inline and feed straight into the Cluster Console's dry-run / apply
+/ rollout commands, so the manifest you see is the manifest you ship.
 
 ![Generated manifest](docs/screenshots/09-generated-manifest.webp)
 
 ### Cluster Console
 
-Live-adapter integration surface — Kubernetes API validation, `kubectl`
-apply / test runner, `vcluster` multi-cluster operations, CodeMirror YAML
-editor, and real CSI storage templates with provisioner-specific
-parameters.
+The integration surface between the cockpit and a real cluster: Kubernetes
+API validation, `kubectl auth can-i` / server-side dry-run / diff / apply
+/ rollout-status command generation, `vcluster` multi-cluster operations,
+and provisioner-specific CSI storage templates.
 
 ![Cluster Console](docs/screenshots/10-cluster-console.webp)
 
+### XDR Operations Center
+
+Live security operations dashboard powered by the in-app `XdrEngine`.
+Inventories every endpoint, streams real-time alerts with matched IOC
+details, auto-dispatches Kubernetes response actions, tracks MITRE
+ATT&CK kill-chain coverage per tactic, and attributes attacks to named
+APT actors. A deterministic 14-step attack-scenario simulator drives the
+view in demo / preview mode.
+
+![XDR Operations Center](docs/screenshots/13-xdr-operations-center.png)
+
+### MITRE ATT&CK kill-chain + APT attribution
+
+Kill-chain heatmap that highlights every tactic an attacker has touched
+(reconnaissance → impact) plus a threat-attribution panel that names the
+actor (APT28 / Fancy Bear, LAZARUS, etc.), their origin country and city,
+the CVE they exploited, the malware family, and the recommended response
+action. Drives faster triage by replacing raw alert noise with
+analyst-ready context.
+
+![Kill-chain + APT attribution](docs/screenshots/14-xdr-killchain-attribution.png)
+
+### Security Posture wizard
+
+Picks an XDR profile (Baseline / Hardened / Maximum) and tunes the sensor
+stack. Surfaces every one of the 17 FOSS sensors with vendor, license,
+version, placement, covered endpoint kinds, and homepage so operators
+can audit the supply chain before standing the platform up. The wizard
+emits the full Kubernetes bundle (DaemonSets, Deployments, Services,
+CronJobs, admission webhooks) ready to `kubectl apply`.
+
+![Security Posture wizard · Maximum profile](docs/screenshots/15-security-posture-wizard.png)
+
+### XDR · Generated Kubernetes manifest
+
+The actual YAML the wizard emits — real upstream FOSS images
+(`falcosecurity/falco`, `cilium/tetragon`, `wazuh/wazuh-agent`,
+`aquasecurity/trivy-operator`, `jasonish/suricata`,
+`opensearchproject/opensearch`, …), correct privilege scopes, host
+mounts where eBPF needs them, and a namespace + apply commands. Nothing
+behind it is proprietary.
+
+![XDR generated manifest](docs/screenshots/16-xdr-generated-manifest.png)
+
+### Detection rule catalog
+
+All 18 Sigma-style detection rules: their MITRE technique IDs, the
+tactics they cover, the sensors they require, the severity they emit,
+and the response actions they recommend. The catalog is the source of
+truth — the engine evaluates exactly these rules against every sensor
+event.
+
+![Detection rule catalog](docs/screenshots/17-xdr-rule-catalog.png)
+
 ### Sidebar navigation
 
-Grouped cockpit nav (MONITOR / COMPUTE / DEPLOY) with sig-code chips,
-hover state, active-item left accent bar, and a pulsing live dot on the
-active view. Compact theme dropdown sits below the nav.
+Grouped cockpit nav (`MONITOR`, `COMPUTE`, `SECURE`, `DEPLOY`) that lets
+operators jump between observability, compute / scheduling, security
+operations, and provisioning without losing context. The new `SECURE`
+group hosts the XDR Operations Center and Security Posture wizard.
 
 ![Sidebar navigation](docs/screenshots/11-sidebar.webp)
 
-### Theme dropdown
+### Theme picker
 
-Four cool-tone themes — Route Grid, Arctic Hologram, Arctic Command, and
-Ice Spectrum — selectable from a compact popover dropdown. Theme
-selection persists in `localStorage`.
+Four cool-tone themes (Route Grid, Arctic Hologram, Arctic Command, Ice
+Spectrum) so the cockpit adapts to operator preference and ambient
+lighting in the SOC. Theme selection persists in `localStorage`.
 
 ![Theme dropdown](docs/screenshots/12-theme-dropdown.webp)
 
@@ -208,8 +276,8 @@ git clone https://github.com/sggr57a/harvester-nexus.git
 cd harvester-nexus
 ```
 
-> To run the bleeding-edge branch instead of `main`, check it out:
-> `git checkout cursor/multi-theme-live-mockup-d3bc`
+> To run the bleeding-edge XDR / MDR branch instead of `main`, check it out:
+> `git checkout cursor/xdr-mdr-foss-d3bc`
 
 ### 4. Install JavaScript dependencies
 
@@ -233,7 +301,7 @@ Open `http://localhost:4173` in any browser. **Demo credentials**: `admin` / `de
 
 ```bash
 npx tsc --noEmit     # type-check the project
-npm run test         # run the Vitest suite (51 tests)
+npm run test         # run the Vitest suite (178 tests)
 npm run build        # production build into ./dist
 npm run preview      # preview the production bundle on :4173
 ```
@@ -280,21 +348,44 @@ docs/mockups/                 Reference screenshots & videos
 ## Verified build
 
 - `npx tsc --noEmit` — clean type-check
-- `npm run test` — 51 / 51 Vitest tests pass
+- `npm run test` — 178 / 178 Vitest tests pass (cockpit + XDR engine + rules + responses + manifests)
 - `npm run build` — production bundle succeeds
 
 ## Demo installation
 
-This prototype is intended as a front-end Nexus demo for Harvester-style workload generation. After launching the app locally, use the **Setup Wizard** to provision the bare-metal install plan, then optionally open the embedded **Manifest Wizard** to select storage, networking, security, monitoring, GitOps, and multi-cluster options. The generated manifests appear in the built-in CodeMirror YAML editor; the **Cluster Console** view shows the live-adapter Kubernetes API validation, `kubectl` apply/test run, and `vcluster` operations.
+This prototype is the front-end Nexus demo for Harvester-style workload
+generation and the bundled XDR / MDR platform. After launching the app
+locally:
 
-### GitHub branch and pull request
+1. Open the **Setup Wizard** to provision the bare-metal install plan,
+   then optionally enable the embedded **Manifest Wizard** to select
+   storage, networking, security, monitoring, GitOps, and multi-cluster
+   options. Generated manifests appear in the built-in CodeMirror YAML
+   editor.
+2. Open the **Cluster Console** for live-adapter Kubernetes API
+   validation, `kubectl` apply / test runs, and `vcluster` multi-cluster
+   operations.
+3. Open the **Security Posture** wizard to pick an XDR profile
+   (Baseline / Hardened / Maximum), tune the sensor catalog, preview the
+   generated Kubernetes bundle, and read the detection-rule catalog.
+4. Open **XDR Operations** to watch the live SOC dashboard. The bundled
+   deterministic 14-step attack-scenario simulator drives the page in
+   demo mode so you can see alerts firing, response actions dispatched,
+   and APT actors being attributed in real time.
 
-The latest cockpit work is on:
+### GitHub branches and pull requests
+
+The XDR / MDR platform lives on:
+
+- Branch: <https://github.com/sggr57a/harvester-nexus/tree/cursor/xdr-mdr-foss-d3bc>
+- Pull request: <https://github.com/sggr57a/harvester-nexus/pull/27>
+
+The themed cockpit + ZFS AnyRAID work lives on:
 
 - Branch: <https://github.com/sggr57a/harvester-nexus/tree/cursor/multi-theme-live-mockup-d3bc>
 - Default branch: <https://github.com/sggr57a/harvester-nexus/tree/main>
 
-The Harvester platform fork still lives on:
+The Harvester platform fork lives on:
 
 - Branch: <https://github.com/sggr57a/harvester/tree/nexus>
 - Pull request: <https://github.com/sggr57a/harvester/pull/1>
