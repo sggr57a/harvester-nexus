@@ -11,7 +11,7 @@ By unifying the bare-metal agility of Proxmox and Incus (LXC) with the massive c
 Highlights:
 
 - **Poly-Compute Engine** — runs KubeVirt VMs, Incus / LXC system containers, and native Kubernetes pods on the same bare-metal loop, with NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, and cross-socket cost penalties on the scheduler.
-- **Universal Storage Fabric** — every storage backend in the catalog is wired into CSI / direct-host paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, **ZFS AnyRAID** with heterogeneous-capacity drive slabbing, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath driver for RWX shares.
+- **Universal Storage Fabric** — every storage backend in the catalog is wired into CSI / direct-host paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, **AnyRAID** with heterogeneous-capacity drive slabbing, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath driver for RWX shares.
 - **Hardware acceleration** — SPDK userspace NVMe-oF queues, DPDK polled-mode rings, vhost-user fast paths, NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
 - **Machine Wizard 2.0** — install YAML with `poly_compute` and `hardware_acceleration` blocks plus boot-parameter switches (`nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, `nexus.acceleration.gpu_passthrough=true`). Validation refuses configs that turn off every runtime or enable GPU pass-through without NUMA pinning.
 - **Built-in XDR / MDR platform (100% FOSS)** — every Nexus install ships with a complete detect-and-respond stack: 17 open-source sensors (Falco, Tetragon, Wazuh, Trivy, Grype, Syft, Suricata, Hubble, OpenSearch, MISP, kube-bench, kube-hunter, Polaris, OpenCanary, OpenSCAP, Lynis), 10 free threat-intel feeds (MISP, OTX, ThreatFox, URLhaus, Feodotracker, ETOpen, MITRE ATT&CK, NVD, OSV, internal allowlist), 18 Sigma-style detection rules covering all seven MITRE ATT&CK kill-chain phases, 10 automated response actions that emit real Kubernetes manifests (Cilium NetworkPolicy isolate, Harvester host cordon/drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot, Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback, Trivy image block, Cilium CCNP egress-domain block), and APT geo-attribution that maps sources to actors like APT28 / LAZARUS. No paid SKUs, no subscriptions.
@@ -21,7 +21,7 @@ Highlights:
 
 Nexus is the updated Harvester fork with:
 
-- **Universal storage fabric** — iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **ZFS AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local-path storage with CSI templates per backend.
+- **Universal storage fabric** — iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local-path storage with CSI templates per backend.
 - **Network fabric and service mesh** — Istio, Linkerd, Cilium, plus Service, Ingress, and NetworkPolicy generation.
 - **Built-in XDR / MDR detect-and-respond** — eBPF runtime security, HIDS, IDS/IPS, image-scan admission, K8s benchmark, host hardening, threat intel, honeypots, and automated response actions, all driven by 100% FOSS components.
 - **Identity, RBAC, and policy** — RBAC roles, Pod Security Standards enforcement, service accounts, workload annotations, and admission-time best-practice gating (Polaris).
@@ -55,7 +55,7 @@ Nexus is the updated Harvester fork with:
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
 - Manifest Wizard embedded inside the unified Setup Wizard as an optional setup section, allowing workload manifest generation without leaving the provisioning flow.
 - Wizard-driven workload and manifest configuration.
-- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, **ZFS AnyRAID**, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass). The AnyRAID wizard step accepts heterogeneous drive capacities, computes the effective usable capacity from a slab-based redundancy plan, and renders a `StorageClass` whose parameters carry the per-disk inventory through to the CSI driver.
+- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, **AnyRAID**, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass). The AnyRAID wizard step accepts heterogeneous drive capacities, computes the effective usable capacity from a slab-based redundancy plan, and renders a `StorageClass` whose parameters carry the per-disk inventory through to the CSI driver.
 - Auto-generated `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `CronJob` manifests.
 - PVC, Service, Ingress, NetworkPolicy, RBAC, monitoring, logging, GitOps, and multi-cluster manifest generation.
 - Service mesh integration support for Istio, Linkerd, and Cilium.
@@ -108,7 +108,7 @@ full MITRE kill chain.
 ### Storage dashboard
 
 Unified view of every storage backend Nexus speaks (Ceph, Longhorn,
-NVMe-oF, RDMA, ZFS, **ZFS AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS,
+NVMe-oF, RDMA, ZFS, **AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS,
 OpenEBS, Portworx, local path), with per-backend capacity, IOPS, and
 read/write breakdowns so the operator sees the whole fabric at once.
 
@@ -123,7 +123,7 @@ without leaving the wizard.
 
 ![Setup Wizard](docs/screenshots/06-setup-wizard.webp)
 
-### ZFS AnyRAID configuration
+### AnyRAID configuration
 
 Accepts a heterogeneous-capacity drive inventory and produces a single
 slab-based ZFS pool, computing effective usable capacity and emitting a
@@ -131,7 +131,7 @@ slab-based ZFS pool, computing effective usable capacity and emitting a
 the driver. Lets operators reuse mixed older + newer drives instead of
 forcing matched sets.
 
-![ZFS AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
+![AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
 
 ### Manifest Wizard · workload types
 
@@ -258,7 +258,7 @@ A single host running the bundled Harvester base + Kubernetes + KubeVirt + XDR s
 | CPU | 8 cores, x86_64 with VT-x / AMD-V, SSE4.2, `xsave` | 16+ cores with AVX2, IOMMU enabled (VT-d / AMD-Vi) for SR-IOV and GPU pass-through |
 | Memory | 32 GB RAM | 64+ GB RAM with at least one NUMA node free for 1 GiB hugepages |
 | Boot disk | 200 GB SSD | 500 GB NVMe |
-| Data disks | 1× 500 GB SSD for ZFS / Longhorn / OpenEBS | 2+ NVMe drives for the storage fabric (ZFS AnyRAID accepts heterogeneous capacities) |
+| Data disks | 1× 500 GB SSD for ZFS / Longhorn / OpenEBS | 2+ NVMe drives for the storage fabric (AnyRAID accepts heterogeneous capacities) |
 | Network | 1× 1 GbE | 1× 10 GbE + 1× 25 GbE for storage / east-west, or RDMA-capable NIC for the NVMe-oF fast path |
 | Accelerators | none | optional GPU / FPGA / smart-NIC with vfio-pci binding for AI/ML and SmartNIC offload pools |
 | Firmware | UEFI with secure boot **off** (KubeVirt + eBPF require unsigned kernel modules in some kernels) | UEFI + TPM 2.0 for Wazuh FIM and OpenSCAP host hardening evidence |
@@ -273,7 +273,7 @@ A 3+ node hyperconverged cluster running the full Poly-Compute Engine (KubeVirt 
 | CPU | 16 cores with VT-x/AMD-V, VT-d/AMD-Vi, AVX2 | 32+ cores, dual-socket, NUMA-aware |
 | Memory | 64 GB RAM with 8 GB reserved for hugepages | 256+ GB RAM with 64 GB reserved for 1 GiB hugepages, one socket-local pool per workload class |
 | Boot disk | 200 GB NVMe (mirrored) | 2× 500 GB NVMe in mirror |
-| Storage tier | 2× 1 TB NVMe per node for the hot tier, 4× 4 TB SATA SSD for the warm tier | 4+ NVMe per node bound to SPDK userspace queues, plus a slower SATA SSD / HDD warm tier; ZFS AnyRAID handles mixed capacities |
+| Storage tier | 2× 1 TB NVMe per node for the hot tier, 4× 4 TB SATA SSD for the warm tier | 4+ NVMe per node bound to SPDK userspace queues, plus a slower SATA SSD / HDD warm tier; AnyRAID handles mixed capacities |
 | Network — front | 2× 10 GbE (LACP) for north-south | 2× 25 GbE (LACP) for north-south |
 | Network — fabric | 2× 25 GbE for east-west and storage replication | 2× 100 GbE RDMA (RoCEv2) for east-west, storage replication, and the NVMe-oF target plane |
 | Accelerators | none required | GPU pool (NVIDIA / AMD), FPGA pool (Xilinx / Intel), smart-NIC pool (BlueField / Stingray) all bound via vfio-pci / SR-IOV / mdev |
@@ -411,5 +411,5 @@ docs/mockups/                 Reference screenshots & videos
 
 - Default branch (everything merged): <https://github.com/sggr57a/harvester-nexus/tree/main>
 - XDR / MDR platform: PR <https://github.com/sggr57a/harvester-nexus/pull/27> (merged)
-- Themed cockpit + ZFS AnyRAID: branch <https://github.com/sggr57a/harvester-nexus/tree/cursor/multi-theme-live-mockup-d3bc>
+- Themed cockpit + AnyRAID: branch <https://github.com/sggr57a/harvester-nexus/tree/cursor/multi-theme-live-mockup-d3bc>
 - Harvester platform fork: branch <https://github.com/sggr57a/harvester/tree/nexus>, PR <https://github.com/sggr57a/harvester/pull/1>

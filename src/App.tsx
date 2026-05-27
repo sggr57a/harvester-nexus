@@ -40,7 +40,7 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
   nvme: 'NVMe-oF over TCP volume claim',
   rdma: 'RDMA-backed CSI volume',
   zfs: 'ZFS over iSCSI or ZFS CSI driver',
-  'zfs-anyraid': 'ZFS AnyRAID — slab-based pool over heterogeneous-capacity drives',
+  anyraid: 'AnyRAID — slab-based pool over heterogeneous-capacity drives',
   iscsi: 'iSCSI block storage with CSI driver',
   glusterfs: 'GlusterFS distributed filesystem with CSI',
   longhorn: 'Longhorn cloud-native distributed block storage',
