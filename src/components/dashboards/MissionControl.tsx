@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
+import { MissionCustomizableArea } from './MissionCustomizableArea';
 import {
   buildAccelerationDashboard,
   buildMachinesDashboard,
@@ -281,8 +282,8 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
         <KpiTile label="Open CVE" value={`${telemetry?.openCves ?? 17}`} hint="critical & high" status="warn" />
       </div>
 
-      <div className="mission-grid">
-        <article className="dash-panel mission-radial">
+      <MissionCustomizableArea>
+        <article key="radial" className="dash-panel mission-radial">
           <WidgetTitle kicker="POSTURE" title="Cluster posture rings" trailing={<span className="osc-readout">tick #{telemetry?.tick ?? 0}</span>} />
           <MultiRingGauge
             rings={rings}
@@ -294,7 +295,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           <StatReadouts stats={computeStats(cpuSeries)} unit="%" compact />
         </article>
 
-        <article className="dash-panel mission-osc">
+        <article key="osc" className="dash-panel mission-osc">
           <WidgetTitle kicker="LIVE-WAVE" title="Oscilloscope · CPU / DRAM / NIC RX / NIC TX" />
           <AnnotatedOscilloscope
             channels={oscilloscopeChannels}
@@ -309,7 +310,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           />
         </article>
 
-        <article className="dash-panel mission-dials">
+        <article key="dials" className="dash-panel mission-dials">
           <WidgetTitle kicker="DIALS" title="Cluster dial gauges" trailing={<span className="osc-readout">analog HUD</span>} />
           <div className="mission-dial-grid">
             <DialGauge value={telemetry?.cpuPercent ?? 58} label="CPU LOAD" unit="%" status={(telemetry?.cpuPercent ?? 58) > 80 ? 'warn' : 'good'} bands={[{ from: 0, to: 60, color: 'var(--theme-good)' }, { from: 60, to: 80, color: 'var(--theme-warn)' }, { from: 80, to: 100, color: 'var(--theme-danger)' }]} />
@@ -319,57 +320,57 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           </div>
         </article>
 
-        <article className="dash-panel mission-meters">
+        <article key="meters" className="dash-panel mission-meters">
           <WidgetTitle kicker="LEVELS" title="Fleet CPU level meters" trailing={<span className="osc-readout">{machines.fleet.length} workloads</span>} />
           <VerticalMeterBank meters={verticalMeters} height={170} scale={100} />
         </article>
 
-        <article className="dash-panel mission-ring-cluster">
+        <article key="ring-cluster" className="dash-panel mission-ring-cluster">
           <WidgetTitle kicker="BACKENDS" title="Storage backend ring meters" trailing={<span className="osc-readout">{storage.backends.length} drivers</span>} />
           <RingMeterCluster meters={ringMeters} size={84} />
         </article>
 
-        <article className="dash-panel mission-anomaly">
+        <article key="anomaly" className="dash-panel mission-anomaly">
           <WidgetTitle kicker="ANOMALY" title="Anomaly stream · AUTH / NET / IO" trailing={<span className="osc-readout">threshold 70</span>} />
           <AnomalyStream snapshot={telemetry} height={130} />
         </article>
 
-        <article className="dash-panel mission-map">
+        <article key="map" className="dash-panel mission-map">
           <WidgetTitle kicker="3D-CITY" title="Cluster topology · isometric pillars" trailing={<span className="osc-readout">live activity</span>} />
           <Cluster3DMap nodes={mapNodes} edges={mapEdges} snapshot={telemetry} height={360} />
         </article>
 
-        <article className="dash-panel mission-feed">
+        <article key="feed" className="dash-panel mission-feed">
           <WidgetTitle kicker="STREAM" title="Live event log" trailing={<span className="env-ticker-live">stream live</span>} />
           <LiveEventFeed snapshot={telemetry} height={260} maxLines={10} />
         </article>
 
-        <article className="dash-panel mission-heatmap">
+        <article key="heatmap" className="dash-panel mission-heatmap">
           <WidgetTitle kicker="HEATMAP" title="Node activity heatmap · last 24 ticks" trailing={<span className="osc-readout">7 nodes</span>} />
           <ActivityHeatmap rows={heatmapRows} />
         </article>
 
-        <article className="dash-panel mission-activity">
+        <article key="activity" className="dash-panel mission-activity">
           <WidgetTitle kicker="NOW-PLAYING" title="Workload activity timeline" trailing={<span className="osc-readout">live</span>} />
           <ActivityTimeline />
         </article>
 
-        <article className="dash-panel mission-sparkgrid">
+        <article key="sparkgrid" className="dash-panel mission-sparkgrid">
           <WidgetTitle kicker="SIGNALS" title="12-channel signal grid" trailing={<span className="osc-readout">/s &amp; /min</span>} />
           <SparklineGrid items={sparkItems} columns={3} />
         </article>
 
-        <article className="dash-panel mission-gitops">
+        <article key="gitops" className="dash-panel mission-gitops">
           <WidgetTitle kicker="GITOPS" title="Sync state bank · argocd / flux / jenkins-x" />
           <GitOpsSyncBank />
         </article>
 
-        <article className="dash-panel mission-gpus">
+        <article key="gpus" className="dash-panel mission-gpus">
           <WidgetTitle kicker="ACCEL" title="GPU memory + utilisation grid" trailing={<span className="osc-readout">vfio-pci · mdev</span>} />
           <GpuMemoryGrid />
         </article>
 
-        <article className="dash-panel mission-api">
+        <article key="api" className="dash-panel mission-api">
           <WidgetTitle kicker="API" title="Request rate gauges" trailing={<span className="osc-readout">vs budget</span>} />
           <div className="mission-api-grid">
             <ApiRateGauge label="payments-api" current={1840} budget={2200} max={3000} series={Array.from({ length: 22 }, () => 1500 + Math.random() * 700)} />
@@ -379,17 +380,17 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           </div>
         </article>
 
-        <article className="dash-panel mission-bars">
+        <article key="bars-storage" className="dash-panel mission-bars">
           <WidgetTitle kicker="TOP-N" title="Storage backends · live IOPS" />
           <HorizontalBarCluster bars={topCostBars} />
         </article>
 
-        <article className="dash-panel mission-bars">
+        <article key="bars-passthrough" className="dash-panel mission-bars">
           <WidgetTitle kicker="PASS-THROUGH" title="GPU / FPGA / smart-NIC utilisation" />
           <HorizontalBarCluster bars={passThroughBars} scale={100} />
         </article>
 
-        <article className="dash-panel mission-stack">
+        <article key="stack-mix" className="dash-panel mission-stack">
           <WidgetTitle kicker="STACK" title="Workload mix · last 32 ticks" trailing={<span className="osc-readout">vm + lxc + pod + docker</span>} />
           <StackedAreaChart
             height={140}
@@ -402,7 +403,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           />
         </article>
 
-        <article className="dash-panel mission-flow">
+        <article key="flow-vlan" className="dash-panel mission-flow">
           <WidgetTitle kicker="FLOW" title="VLAN → service mesh ribbons" trailing={<span className="osc-readout">Mb/s</span>} />
           <FlowDiagram
             height={220}
@@ -428,12 +429,12 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           />
         </article>
 
-        <article className="dash-panel mission-fft">
+        <article key="fft" className="dash-panel mission-fft">
           <WidgetTitle kicker="SPECTRUM" title="Network spectrum (DPDK)" trailing={<span className="osc-readout">64 channel FFT</span>} />
           <AnnotatedFft snapshot={telemetry} bars={64} height={160} freqLabels={['0', '125M', '250M', '500M', '1G', '2G', '4G']} />
         </article>
 
-        <article className="dash-panel mission-pctile">
+        <article key="pctile" className="dash-panel mission-pctile">
           <WidgetTitle kicker="PERCENTILES" title="Service-mesh latency bands" />
           <PercentileBar label="api.payments → ledger" p50={28} p95={62} p99={118} scale={200} />
           <PercentileBar label="api.payments → fraud" p50={42} p95={88} p99={142} scale={200} />
@@ -441,17 +442,17 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
           <PercentileBar label="prometheus → siem" p50={12} p95={28} p99={52} scale={200} />
         </article>
 
-        <article className="dash-panel mission-stacked">
+        <article key="stacked-mix" className="dash-panel mission-stacked">
           <WidgetTitle kicker="STACKED" title="Workload mix over time" trailing={<span className="osc-readout">VM · LXC · POD · DOCKER</span>} />
           <StackedAreaChart series={stackedAreaSeries} height={150} />
         </article>
 
-        <article className="dash-panel mission-flow">
+        <article key="flow-mesh" className="dash-panel mission-flow">
           <WidgetTitle kicker="FLOW" title="VLAN → service traffic flow" trailing={<span className="osc-readout">sankey · live</span>} />
           <FlowDiagram nodes={flowNodes} links={flowLinks} height={210} />
         </article>
 
-        <article className="dash-panel mission-stats">
+        <article key="statgrid" className="dash-panel mission-stats">
           <WidgetTitle kicker="DENSE" title="Workload + driver mix" />
           <StatGrid
             columns={4}
@@ -471,7 +472,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
             ]}
           />
         </article>
-      </div>
+      </MissionCustomizableArea>
     </section>
   );
 }
