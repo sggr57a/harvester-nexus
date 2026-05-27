@@ -320,18 +320,24 @@ function SweepBeam({ endpointIndex, rows }: { endpointIndex: number; rows: numbe
 }
 
 function ReticleLock({ peak }: { peak: NonNullable<ThreatSurface['peak']> }) {
-  const p = isoProject({ x: peak.endpointIndex, y: peak.tacticIndex, z: peak.height, cellWidth: CELL_W, cellDepth: CELL_D, heightScale: HEIGHT_SCALE, pitch: PITCH });
+  const top = isoProject({ x: peak.endpointIndex, y: peak.tacticIndex, z: peak.height, cellWidth: CELL_W, cellDepth: CELL_D, heightScale: HEIGHT_SCALE, pitch: PITCH });
+  const base = isoProject({ x: peak.endpointIndex, y: peak.tacticIndex, z: 0, cellWidth: CELL_W, cellDepth: CELL_D, heightScale: HEIGHT_SCALE, pitch: PITCH });
   return (
-    <g className={`reticle-lock sev-${peak.topSeverity}`} transform={`translate(${p.sx} ${p.sy})`}>
-      <circle r="14" className="lock-ring" />
-      <circle r="20" className="lock-ring lock-ring-outer" />
-      <line x1={-22} y1={0} x2={-9} y2={0} className="lock-tick" />
-      <line x1={22} y1={0} x2={9} y2={0} className="lock-tick" />
-      <line x1={0} y1={-22} x2={0} y2={-9} className="lock-tick" />
-      <line x1={0} y1={22} x2={0} y2={9} className="lock-tick" />
-      <text x={28} y={4} className="lock-label">
-        {shortName(peak.endpointId)} · {SHORT_TACTIC_LABEL[peak.tactic]}
-      </text>
+    <g className={`reticle-lock sev-${peak.topSeverity}`}>
+      <line x1={base.sx} y1={base.sy} x2={top.sx} y2={top.sy} className="lock-stem" />
+      <g transform={`translate(${top.sx} ${top.sy})`}>
+        <circle r="22" className="lock-ring lock-ring-outer" />
+        <circle r="14" className="lock-ring" />
+        <circle r="3" className="lock-core" />
+        <line x1={-30} y1={0} x2={-12} y2={0} className="lock-tick" />
+        <line x1={30} y1={0} x2={12} y2={0} className="lock-tick" />
+        <line x1={0} y1={-30} x2={0} y2={-12} className="lock-tick" />
+        <line x1={0} y1={30} x2={0} y2={12} className="lock-tick" />
+        <rect x={28} y={-9} width={132} height={18} className="lock-label-bg" rx={2} />
+        <text x={34} y={4} className="lock-label">
+          {shortName(peak.endpointId)} · {SHORT_TACTIC_LABEL[peak.tactic]}
+        </text>
+      </g>
     </g>
   );
 }

@@ -13858,10 +13858,13 @@ select option {
 
 .threat-rings {
   position: absolute;
-  inset: 50% auto auto 50%;
-  width: 80%;
+  inset: auto 0 4% 0;
+  margin: 0 auto;
+  width: 86%;
   aspect-ratio: 1;
-  transform: translate(-50%, -50%) perspective(900px) rotateX(78deg);
+  max-height: 55%;
+  transform: perspective(900px) rotateX(74deg);
+  transform-origin: center bottom;
   pointer-events: none;
   z-index: 1;
 }
@@ -13869,24 +13872,25 @@ select option {
   position: absolute;
   inset: 0;
   margin: auto;
-  border: 1px dashed rgba(255, 196, 100, 0.32);
+  border: 1px dashed rgba(255, 196, 100, 0.55);
   border-radius: 50%;
   animation: threat-ring-spin linear infinite;
+  filter: drop-shadow(0 0 4px rgba(255, 196, 100, 0.35));
 }
 .threat-rings .ring-mid {
   inset: 8%;
   border-style: solid;
-  border-color: rgba(255, 196, 100, 0.18);
+  border-color: rgba(255, 196, 100, 0.32);
   animation-direction: reverse;
 }
 .threat-rings .ring-inner {
   inset: 22%;
-  border: 1px dotted rgba(255, 196, 100, 0.24);
+  border: 1px dotted rgba(255, 196, 100, 0.4);
 }
 .threat-rings .ring-tick {
   inset: 14%;
-  border: 1px solid rgba(255, 196, 100, 0.12);
-  background: repeating-conic-gradient(rgba(255, 196, 100, 0) 0deg 8deg, rgba(255, 196, 100, 0.18) 8deg 8.6deg);
+  border: 1px solid rgba(255, 196, 100, 0.18);
+  background: repeating-conic-gradient(rgba(255, 196, 100, 0) 0deg 6deg, rgba(255, 196, 100, 0.32) 6deg 6.6deg);
   border-radius: 50%;
   -webkit-mask: radial-gradient(circle, transparent 60%, black 60%);
   mask: radial-gradient(circle, transparent 60%, black 60%);
@@ -13931,31 +13935,55 @@ select option {
 .reticle-lock .lock-ring {
   fill: none;
   stroke: var(--theme-accent);
-  stroke-width: 1.4;
-  filter: drop-shadow(0 0 4px var(--theme-accent));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px var(--theme-accent));
   animation: lock-pulse 1600ms ease-in-out infinite;
 }
 .reticle-lock .lock-ring-outer {
-  stroke-dasharray: 4 4;
+  stroke-dasharray: 5 4;
   animation-direction: reverse;
+}
+.reticle-lock .lock-core {
+  fill: var(--theme-accent);
+  filter: drop-shadow(0 0 6px var(--theme-accent));
 }
 .reticle-lock .lock-tick {
   stroke: var(--theme-accent);
-  stroke-width: 1.4;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px var(--theme-accent));
+}
+.reticle-lock .lock-stem {
+  stroke: var(--theme-accent);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+  filter: drop-shadow(0 0 3px var(--theme-accent));
+}
+.reticle-lock .lock-label-bg {
+  fill: rgba(0, 0, 0, 0.78);
+  stroke: var(--theme-accent);
+  stroke-width: 0.6;
 }
 .reticle-lock .lock-label {
   fill: var(--theme-accent);
   font-family: var(--theme-mono, monospace);
-  font-size: 9px;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .reticle-lock.sev-critical .lock-ring,
-.reticle-lock.sev-critical .lock-tick { stroke: #ff4d6d; filter: drop-shadow(0 0 6px #ff4d6d); }
+.reticle-lock.sev-critical .lock-tick,
+.reticle-lock.sev-critical .lock-stem { stroke: #ff4d6d; filter: drop-shadow(0 0 8px #ff4d6d); }
+.reticle-lock.sev-critical .lock-core { fill: #ff4d6d; }
 .reticle-lock.sev-critical .lock-label { fill: #ff4d6d; }
+.reticle-lock.sev-critical .lock-label-bg { stroke: #ff4d6d; }
 .reticle-lock.sev-high .lock-ring,
-.reticle-lock.sev-high .lock-tick { stroke: #ff8c4a; filter: drop-shadow(0 0 5px #ff8c4a); }
+.reticle-lock.sev-high .lock-tick,
+.reticle-lock.sev-high .lock-stem { stroke: #ff8c4a; filter: drop-shadow(0 0 6px #ff8c4a); }
+.reticle-lock.sev-high .lock-core { fill: #ff8c4a; }
 .reticle-lock.sev-high .lock-label { fill: #ff8c4a; }
+.reticle-lock.sev-high .lock-label-bg { stroke: #ff8c4a; }
 @keyframes lock-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.55; transform: scale(1.08); }
