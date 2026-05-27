@@ -113,12 +113,10 @@ export function EnvironmentTicker({ snapshot, label = 'Live Environment Stream' 
 
   return (
     <div className="env-ticker" aria-label="Live environment statistics">
-      <div className="env-ticker-cell" style={{ gridColumn: '1 / -1', background: 'transparent', border: 'none', padding: '0 0 0.2rem' }}>
-        <span className="label" style={{ color: 'var(--theme-text-dim)' }}>{label}</span>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem' }}>
-          <span className="sub">tick #{snapshot.tick} · synthetic poly-compute environment</span>
-          <span className="env-ticker-live">stream live</span>
-        </div>
+      <div className="env-ticker-header" style={{ gridColumn: '1 / -1' }}>
+        <span className="env-ticker-title">{label}</span>
+        <span className="env-ticker-tick">tick #{snapshot.tick} · synthetic poly-compute environment</span>
+        <span className="env-ticker-live">stream live</span>
       </div>
       {cells.map((cell) => {
         const deltaClass =

@@ -6,6 +6,14 @@ import {
   buildNetworkingDashboard,
   buildStorageDashboard,
 } from '../../lib/dashboards';
+import { useLiveXdrEngine } from '../../lib/xdr/hooks';
+import { syntheticCompliancePosture } from '../../lib/compliancePosture';
+import {
+  CompliancePostureRings,
+  DeceptionRadar,
+  FastPathLaneStatus,
+  SloBurnGauges,
+} from './MissionHudWidgets';
 import {
   ActivityHeatmap,
   ActivityTimeline,
@@ -52,6 +60,14 @@ interface MissionControlProps {
 }
 
 export function MissionControlView({ telemetry }: MissionControlProps = {}) {
+  // Live XDR engine drives the security widgets (compliance posture +
+  // deception radar). The hook also runs the deterministic kill-chain
+  // simulator so honeypot-touch alerts arrive on schedule.
+  const xdrSnap = useLiveXdrEngine({ intervalMs: 1600, simulate: true, loop: true });
+  const compliancePostures = useMemo(
+    () => (xdrSnap.compliance.length > 0 ? xdrSnap.compliance : syntheticCompliancePosture(telemetry?.tick ?? 0)),
+    [xdrSnap.compliance, telemetry?.tick],
+  );
   const cpuSeries = useRollingSeries(telemetry?.cpuPercent ?? 58, 48, telemetry?.tick);
   const ramSeries = useRollingSeries(telemetry?.ramPercent ?? 64, 48, telemetry?.tick);
   const iopsSeries = useRollingSeries(telemetry ? telemetry.totalIops / 12_000 : 90, 48, telemetry?.tick);
@@ -279,6 +295,13 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
         <KpiTile label="Egress" value={telemetry ? `${(telemetry.egressMbps / 1000).toFixed(1)}` : '74.8'} unit="Gb/s" delta={telemetry ? Math.round(telemetry.deltas.egressMbps / 1000) : 0} series={egressSeries} hint="NIC bonds aggregated" />
         <KpiTile label="Migrations" value={`${telemetry?.activeMigrations ?? 3}`} delta={telemetry?.deltas.activeMigrations} series={migrSeries} hint="vMotion in-flight" status={(telemetry?.activeMigrations ?? 3) > 5 ? 'warn' : 'good'} />
         <KpiTile label="Open CVE" value={`${telemetry?.openCves ?? 17}`} hint="critical & high" status="warn" />
+      </div>
+
+      <div className="mission-hud-row">
+        <CompliancePostureRings postures={compliancePostures} />
+        <FastPathLaneStatus lanes={telemetry?.fastPathLanes ?? []} />
+        <SloBurnGauges samples={telemetry?.serviceSamples ?? []} />
+        <DeceptionRadar alerts={xdrSnap.alerts} endpoints={xdrSnap.endpoints} tickSeed={telemetry?.tick ?? 0} />
       </div>
 
       <div className="mission-grid">
