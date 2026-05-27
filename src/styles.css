@@ -13160,7 +13160,7 @@ select option {
 }
 
 /* ============================================================
-   ZFS AnyRAID wizard block
+   AnyRAID wizard block
    ============================================================ */
 .storage-config-section.anyraid-config {
   border: 1px solid var(--theme-panel-border);

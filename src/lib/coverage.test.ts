@@ -44,7 +44,7 @@ import {
 import { planAnyRaidCapacity } from './anyraid';
 
 const ALL_STORAGE: StorageType[] = [
-  'local', 'nfs', 'smb', 'ceph', 'nvme', 'rdma', 'zfs', 'zfs-anyraid',
+  'local', 'nfs', 'smb', 'ceph', 'nvme', 'rdma', 'zfs', 'anyraid',
   'iscsi', 'glusterfs', 'longhorn', 'openebs', 'portworx',
 ];
 const ALL_WORKLOADS: WorkloadType[] = ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'];
@@ -61,7 +61,7 @@ function clone<T>(value: T): T {
 function configWithStorage(type: StorageType): ApplicationConfig {
   const cfg = clone(defaultConfig);
   cfg.storage.storageType = type;
-  if (type === 'zfs-anyraid') {
+  if (type === 'anyraid') {
     cfg.storage.zfsPoolName = 'anyraid-tank';
     cfg.storage.anyraidProfile = 'raidz1';
     cfg.storage.anyraidSlabSizeMiB = 64;
@@ -106,7 +106,7 @@ describe('coverage · storage protocols', () => {
   }
 
   it('AnyRAID storage class carries per-disk inventory and profile in parameters', () => {
-    const cfg = configWithStorage('zfs-anyraid');
+    const cfg = configWithStorage('anyraid');
     const preview = buildCsiTemplatePreview(cfg.storage);
     const sc = preview.templates.find((t) => t.kind === 'StorageClass')!.yaml;
     expect(sc).toContain('profile: raidz1');
@@ -116,7 +116,7 @@ describe('coverage · storage protocols', () => {
   });
 
   it('AnyRAID capacity planner agrees with the StorageClass for the same input', () => {
-    const cfg = configWithStorage('zfs-anyraid');
+    const cfg = configWithStorage('anyraid');
     const plan = planAnyRaidCapacity({
       disks: cfg.storage.anyraidDisks!,
       profile: cfg.storage.anyraidProfile,

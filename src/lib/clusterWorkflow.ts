@@ -290,7 +290,7 @@ function driverName(storageType: StorageConfig['storageType']): string {
     nvme: 'nvme.csi.k8s.io',
     rdma: 'rdma.csi.nexus.io',
     zfs: 'zfs.csi.openebs.io',
-    'zfs-anyraid': 'anyraid.zfs.csi.nexus.io',
+    anyraid: 'anyraid.csi.nexus.io',
     iscsi: 'iscsi.csi.k8s.io',
     glusterfs: 'glusterfs.csi.k8s.io',
     longhorn: 'driver.longhorn.io',
@@ -316,7 +316,7 @@ export function buildCsiTemplatePreview(storage: StorageConfig): CsiTemplatePrev
     }
   }
 
-  if (storage.storageType === 'zfs-anyraid') {
+  if (storage.storageType === 'anyraid') {
     storageParameters.poolName = storage.zfsPoolName || 'anyraid-tank';
     storageParameters.dataset = storage.zfsDataset || 'kubernetes';
     storageParameters.profile = storage.anyraidProfile || 'raidz1';
