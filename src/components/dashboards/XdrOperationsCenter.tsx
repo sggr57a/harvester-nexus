@@ -2,6 +2,7 @@ import { useLiveXdrEngine } from '../../lib/xdr/hooks';
 import { SENSORS } from '../../lib/xdr/sensors';
 import { RULES } from '../../lib/xdr/rules';
 import { INTEL_FEEDS } from '../../lib/xdr/intel';
+import { ThreatSurface3D } from './ThreatSurface3D';
 
 /** XDR Operations Center — a live SOC view that reads from the XDR engine
  * (which is fed by the deterministic attack simulator while the demo runs).
@@ -32,6 +33,8 @@ export function XdrOperationsCenter() {
           <div><span>Active APTs</span><strong>{snap.stats.activeAptCount}</strong></div>
         </div>
       </header>
+
+      <ThreatSurface3D snapshot={snap} />
 
       <div className="xdr-soc-grid">
         <article className="dash-panel">
