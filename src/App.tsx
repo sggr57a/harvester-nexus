@@ -29,6 +29,8 @@ import {
 } from './components/dashboards/Dashboards';
 import { MissionControlView } from './components/dashboards/MissionControl';
 import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
+import { XdrOperationsCenter } from './components/dashboards/XdrOperationsCenter';
+import { SecurityPostureWizard } from './components/SecurityPostureWizard';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -60,6 +62,8 @@ type CockpitView =
   | 'operations'
   | 'resource-monitoring'
   | 'cluster'
+  | 'xdr-operations'
+  | 'security-posture'
   | 'setup'
   | 'machine'
   | 'wizard';
@@ -135,11 +139,13 @@ function App() {
     { id: 'acceleration', label: 'Acceleration', sig: 'ACCEL', group: 'COMPUTE' },
     { id: 'operations', label: 'Operations', sig: 'OPS_CM', group: 'COMPUTE' },
     { id: 'resource-monitoring', label: 'Resource Monitor', sig: 'RES_WK', group: 'COMPUTE' },
+    { id: 'xdr-operations', label: 'XDR Operations', sig: 'SOC_HQ', group: 'SECURE' },
+    { id: 'security-posture', label: 'Security Posture', sig: 'XDR_MD', group: 'SECURE' },
     { id: 'cluster', label: 'Cluster Console', sig: 'K8S_00', group: 'DEPLOY' },
     { id: 'setup', label: 'Setup Wizard', sig: 'SETUP', group: 'DEPLOY' },
   ];
 
-  const navGroups = ['MONITOR', 'COMPUTE', 'DEPLOY'] as const;
+  const navGroups = ['MONITOR', 'COMPUTE', 'SECURE', 'DEPLOY'] as const;
 
   return (
     <div className="app-shell">
@@ -209,6 +215,8 @@ function App() {
         {cockpitView === 'activity' && <ActivityDashboardView />}
         {cockpitView === 'operations' && <OperationsDashboardView telemetry={telemetry} />}
         {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
+        {cockpitView === 'xdr-operations' && <XdrOperationsCenter />}
+        {cockpitView === 'security-posture' && <SecurityPostureWizard />}
         {cockpitView === 'cluster' && (
           <ClusterIntegrationPanel
             validation={validation}
