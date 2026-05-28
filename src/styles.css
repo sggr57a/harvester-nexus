@@ -6175,9 +6175,9 @@ select {
 .env-ticker {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.6rem;
-  padding: 0.65rem 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
   border: 1px solid var(--theme-panel-border);
   border-radius: 6px;
   background:
@@ -6216,29 +6216,39 @@ select {
 }
 .env-ticker-cell {
   display: grid;
-  gap: 0.1rem;
-  padding: 0.35rem 0.55rem;
+  gap: 0.05rem;
+  padding: 0.25rem 0.45rem;
   border: 1px dashed var(--theme-panel-border);
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.32);
+  min-width: 0;
 }
 .env-ticker-cell .label {
-  font-size: 0.56rem;
-  letter-spacing: 0.28em;
+  font-size: 0.5rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--theme-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .env-ticker-cell .value {
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
   color: var(--theme-accent);
-  text-shadow: 0 0 10px var(--theme-accent);
+  text-shadow: 0 0 8px var(--theme-accent);
   font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .env-ticker-cell .sub {
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   color: var(--theme-text-dim);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .env-ticker-cell.delta-up .value { color: var(--theme-good); text-shadow: 0 0 10px var(--theme-good); }
 .env-ticker-cell.delta-down .value { color: var(--theme-danger); text-shadow: 0 0 10px var(--theme-danger); }
@@ -6812,8 +6822,8 @@ select {
    ============================================================ */
 .dash-mission .mission-kpi-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.45rem;
 }
 .dash-mission .mission-grid {
   display: grid;
@@ -11305,7 +11315,7 @@ select option {
 /* Re-apply KPI tile row container (must be grid, not flex column) */
 .dash-mission .mission-kpi-row {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
   gap: 0.45rem !important;
 }
 
