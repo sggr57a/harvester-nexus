@@ -40,13 +40,15 @@ iso: iso-builder
 	@echo ">> building ISO via $(ISO_BUILDER_IMG)"
 	@mkdir -p $(DIST) $(BUILD_DIR)
 	@docker run --rm --privileged \
+	  --entrypoint /bin/bash \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  -v $(REPO_ROOT):/src \
 	  -v $(DIST):/build/dist \
 	  -e BUILD_DIR=/build \
 	  -e REPO_ROOT=/src \
 	  -e NEXUS_VERSION=$(VERSION) \
-	  $(ISO_BUILDER_IMG)
+	  $(ISO_BUILDER_IMG) \
+	  /src/installer/build-iso.sh
 	@echo ">> ISO produced: $(ISO_FILE)"
 	@ls -lh $(ISO_FILE)
 

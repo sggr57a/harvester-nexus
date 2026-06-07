@@ -135,6 +135,11 @@ fi
 # Stage 5 — run the upstream Harvester ISO build
 # ============================================================
 log "stage 5 · running harvester-installer/scripts/ci"
+# harvester-installer/scripts/build clones ../harvester and runs git there;
+# mark both repos safe when running as root inside Docker.
+git config --global --add safe.directory "${INSTALLER_SRC}" || true
+git config --global --add safe.directory "$(dirname "${INSTALLER_SRC}")/harvester" || true
+git config --global --add safe.directory "$(dirname "${INSTALLER_SRC}")/addons" || true
 cd "${INSTALLER_SRC}/scripts"
 ./ci
 

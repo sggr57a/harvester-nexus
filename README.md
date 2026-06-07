@@ -575,6 +575,7 @@ docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| `make iso` fails with `exec: "/bin/sh": stat /bin/sh: no such file or directory` | Old iso-builder image used `rancher/harvester-installer` as its base — that image is `FROM scratch` (binary only, no shell) | Rebuild with the current `installer/Dockerfile` (BCI golang base): `docker rmi harvester-nexus-iso-builder:1.0.0-nexus.1 && make iso-builder && make iso` |
 | `make iso-builder` fails with `invalid reference format` | Docker tag cannot contain `+` in the version string | Ensure you are on a branch with the `DOCKER_TAG` sanitization in `installer/Makefile` (maps `1.0.0+nexus.1` → `1.0.0-nexus.1` for the image tag) |
 | Docker build fails with `overlay … invalid argument` | Nested / cloud VM without working overlayfs | Build the ISO on bare-metal Ubuntu 24.10+; use `make simulate` instead |
 | `make iso` runs out of disk | ISO build needs ~25 GB | Free space under `/var/lib/docker` and the repo checkout |

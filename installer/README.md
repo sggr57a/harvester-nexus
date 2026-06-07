@@ -17,7 +17,7 @@ This directory holds everything needed to produce **`harvester-nexus-<version>.i
 installer/
 ├── README.md                         (this file)
 ├── VERSION                           "1.0.0+nexus.1"
-├── Dockerfile                        nexus-flavored iso-builder image
+├── Dockerfile                        ISO builder image (BCI golang + Dapper toolchain + Node 20)
 ├── Makefile                          overlay / simulate / iso-builder / iso / clean / tests
 ├── build-iso.sh                      6-stage build pipeline
 │
@@ -72,6 +72,11 @@ The simulator:
 Exit code is 0 on success, non-zero on any failure. The latest verified run reports **59 / 59 checks passed · 26 Kubernetes objects reconciled · admin / admin login verified**.
 
 ### Build the full ISO (needs Docker on native Ubuntu 24.10+ · ~30 minutes · ~25 GB free disk)
+
+The iso-builder image is based on `registry.suse.com/bci/golang:1.25` with the same
+xorriso / squashfs / Helm / Docker CLI toolchain Harvester upstream uses — **not**
+`rancher/harvester-installer:<tag>`, which is a `FROM scratch` image containing only
+the `/usr/bin/harvester-installer` binary and no shell.
 
 ```bash
 cd installer

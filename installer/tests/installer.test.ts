@@ -221,6 +221,21 @@ describe('installer · overlay scripts are present + executable', () => {
   }
 });
 
+describe('installer · Dockerfile uses a shell-capable ISO builder base', () => {
+  const dockerfile = readFileSync(join(INSTALLER, 'Dockerfile'), 'utf8');
+
+  it('does not use the scratch-only rancher/harvester-installer image as its base', () => {
+    // rancher/harvester-installer:<tag> ships only /usr/bin/harvester-installer (FROM scratch).
+    // Layering a shell script ENTRYPOINT on top yields: exec /bin/sh: no such file or directory.
+    expect(dockerfile).not.toMatch(/FROM\s+rancher\/harvester-installer/);
+    expect(dockerfile).not.toMatch(/FROM\s+scratch\b/);
+  });
+
+  it('ENTRYPOINT invokes bash explicitly so make iso does not depend on /bin/sh', () => {
+    expect(dockerfile).toMatch(/ENTRYPOINT\s+\["\/bin\/bash",\s*"\/src\/installer\/build-iso\.sh"\]/);
+  });
+});
+
 describe('installer · systemd units have correct After / Wants ordering', () => {
   const unitsDir = join(INSTALLER, 'overlay', 'etc', 'systemd', 'system');
 
