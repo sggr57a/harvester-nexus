@@ -245,6 +245,7 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
     expect(dockerfile).not.toMatch(/^\s+docker\s*\\/m);
     expect(dockerfile).toMatch(/DOCKER_CLI_VERSION=/);
     expect(dockerfile).toMatch(/download\.docker\.com\/linux\/static/);
+    expect(dockerfile).toMatch(/ENV PATH="\/usr\/local\/bin:\$\{PATH\}"/);
   });
 });
 

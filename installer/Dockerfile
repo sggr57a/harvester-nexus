@@ -44,9 +44,12 @@ RUN DOCKER_ARCH=$([ "${ARCH}" = "arm64" ] && echo aarch64 || echo x86_64) && \
     curl -sfLO "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" && \
     tar xzf "docker-${DOCKER_CLI_VERSION}.tgz" -C /usr/local/bin docker && \
     rm "docker-${DOCKER_CLI_VERSION}.tgz" && \
-    docker version --format 'Docker CLI {{.Client.Version}} (API {{.Client.APIVersion}})'
+    test -x /usr/local/bin/docker && \
+    /usr/local/bin/docker --version
 
-# Node.js 20 — the golang BCI image does not ship nodejs20 in its default
+# Node.js, yq, and helm also land in /usr/local/bin — ensure they are on PATH
+# (BCI golang images do not include /usr/local/bin by default).
+ENV PATH="/usr/local/bin:${PATH}"
 # zypper repos; install the official upstream binary (same approach as yq/Helm).
 ARG NODE_VERSION=20.18.3
 RUN NODE_ARCH=$([ "${ARCH}" = "arm64" ] && echo arm64 || echo x64) && \
