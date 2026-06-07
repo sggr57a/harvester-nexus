@@ -1,5 +1,7 @@
 # Harvester-Nexus ISO
 
+> **Full install guide:** step-by-step instructions for building the ISO on **Ubuntu 24.10+**, installing on bare metal, and testing in KVM are in the top-level [`README.md`](../README.md#installation).
+
 This directory holds everything needed to produce **`harvester-nexus-<version>.iso`** — a single bootable image that installs:
 
 - **Base Harvester** (SLE Micro + K3s/RKE2 + KubeVirt + Longhorn + Multus + Rancher) from the upstream `harvester-installer` repo.
@@ -69,11 +71,11 @@ The simulator:
 
 Exit code is 0 on success, non-zero on any failure. The latest verified run reports **59 / 59 checks passed · 26 Kubernetes objects reconciled · admin / admin login verified**.
 
-### Build the full ISO (needs Docker + ~30 minutes + ~25 GB free disk)
+### Build the full ISO (needs Docker on native Ubuntu 24.10+ · ~30 minutes · ~25 GB free disk)
 
 ```bash
 cd installer
-make iso-builder        # build the nexus-flavored iso-builder image
+make iso-builder        # builds harvester-nexus-iso-builder:1.0.0-nexus.1 (Docker tag sanitizes '+')
 make iso                # produces dist/harvester-nexus-<version>.iso
 ```
 
