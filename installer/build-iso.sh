@@ -156,7 +156,15 @@ cd "${INSTALLER_SRC}/scripts"
 # ============================================================
 log "stage 6 · staging artifacts at ${DIST}"
 mkdir -p "${DIST}"
-cp "${INSTALLER_SRC}/dist/artifacts/"*.iso "${DIST}/harvester-nexus-${VERSION}.iso"
+
+ARTIFACTS_DIR="${INSTALLER_SRC}/dist/artifacts"
+# amd64 builds produce two ISOs: the main installer and *-net-install.iso.
+# cp with a glob fails when multiple sources target a single file path.
+mapfile -t PRIMARY_ISOS < <(find "${ARTIFACTS_DIR}" -maxdepth 1 -type f -name '*.iso' ! -name '*-net-install.iso' | sort)
+if [[ ${#PRIMARY_ISOS[@]} -ne 1 ]]; then
+  fail "expected exactly one primary ISO in ${ARTIFACTS_DIR}, found ${#PRIMARY_ISOS[@]}: ${PRIMARY_ISOS[*]:-"(none)"}"
+fi
+cp "${PRIMARY_ISOS[0]}" "${DIST}/harvester-nexus-${VERSION}.iso"
 cp -r "${INSTALLER_SRC}/dist/harvester-cluster-repo" "${DIST}/"
 sha256sum "${DIST}/harvester-nexus-${VERSION}.iso" > "${DIST}/harvester-nexus-${VERSION}.iso.sha256"
 

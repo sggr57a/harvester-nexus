@@ -267,6 +267,15 @@ describe('installer · upstream harvester-installer patches', () => {
   });
 });
 
+describe('installer · build-iso.sh artifact staging', () => {
+  const script = readFileSync(join(INSTALLER, 'build-iso.sh'), 'utf8');
+
+  it('copies only the primary ISO when amd64 also builds a net-install variant', () => {
+    expect(script).toMatch(/! -name '\*-net-install\.iso'/);
+    expect(script).not.toMatch(/dist\/artifacts\/"\*\.iso/);
+  });
+});
+
 describe('installer · systemd units have correct After / Wants ordering', () => {
   const unitsDir = join(INSTALLER, 'overlay', 'etc', 'systemd', 'system');
 
