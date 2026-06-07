@@ -274,6 +274,29 @@ describe('installer · build-iso.sh artifact staging', () => {
     expect(script).toMatch(/! -name '\*-net-install\.iso'/);
     expect(script).not.toMatch(/dist\/artifacts\/"\*\.iso/);
   });
+
+  it('merges the Nexus overlay into package/harvester-os/files (not iso/rootfs)', () => {
+    expect(script).toMatch(/INSTALLER_FILES=\$\{INSTALLER_SRC\}\/package\/harvester-os\/files/);
+    expect(script).toMatch(/copy_tree "\$\{NEXUS_OVERLAY\}" "\$\{INSTALLER_FILES\}"/);
+    expect(script).not.toMatch(/copy_tree.*iso\/rootfs/);
+    expect(script).toMatch(/index\.html/);
+  });
+});
+
+describe('installer · first-boot OEM + host cockpit wiring', () => {
+  it('ships an Elemental OEM stage that enables Nexus systemd units', () => {
+    const oem = join(INSTALLER, 'overlay', 'system', 'oem', '92_nexus.yaml');
+    expect(existsSync(oem), `${oem} missing`).toBe(true);
+    const text = readFileSync(oem, 'utf8');
+    expect(text).toMatch(/nexus-bootstrap\.service/);
+    expect(text).toMatch(/nexus-cockpit\.service/);
+  });
+
+  it('documents host-static cockpit instead of an unpublished container image', () => {
+    const manifest = readFileSync(join(INSTALLER, 'manifests', '40-cockpit-service.yaml'), 'utf8');
+    expect(manifest).toMatch(/kind:\s*ConfigMap/);
+    expect(manifest).not.toMatch(/ghcr\.io\/sggr57a\/nexus-cockpit/);
+  });
 });
 
 describe('installer · systemd units have correct After / Wants ordering', () => {
@@ -285,9 +308,10 @@ describe('installer · systemd units have correct After / Wants ordering', () =>
     expect(text).toContain('ExecStart=/usr/local/bin/nexus-bootstrap');
   });
 
-  it('nexus-cockpit.service requires the bootstrap to complete first', () => {
+  it('nexus-cockpit.service serves the static bundle after network is online', () => {
     const text = readFileSync(join(unitsDir, 'nexus-cockpit.service'), 'utf8');
-    expect(text).toContain('After=network-online.target nexus-bootstrap.service');
-    expect(text).toContain('Requires=nexus-bootstrap.service');
+    expect(text).toContain('After=network-online.target');
+    expect(text).not.toContain('Requires=nexus-bootstrap.service');
+    expect(text).toContain('--ensure-tls');
   });
 });

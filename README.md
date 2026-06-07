@@ -426,38 +426,20 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
    - Virtualization (VT-x / AMD-V): **enabled**
    - IOMMU (VT-d / AMD-Vi): **enabled** if you plan GPU / SR-IOV pass-through
 
-3. **Answer the install wizard.** Two question sets appear in order:
+3. **Answer the Harvester install wizard** (required): install mode, management NIC, IP / gateway / DNS, cluster VIP, NTP, cluster token, OS / SSH password.
 
-   **Harvester base wizard** (required):
-   - Install mode: *Create a new cluster* (single-node lab) or *Join an existing cluster*
-   - Management NIC, IP / gateway / DNS, cluster VIP, NTP servers
-   - Cluster token (create mode) and OS / SSH password
+   Nexus-specific settings are **not** shown in the install TUI today — they come from the baked-in defaults in `/etc/nexus/config.yaml` (admin/admin, Route Grid theme, XDR hardened profile, Longhorn storage, etc.). See `installer/installer-config/nexus-wizard-questions.yaml` for the full settings catalog.
 
-   **Nexus wizard** (optional — defaults are fine for a first install):
-
-   | Setting | Default | Notes |
-   |---|---|---|
-   | Cockpit admin username | `admin` | Forced password change on first login |
-   | Cockpit admin password | `admin` | Rotate immediately after login |
-   | Default theme | Route Grid | Arctic Hologram, Arctic Command, Ice Spectrum also available |
-   | Launch animation | Concentric boot | |
-   | Default storage backend | Longhorn | AnyRAID, Ceph, Vitastor, ZFS, … also listed |
-   | Enable AnyRAID | No | Set Yes to install the CSI driver on first boot |
-   | KubeVirt / Incus / LXC | Yes / Yes | Poly-Compute Engine |
-   | XDR / MDR platform | Yes, **Hardened** profile | Baseline (6 sensors) or Maximum (17 sensors) |
-   | Automated XDR responses | Yes | Alert-only if disabled |
-   | GitOps (ArgoCD) | Yes | Flux or Jenkins-X alternatives |
-   | Compliance scans | Yes | kube-bench, OpenSCAP, Lynis schedules |
-   | Prometheus + logging | Yes | Loki stack |
-
-4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk and enables `nexus-bootstrap.service` and `nexus-cockpit.service`.
+4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk. On first boot from disk, `system/oem/92_nexus.yaml` enables `nexus-bootstrap.service` and `nexus-cockpit.service`.
 
 5. **First boot bootstrap** (automatic, 5–15 minutes depending on disk and network):
-   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/local/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit → `99-` features)
-   - `nexus-cockpit` serves the bundled cockpit on port **8443** (HTTPS) and **8080** (health)
-   - Logs: `/var/log/nexus/bootstrap.log`
+   - `nexus-cockpit` serves the bundled React cockpit from `/usr/local/share/nexus-cockpit/dist/` on port **8443** (HTTPS) and **8080** (HTTP health)
+   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/local/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit metadata → `99-` features)
+   - Logs: `/var/log/nexus/bootstrap.log`, `/var/log/nexus/cockpit.log`
 
-6. **Open the cockpit** at `https://<cluster-vip>` (or the node IP if no VIP is configured). Accept the self-signed TLS certificate.
+6. **Open the Nexus cockpit** at `https://<node-ip>:8443` (or `http://<node-ip>:8080` if TLS material is unavailable). Accept the self-signed certificate.
+
+   **Do not confuse this with the Harvester dashboard** at `https://<cluster-vip>:443` — that is the stock Rancher/Harvester UI and does not include the Nexus Mission Control cockpit.
 
 7. **Log in and rotate the password:**
 
@@ -485,12 +467,12 @@ qemu-system-x86_64 \
   -drive file=$HOME/harvester-nexus.qcow2,if=virtio,format=qcow2 \
   -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
   -boot d \
-  -netdev user,id=net0,hostfwd=tcp::8443-:443 \
+  -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 \
   -device virtio-net-pci,netdev=net0 \
   -nographic
 ```
 
-After installation completes and the VM reboots from disk, open `https://localhost:8443` on the Ubuntu host (the `hostfwd` rule maps host port 8443 → guest port 443).
+After installation completes and the VM reboots from disk, open `https://localhost:8443` on the Ubuntu host (the `hostfwd` rule maps host port 8443 → guest port 8443).
 
 For a graphical console, drop `-nographic` and add `-display gtk` or use `virt-manager` with the same disk + ISO settings.
 

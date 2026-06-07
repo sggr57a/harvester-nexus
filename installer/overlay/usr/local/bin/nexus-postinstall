@@ -10,29 +10,27 @@ CONFIG_FILE=/etc/nexus/config.yaml
 ANSWERS_FILE=${1:-/etc/nexus/wizard-answers.yaml}
 
 if [[ ! -f "${ANSWERS_FILE}" ]]; then
-  printf '[nexus-postinstall] no wizard answers found at %s, using built-in defaults\n' "${ANSWERS_FILE}" >&2
-  exit 0
-fi
-
-printf '[nexus-postinstall] merging wizard answers from %s into %s\n' "${ANSWERS_FILE}" "${CONFIG_FILE}"
-
-# Merge YAML files with yq (built into the iso-builder image). For the
-# fields that the wizard exposes the answer file just contains a flat
-# top-level override; the merge is a deep one.
-if command -v yq >/dev/null 2>&1; then
-  TMP=$(mktemp)
-  yq eval-all '. as $item ireduce ({}; . * $item)' "${CONFIG_FILE}" "${ANSWERS_FILE}" > "${TMP}"
-  mv "${TMP}" "${CONFIG_FILE}"
+  printf '[nexus-postinstall] no wizard answers at %s — using /etc/nexus/config.yaml defaults\n' "${ANSWERS_FILE}" >&2
 else
-  # Crude fallback: append the answers so the bootstrap parser picks the
-  # last definition wins.
-  printf '\n# --- wizard answers (post-install) ---\n' >> "${CONFIG_FILE}"
-  cat "${ANSWERS_FILE}" >> "${CONFIG_FILE}"
+  printf '[nexus-postinstall] merging wizard answers from %s into %s\n' "${ANSWERS_FILE}" "${CONFIG_FILE}"
+
+  # Merge YAML files with yq (built into the iso-builder image). For the
+  # fields that the wizard exposes the answer file just contains a flat
+  # top-level override; the merge is a deep one.
+  if command -v yq >/dev/null 2>&1; then
+    TMP=$(mktemp)
+    yq eval-all '. as $item ireduce ({}; . * $item)' "${CONFIG_FILE}" "${ANSWERS_FILE}" > "${TMP}"
+    mv "${TMP}" "${CONFIG_FILE}"
+  else
+    printf '\n# --- wizard answers (post-install) ---\n' >> "${CONFIG_FILE}"
+    cat "${ANSWERS_FILE}" >> "${CONFIG_FILE}"
+  fi
+
+  printf '[nexus-postinstall] config merged\n'
 fi
 
-printf '[nexus-postinstall] config merged; first-boot bootstrap will apply it\n'
+mkdir -p /var/lib/nexus /var/log/nexus /etc/nexus/tls
 
 # Enable the bootstrap + cockpit units so they fire on next boot.
-systemctl enable nexus-bootstrap.service
-systemctl enable nexus-cockpit.service
+systemctl enable nexus-bootstrap.service nexus-cockpit.service
 printf '[nexus-postinstall] enabled nexus-bootstrap + nexus-cockpit units\n'

@@ -58,14 +58,11 @@ for m in "${MANIFESTS_DIR}"/*.yaml; do
 done
 log "applied ${APPLIED} manifests"
 
-# Wait for the cockpit deployment to be ready so the operator can actually
-# log in when the bootstrap completes.
-log "waiting for nexus-cockpit deployment"
-if kubectl -n nexus-cockpit wait deployment/nexus-cockpit \
-    --for=condition=Available --timeout=300s 2>&1 | tee -a "${LOG_FILE}"; then
-  log "cockpit ready"
+# Host nexus-cockpit.service serves the React bundle from /usr/local/share/nexus-cockpit/dist.
+if systemctl is-active --quiet nexus-cockpit.service 2>/dev/null; then
+  log "host cockpit service is active"
 else
-  warn "cockpit did not become Available within 5 minutes (will continue)"
+  warn "host nexus-cockpit.service is not active (open https://<node-ip>:8443 after it starts)"
 fi
 
 # Record what we installed so the cockpit can show install provenance.

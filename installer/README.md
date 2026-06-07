@@ -91,8 +91,8 @@ The `make iso` target runs `build-iso.sh` inside the `harvester-nexus-iso-builde
 
 1. Builds the cockpit production bundle (`npm run build`).
 2. Stages the overlay tree at `/build/nexus-overlay`.
-3. Clones `harvester-installer` (master) and merges the overlay into its `package/harvester-os/iso/rootfs/`.
-4. Injects `nexus-wizard-questions.yaml` into `pkg/console/questions/` and patches the installer's question loader.
+3. Clones `harvester-installer` (master) and merges the overlay into **`package/harvester-os/files/`** (the path upstream `COPY files/ /` uses — not `iso/rootfs/`).
+4. Copies `nexus-wizard-questions.yaml` into `/etc/nexus/installer/` as reference defaults (the stock Harvester install TUI does not yet surface these questions).
 5. Replaces `scripts/collect-deps.sh` with a Nexus patch that waits for the Rancher `rancher-charts` catalog `index.yaml` (upstream only sleeps 10s).
 6. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
 7. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
@@ -106,10 +106,10 @@ qemu-system-x86_64 \
   -drive file=harvester-nexus.qcow2,if=virtio,size=200G \
   -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
   -boot d \
-  -netdev user,id=net0,hostfwd=tcp::8443-:443 -device virtio-net,netdev=net0
+  -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 -device virtio-net,netdev=net0
 ```
 
-On boot the operator sees the **base Harvester wizard** (mode / network / VIP / NTP / cluster token / OS password) followed by the **Nexus wizard questions** declared in `installer-config/nexus-wizard-questions.yaml`. Accepting the defaults yields a single-node Harvester cluster with the full Nexus cockpit, XDR stack, and AnyRAID driver all installed automatically on first boot.
+On boot the operator sees the **base Harvester wizard** (mode / network / VIP / NTP / cluster token / OS password). Nexus defaults are baked into `/etc/nexus/config.yaml`. After install, open **`https://<node-ip>:8443`** for the Nexus cockpit (not `https://<vip>:443`, which is the stock Harvester dashboard).
 
 ### Default credentials
 

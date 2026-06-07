@@ -9,8 +9,8 @@
 #        installer/manifests/                → /usr/local/share/nexus-cockpit/manifests/
 #        installer/installer-config/         → /etc/nexus/installer/
 #   3. Clone harvester-installer (master) and merge the staged overlay
-#      into its `iso/rootfs/` tree so the contents land in the final
-#      squashfs image.
+#      into `package/harvester-os/files/` (COPY files/ / in the OS Dockerfile).
+#      Do NOT use iso/rootfs/ — elemental only overlays iso/boot assets.
 #   4. Inject the wizard question file into the installer's question
 #      database so the operator sees the Nexus questions inline.
 #   5. Run harvester-installer's `scripts/ci` to produce the ISO.
@@ -93,6 +93,9 @@ copy_tree "${INSTALLER_DIR}/installer-config" "${NEXUS_OVERLAY}/etc/nexus/instal
 # About panel + the install-record yaml.
 printf '%s\n' "${VERSION}" > "${NEXUS_OVERLAY}/etc/nexus/version"
 
+[[ -f "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/dist/index.html" ]] \
+  || fail "cockpit bundle missing index.html under usr/local/share/nexus-cockpit/dist/"
+
 log "stage 2 complete · overlay has $(find "${NEXUS_OVERLAY}" -type f | wc -l) files"
 
 if [[ "${SKIP_ISO_STAGE:-0}" == "1" ]]; then
@@ -114,30 +117,22 @@ git clone --branch "${HARVESTER_INSTALLER_REF}" --single-branch --depth 1 \
 log "stage 3 · patching collect-deps.sh (reliable rancher-charts index extraction)"
 install -m 0755 "${INSTALLER_DIR}/patches/collect-deps.sh" "${INSTALLER_SRC}/scripts/collect-deps.sh"
 
-log "stage 3 · merging Nexus overlay into installer rootfs"
-INSTALLER_ROOTFS=${INSTALLER_SRC}/package/harvester-os/iso/rootfs
-copy_tree "${NEXUS_OVERLAY}" "${INSTALLER_ROOTFS}"
+log "stage 3 · merging Nexus overlay into harvester-os/files (installed rootfs)"
+INSTALLER_FILES=${INSTALLER_SRC}/package/harvester-os/files
+[[ -d "${INSTALLER_FILES}" ]] || fail "harvester-installer layout changed: missing ${INSTALLER_FILES}"
+copy_tree "${NEXUS_OVERLAY}" "${INSTALLER_FILES}"
 
 # ============================================================
-# Stage 4 — inject Nexus wizard questions
+# Stage 4 — stage Nexus wizard questions (reference copy)
 # ============================================================
-log "stage 4 · injecting Nexus wizard questions"
-INSTALLER_QUESTIONS=${INSTALLER_SRC}/pkg/console/questions
-mkdir -p "${INSTALLER_QUESTIONS}"
+log "stage 4 · staging Nexus wizard questions for /etc/nexus/installer"
+# Upstream harvester-installer no longer ships pkg/console/questions.go;
+# install-time TUI remains the stock Harvester wizard. Defaults live in
+# /etc/nexus/config.yaml and can be overridden post-install via
+# /etc/nexus/wizard-answers.yaml + nexus-postinstall.
+install -d "${INSTALLER_FILES}/etc/nexus/installer"
 cp "${INSTALLER_DIR}/installer-config/nexus-wizard-questions.yaml" \
-  "${INSTALLER_QUESTIONS}/nexus-questions.yaml"
-
-# Inject a one-liner into the installer's main question loader so it
-# pulls our extra questions after the base Harvester ones.
-HOOK_MARK="// HARVESTER_NEXUS_QUESTIONS_INJECTED"
-QUESTIONS_GO=${INSTALLER_SRC}/pkg/console/questions.go
-if [[ -f "${QUESTIONS_GO}" ]] && ! grep -q "${HOOK_MARK}" "${QUESTIONS_GO}"; then
-  printf '\n%s\nfunc init() { loadExtraQuestions("nexus-questions.yaml") }\n' "${HOOK_MARK}" \
-    >> "${QUESTIONS_GO}"
-  log "stage 4 · question hook injected"
-else
-  log "stage 4 · question hook already present (or installer layout changed)"
-fi
+  "${INSTALLER_FILES}/etc/nexus/installer/nexus-wizard-questions.yaml"
 
 # ============================================================
 # Stage 5 — run the upstream Harvester ISO build

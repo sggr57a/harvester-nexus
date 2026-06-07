@@ -16,8 +16,32 @@ CONFIG_FILE=/etc/nexus/config.yaml
 LOG_DIR=/var/log/nexus
 HTTPS_PORT=8443
 HTTP_PORT=8080
+TLS_DIR=/etc/nexus/tls
+TLS_CRT=${TLS_DIR}/cockpit.crt
+TLS_KEY=${TLS_DIR}/cockpit.key
+
+ensure_tls() {
+  mkdir -p "${TLS_DIR}"
+  if [[ -f "${TLS_CRT}" && -f "${TLS_KEY}" ]]; then
+    return 0
+  fi
+  if ! command -v openssl >/dev/null 2>&1; then
+    printf 'openssl not found; HTTPS will be unavailable\n' >&2
+    return 1
+  fi
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout "${TLS_KEY}" -out "${TLS_CRT}" \
+    -subj "/CN=nexus-cockpit/O=Harvester-Nexus" >/dev/null 2>&1
+  chmod 0644 "${TLS_CRT}"
+  chmod 0600 "${TLS_KEY}"
+}
 
 case "${ACTION}" in
+  --ensure-tls)
+    ensure_tls && printf 'TLS material ready under %s\n' "${TLS_DIR}"
+    exit $?
+    ;;
+
   --check-config)
     CFG=${1:-${CONFIG_FILE}}
     if [[ ! -f "${CFG}" ]]; then
@@ -36,7 +60,15 @@ case "${ACTION}" in
   --serve)
     mkdir -p "${LOG_DIR}"
     log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "${LOG_DIR}/cockpit.log"; }
-    log "nexus-cockpit starting on https://0.0.0.0:${HTTPS_PORT} (static root ${COCKPIT_ROOT}/dist)"
+
+    HAS_TLS=false
+    if ensure_tls; then HAS_TLS=true; fi
+
+    if [[ "${HAS_TLS}" == true ]]; then
+      log "nexus-cockpit starting on https://0.0.0.0:${HTTPS_PORT} (static root ${COCKPIT_ROOT}/dist)"
+    else
+      log "nexus-cockpit starting on http://0.0.0.0:${HTTP_PORT} (no TLS material; static root ${COCKPIT_ROOT}/dist)"
+    fi
 
     # systemd-notify so the service is treated as ready
     systemd-notify --ready --status="serving cockpit" 2>/dev/null || true
@@ -44,7 +76,8 @@ case "${ACTION}" in
     # If nginx is present, generate a temp config and exec into it.
     if command -v nginx >/dev/null 2>&1; then
       TMP_CONF=$(mktemp /tmp/nexus-cockpit.XXXXXX.conf)
-      cat > "${TMP_CONF}" <<NGX
+      if [[ "${HAS_TLS}" == true ]]; then
+        cat > "${TMP_CONF}" <<NGX
 worker_processes auto;
 events { worker_connections 1024; }
 http {
@@ -56,8 +89,8 @@ http {
     listen ${HTTPS_PORT} ssl http2;
     listen ${HTTP_PORT};
     server_name _;
-    ssl_certificate     /etc/nexus/tls/cockpit.crt;
-    ssl_certificate_key /etc/nexus/tls/cockpit.key;
+    ssl_certificate     ${TLS_CRT};
+    ssl_certificate_key ${TLS_KEY};
     root ${COCKPIT_ROOT}/dist;
     index index.html;
     location /healthz { return 200 'ok'; add_header Content-Type text/plain; }
@@ -65,6 +98,26 @@ http {
   }
 }
 NGX
+      else
+        cat > "${TMP_CONF}" <<NGX
+worker_processes auto;
+events { worker_connections 1024; }
+http {
+  include       mime.types;
+  default_type  application/octet-stream;
+  sendfile      on;
+  gzip          on;
+  server {
+    listen ${HTTP_PORT};
+    server_name _;
+    root ${COCKPIT_ROOT}/dist;
+    index index.html;
+    location /healthz { return 200 'ok'; add_header Content-Type text/plain; }
+    location / { try_files \$uri \$uri/ /index.html; }
+  }
+}
+NGX
+      fi
       exec nginx -c "${TMP_CONF}" -g 'daemon off;'
     fi
 
