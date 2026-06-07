@@ -232,7 +232,11 @@ lighting in the SOC. Theme selection persists in `localStorage`.
 
 ## Installation
 
-The Nexus cockpit ships as a React + TypeScript single-page app built with Vite. The instructions below get you from a clean Ubuntu 22.04 / 24.04 box to a running Nexus dev server on `http://localhost:4173`.
+Two install paths:
+
+1. **Production: bootable ISO** — `harvester-nexus-<version>.iso` bundles the base Harvester installer with every Nexus component already inside. Boot a machine from the ISO, answer the wizard (or accept the defaults), wait for the first-boot bootstrap, log in with **`admin` / `admin`**, and rotate the password. See [`installer/README.md`](./installer/README.md) for the full build + install + verify guide. The default credentials, XDR profile, AnyRAID toggle, GitOps controller, theme, and launch animation can all be picked during the install wizard or accepted as documented defaults.
+
+2. **Development: cockpit dev server** — the React + TypeScript cockpit alone, served by Vite at `http://localhost:4173`. The instructions below get you from a clean Ubuntu 22.04 / 24.04 box to a running Nexus dev server.
 
 ### Hardware requirements
 

@@ -1,0 +1,172 @@
+# Harvester-Nexus install-time configuration.
+#
+# This file is the source of truth for every Nexus-specific setting that
+# the first-boot wizard offers. Operators editing this file ahead of an
+# unattended install can override any value below; otherwise these
+# defaults are baked into the ISO.
+
+apiVersion: nexus.io/v1
+kind: NexusInstallConfig
+
+# Default cockpit administrator. Created on first boot via Kubernetes
+# `User` + `ClusterRoleBinding`. The token is also seeded into a
+# bootstrap secret so the cockpit can auto-login during the install
+# wizard. Operators are prompted to change the password on first login.
+admin:
+  username: admin
+  password: admin
+  forcePasswordChangeOnFirstLogin: true
+  emailReminder: false
+  apiTokens:
+    - name: bootstrap
+      ttlHours: 24
+
+# Cockpit settings — applied to the running web UI immediately.
+cockpit:
+  enabled: true
+  defaultTheme: route-grid
+  port: 8443
+  tlsSelfSigned: true
+  # Path that the static cockpit assets are served from. Populated by
+  # the install overlay at /usr/local/share/nexus-cockpit.
+  staticRoot: /usr/local/share/nexus-cockpit
+  # Hosts the cockpit binds to. `0.0.0.0` exposes on the management VIP.
+  bindAddress: 0.0.0.0
+
+# Storage fabric defaults — every backend is registered but only the
+# selected one is provisioned at install. Operators can toggle the
+# others on later from the cockpit's Storage view.
+storage:
+  defaultBackend: longhorn
+  backends:
+    longhorn:        { enabled: true,  defaultReplicas: 3 }
+    ceph:            { enabled: false, monCount: 3 }
+    vitastor:        { enabled: false, spdkUserspace: true }
+    anyraid:         { enabled: false, profile: raidz1, slabSizeMiB: 64, allowHeterogeneous: true }
+    nvme-of:         { enabled: false, rdma: true }
+    rdma:            { enabled: false }
+    zfs:             { enabled: false }
+    iscsi:           { enabled: false, multipath: true }
+    nfs:             { enabled: false }
+    smb:             { enabled: false }
+    glusterfs:       { enabled: false }
+    openebs:         { enabled: false }
+    portworx:        { enabled: false }
+    local:           { enabled: true }
+
+# Poly-Compute Engine defaults.
+polyCompute:
+  kubevirt:
+    enabled: true
+    numaPinning: true
+    hugepages1g: 64
+  incusLxc:
+    enabled: true
+  pods:
+    enabled: true
+  scheduling:
+    crossSocketCostPenalty: 8
+    nestedVirtPoolEnabled: false
+
+# Hardware acceleration toggles.
+acceleration:
+  spdk: false
+  dpdk: false
+  vhostUser: false
+  hugepages1g: 0
+  gpuPassthrough: false
+  fpgaPassthrough: false
+  smartNicPassthrough: false
+  nestedVirtualization: false
+
+# Networking fabric.
+networking:
+  cni: cilium
+  cniVersion: "1.15"
+  bgp: false
+  multus: true
+  ingress:
+    enabled: true
+    class: nginx
+    tlsAutoGenerate: true
+  serviceMesh:
+    type: linkerd     # none | linkerd | istio
+    mtls: true
+
+# Built-in XDR / MDR platform — 100 % FOSS. Default profile is hardened
+# (12 sensors). Operators can re-pick via the cockpit's Security Posture
+# wizard.
+xdr:
+  enabled: true
+  profile: hardened    # baseline | hardened | maximum
+  sensors:
+    falco:        true
+    tetragon:     true
+    wazuhAgent:   true
+    wazuhManager: true
+    suricata:     true
+    hubble:       true
+    trivy:        true
+    grype:        true
+    syft:         true
+    polaris:      true
+    kubeBench:    true
+    kubeHunter:   false
+    opensearch:   true
+    misp:         false
+    openCanary:   false
+    openscap:     false
+    lynis:        false
+  intelFeeds:
+    enabled:
+      - misp
+      - alienvault-otx
+      - threatfox
+      - urlhaus
+      - feodotracker
+      - etopen
+      - mitre-attack
+      - nvd
+      - osv
+      - internal-allowlist
+  detectionRules:
+    enabled: true
+    autoUpdateInterval: 24h
+  autoResponse:
+    enabled: true
+    isolateOnCritical: true
+    snapshotOnPrivEscalation: true
+    blockEgressOnC2: true
+    rollbackOnImpact: true
+
+# GitOps — defaults to ArgoCD; Flux + Jenkins-X are alternative options.
+gitops:
+  enabled: true
+  controller: argocd       # argocd | flux | jenkins-x
+  syncWaveOnInstall: true
+  defaultRepository: ""
+
+# Observability templates.
+observability:
+  prometheus:
+    enabled: true
+    retention: "15d"
+  logs:
+    enabled: true
+    stack: loki            # loki | fluentd | splunk
+  tracing:
+    enabled: false
+
+# Compliance scanning cadences (drives the Compliance Posture rings).
+compliance:
+  enabled: true
+  frameworks:
+    cis-k8s:      { schedule: "@daily",   tool: kube-bench }
+    pci-dss:      { schedule: "@daily",   tool: openscap }
+    nist-800-53:  { schedule: "@weekly",  tool: openscap }
+    iso-27001:    { schedule: "@weekly",  tool: lynis }
+    soc2:         { schedule: "@weekly",  tool: openscap }
+
+# First-login launch animation variant. Operators choose between four
+# variants in the cockpit; this picks the install-time default.
+launchVariant: concentric-boot   # concentric-boot | status-cascade | hex-grid | radar-sweep

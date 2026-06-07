@@ -1,0 +1,61 @@
+# AnyRAID CSI driver — installed when `storage.anyraid.enabled: true`.
+# Provides slab-based RAID over heterogeneous-capacity drives.
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: anyraid.csi.nexus.io
+  labels:
+    app.kubernetes.io/name: anyraid-csi
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+spec:
+  attachRequired: true
+  podInfoOnMount: false
+  volumeLifecycleModes: [Persistent]
+  fsGroupPolicy: File
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: anyraid-csi-node
+  namespace: nexus-system
+  labels: { app.kubernetes.io/name: anyraid-csi }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: anyraid-csi } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: anyraid-csi } }
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations: [{ operator: Exists }]
+      containers:
+        - name: anyraid-csi
+          image: ghcr.io/sggr57a/nexus-anyraid-csi:1.0.0
+          securityContext: { privileged: true }
+          env:
+            - { name: NODE_NAME, valueFrom: { fieldRef: { fieldPath: spec.nodeName } } }
+---
+# Default AnyRAID StorageClass — raidz1 over whatever disks the operator
+# selected during the install wizard. The actual `diskInventory`
+# parameter is filled in by the nexus-postinstall script after the
+# wizard answers are known.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: anyraid-default
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+    nexus.io/managed-by: harvester-nexus-installer
+provisioner: anyraid.csi.nexus.io
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  profile: raidz1
+  slabSizeMiB: "64"
+  allowHeterogeneous: "true"
+  autoRebalance: "true"
+  hotSpareSlabsPerDisk: "2"
+  # diskInventory is populated post-install based on
+  # /etc/nexus/anyraid-disks.yaml chosen by the operator.
+  diskInventory: ""

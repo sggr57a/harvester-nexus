@@ -1,0 +1,129 @@
+# Harvester-Nexus ISO
+
+This directory holds everything needed to produce **`harvester-nexus-<version>.iso`** — a single bootable image that installs:
+
+- **Base Harvester** (SLE Micro + K3s/RKE2 + KubeVirt + Longhorn + Multus + Rancher) from the upstream `harvester-installer` repo.
+- **The full Nexus cockpit** — every dashboard, widget, theme, wizard, and view documented in the top-level `README.md`.
+- **Built-in XDR / MDR platform** — 12 FOSS sensors (Falco, Tetragon, Wazuh, Suricata, Hubble, Trivy, Polaris, kube-bench, OpenSearch, Grype, Syft) + 18 Sigma detection rules + 10 free intel feeds + 10 automated response actions.
+- **AnyRAID CSI driver** — slab-based RAID over heterogeneous-capacity drives.
+- **First-boot wizard** with Nexus-specific questions on top of Harvester's mandatory mode / network / VIP / NTP set.
+- **Default cockpit credentials of `admin` / `admin`** with **forced password change on first login** so unattended installs work out of the box without leaving the cluster with weak credentials.
+
+## What's in this directory
+
+```
+installer/
+├── README.md                         (this file)
+├── VERSION                           "1.0.0+nexus.1"
+├── Dockerfile                        nexus-flavored iso-builder image
+├── Makefile                          overlay / simulate / iso-builder / iso / clean / tests
+├── build-iso.sh                      6-stage build pipeline
+│
+├── overlay/                          files merged into the squashfs root
+│   ├── etc/nexus/config.yaml         install-time config (admin/admin, themes, XDR profile, ...)
+│   ├── etc/systemd/system/           nexus-bootstrap.service + nexus-cockpit.service
+│   └── usr/local/bin/                nexus-bootstrap, nexus-cockpit, nexus-postinstall
+│
+├── manifests/                        applied by nexus-bootstrap on first boot
+│   ├── 00-nexus-namespace.yaml       3 namespaces (nexus-system / nexus-xdr / nexus-cockpit)
+│   ├── 10-default-admin.yaml         admin SA + ClusterRoleBinding + credentials Secret
+│   ├── 20-xdr-stack.yaml             12 FOSS XDR sensors as DaemonSets/Deployments/CronJobs
+│   ├── 30-anyraid-csi.yaml           AnyRAID CSIDriver + DaemonSet + StorageClass
+│   ├── 40-cockpit-service.yaml       cockpit Deployment + Service + Ingress
+│   └── 99-nexus-features.yaml        feature-flag ConfigMap consumed by the cockpit
+│
+├── installer-config/
+│   └── nexus-wizard-questions.yaml   16 extra questions injected into the Harvester wizard
+│
+├── simulator/
+│   └── simulate.mjs                  end-to-end dry-run that validates the whole pipeline
+│
+└── tests/
+    └── installer.test.ts             27 vitest contract tests
+```
+
+## Quick reference
+
+### Build the cockpit overlay only (no Docker — ~6 seconds on a laptop)
+
+```bash
+cd installer
+make overlay
+```
+
+Produces `build/nexus-overlay/` with the systemd units, scripts, cockpit production bundle, bootstrap manifests, and `/etc/nexus/config.yaml` all staged where they'll live on the installed system.
+
+### Run the install simulator (no Docker — proves the install would succeed)
+
+```bash
+cd installer
+make simulate
+```
+
+The simulator:
+1. Parses `/etc/nexus/config.yaml`, validates the schema, confirms `admin / admin` is the seeded credential pair with `forcePasswordChange` set.
+2. Renders every manifest under `installer/manifests/`, verifies each has `apiVersion + kind + metadata.name`, and that every workload image references a real upstream registry (`docker.io/`, `quay.io/`, `ghcr.io/`, `gcr.io/`, `registry.k8s.io/`).
+3. Applies the manifests against an in-memory mock kube-apiserver, verifies the admin user / cockpit Deployment / XDR sensors / AnyRAID CSI / feature ConfigMap all reconcile.
+4. Calls the cockpit's `isDemoLogin('admin', 'admin')` function, verifies it returns a token with `forcePasswordChange: true` and `cluster-admin` capability, and rejects unknown users / wrong passwords.
+5. Writes a structured report at `build/install-simulation-report.yaml`.
+
+Exit code is 0 on success, non-zero on any failure. The latest verified run reports **59 / 59 checks passed · 26 Kubernetes objects reconciled · admin / admin login verified**.
+
+### Build the full ISO (needs Docker + ~30 minutes + ~25 GB free disk)
+
+```bash
+cd installer
+make iso-builder        # build the nexus-flavored iso-builder image
+make iso                # produces dist/harvester-nexus-<version>.iso
+```
+
+The `make iso` target runs `build-iso.sh` inside the `harvester-nexus-iso-builder` container, which:
+
+1. Builds the cockpit production bundle (`npm run build`).
+2. Stages the overlay tree at `/build/nexus-overlay`.
+3. Clones `harvester-installer` (master) and merges the overlay into its `package/harvester-os/iso/rootfs/`.
+4. Injects `nexus-wizard-questions.yaml` into `pkg/console/questions/` and patches the installer's question loader.
+5. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
+6. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
+
+### Install + verify (real ISO on bare metal or QEMU)
+
+```bash
+# QEMU example — needs ~16 GB RAM + 200 GB disk on the host
+qemu-system-x86_64 \
+  -enable-kvm -m 16384 -smp 8 -cpu host \
+  -drive file=harvester-nexus.qcow2,if=virtio,size=200G \
+  -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
+  -boot d \
+  -netdev user,id=net0,hostfwd=tcp::8443-:443 -device virtio-net,netdev=net0
+```
+
+On boot the operator sees the **base Harvester wizard** (mode / network / VIP / NTP / cluster token / OS password) followed by the **Nexus wizard questions** declared in `installer-config/nexus-wizard-questions.yaml`. Accepting the defaults yields a single-node Harvester cluster with the full Nexus cockpit, XDR stack, and AnyRAID driver all installed automatically on first boot.
+
+### Default credentials
+
+After install completes the cockpit accepts:
+
+| Field    | Value   |
+|----------|---------|
+| Username | `admin` |
+| Password | `admin` |
+
+On first login the cockpit **forces the operator to pick a new password** before any privileged action is permitted. The legacy `admin / demo` password is still accepted as a backwards-compat alias so the existing demo walkthroughs continue to work.
+
+## Tests
+
+```bash
+npm run test -- installer       # 27 contract tests for the installer
+npm run test                    # 237 total tests across the whole repo
+```
+
+The contract tests lock in:
+
+- `config.yaml` has `apiVersion=nexus.io/v1`, `kind=NexusInstallConfig`, `admin.username=admin`, `admin.password=admin`, `admin.forcePasswordChangeOnFirstLogin=true`, a default theme + XDR profile + launch variant from the documented enums, and every documented storage backend.
+- Each manifest file has a valid lexical-ordered prefix (00- / 10- / 20- / 30- / 40- / 99-) and every doc inside has `apiVersion + kind + metadata.name`.
+- The XDR stack ships Falco, Tetragon, Wazuh agent + manager, Suricata, Hubble relay, Trivy operator, OpenSearch, Polaris, kube-bench, Grype, and Syft.
+- Every workload image references a real upstream FOSS registry — no placeholder or private registries.
+- The wizard question schema exposes every install-time setting the cockpit checks at boot.
+- The systemd units order correctly (`nexus-bootstrap` after `k3s/rke2`, `nexus-cockpit` after `nexus-bootstrap`).
+- Every helper script under `overlay/usr/local/bin/` is present and starts with a bash shebang.

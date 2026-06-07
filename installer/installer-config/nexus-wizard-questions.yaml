@@ -1,0 +1,185 @@
+# Extra install-wizard questions injected into the Harvester installer.
+# Layered after the base Harvester wizard's question set so the operator
+# answers Harvester's mandatory questions (mode / network / VIP / NTP /
+# token / password) first, then sees the Nexus-specific questions below.
+#
+# Schema mirrors harvester-installer's question definitions
+# (https://github.com/harvester/harvester-installer/tree/master/pkg/console).
+
+questions:
+  - variable: nexus.admin.username
+    label: Cockpit admin username
+    description: |
+      Username for the built-in Nexus cockpit administrator. Defaults to
+      `admin`. The cockpit forces this user to pick a new password on
+      first login regardless of the value chosen here.
+    type: input
+    default: admin
+    required: true
+    validation: nonempty
+
+  - variable: nexus.admin.password
+    label: Cockpit admin password
+    description: |
+      Initial password for the cockpit administrator. Defaults to `admin`
+      so unattended installs work out of the box; the first-login flow
+      then forces a password change before any privileged action is
+      permitted.
+    type: password
+    default: admin
+    required: true
+
+  - variable: nexus.cockpit.defaultTheme
+    label: Default cockpit theme
+    description: Pick the default theme applied for every operator on first login.
+    type: enum
+    default: route-grid
+    options:
+      - route-grid
+      - arctic-hologram
+      - arctic-command
+      - ice-spectrum
+
+  - variable: nexus.launchVariant
+    label: Login launch animation
+    description: Which post-login launch animation plays after a successful sign-in.
+    type: enum
+    default: concentric-boot
+    options:
+      - concentric-boot
+      - status-cascade
+      - hex-grid
+      - radar-sweep
+
+  - variable: nexus.storage.defaultBackend
+    label: Default storage backend
+    description: |
+      The storage backend that becomes the cluster's default StorageClass.
+      Every other backend is registered but only this one is provisioned
+      on first boot; the others can be enabled later from the cockpit.
+    type: enum
+    default: longhorn
+    options:
+      - longhorn
+      - ceph
+      - vitastor
+      - anyraid
+      - nvme-of
+      - rdma
+      - zfs
+      - iscsi
+      - nfs
+      - smb
+      - glusterfs
+      - openebs
+      - portworx
+      - local
+
+  - variable: nexus.storage.anyraid.enabled
+    label: Enable AnyRAID
+    description: |
+      Slab-based RAID over heterogeneous-capacity drives. Useful when the
+      node has a mix of older + newer disks. AnyRAID can be enabled later
+      from the cockpit, but selecting Yes here installs the CSI driver
+      during the first-boot bootstrap.
+    type: bool
+    default: false
+
+  - variable: nexus.polyCompute.kubevirt.enabled
+    label: Enable KubeVirt (VMs)
+    description: Run virtual machines alongside containers via KubeVirt + virt-handler.
+    type: bool
+    default: true
+
+  - variable: nexus.polyCompute.incusLxc.enabled
+    label: Enable Incus / LXC system containers
+    description: Run system containers (Incus / LXC) alongside KubeVirt VMs and pods.
+    type: bool
+    default: true
+
+  - variable: nexus.acceleration.spdk
+    label: Enable SPDK userspace I/O
+    description: |
+      Bind storage I/O to SPDK userspace queues for NVMe-oF target
+      offload. Requires hugepages.
+    type: bool
+    default: false
+
+  - variable: nexus.acceleration.gpuPassthrough
+    label: Enable GPU pass-through (vfio-pci)
+    description: |
+      Bind selected GPUs to vfio-pci so VMs can claim them directly.
+      Requires IOMMU (VT-d / AMD-Vi) in the system firmware.
+    type: bool
+    default: false
+
+  - variable: nexus.xdr.enabled
+    label: Enable built-in XDR / MDR platform
+    description: |
+      Install the 100 %-FOSS XDR / MDR stack on first boot (Falco,
+      Tetragon, Wazuh, Suricata, Hubble, Trivy, OpenSearch + 18 Sigma
+      detection rules + 10 free intel feeds + 10 automated response
+      actions). Can be disabled or tuned later from the cockpit's
+      Security Posture wizard.
+    type: bool
+    default: true
+
+  - variable: nexus.xdr.profile
+    label: XDR security profile
+    description: |
+      `baseline` deploys 6 sensors; `hardened` deploys 12; `maximum`
+      deploys all 17. Only shown when XDR is enabled.
+    type: enum
+    default: hardened
+    options: [baseline, hardened, maximum]
+    showIf: nexus.xdr.enabled = true
+
+  - variable: nexus.xdr.autoResponse.enabled
+    label: Enable automated XDR responses
+    description: |
+      When enabled, critical alerts can automatically isolate endpoints
+      via Cilium NetworkPolicy, snapshot affected VMs via KubeVirt,
+      rollback deployments via ArgoCD, and block egress to known C2
+      domains. Disabling leaves the engine in alert-only mode.
+    type: bool
+    default: true
+    showIf: nexus.xdr.enabled = true
+
+  - variable: nexus.gitops.enabled
+    label: Enable GitOps
+    description: |
+      Install ArgoCD (default), Flux, or Jenkins-X on first boot so the
+      cluster reconciles from a Git repository immediately.
+    type: bool
+    default: true
+
+  - variable: nexus.gitops.controller
+    label: GitOps controller
+    description: Pick the controller installed when GitOps is enabled.
+    type: enum
+    default: argocd
+    options: [argocd, flux, jenkins-x]
+    showIf: nexus.gitops.enabled = true
+
+  - variable: nexus.compliance.enabled
+    label: Enable compliance scans
+    description: |
+      Run kube-bench (daily), OpenSCAP, and Lynis on the configured
+      schedule. Drives the Compliance Posture rings on Mission Control.
+    type: bool
+    default: true
+
+  - variable: nexus.observability.prometheus.enabled
+    label: Enable Prometheus + alerting
+    description: Install the kube-prometheus stack on first boot.
+    type: bool
+    default: true
+
+  - variable: nexus.observability.logs.enabled
+    label: Enable centralized logging
+    description: |
+      Install a logging stack on first boot. Choose between Loki
+      (default), Fluentd, or a Splunk forwarder in the cockpit's
+      Operations view later.
+    type: bool
+    default: true

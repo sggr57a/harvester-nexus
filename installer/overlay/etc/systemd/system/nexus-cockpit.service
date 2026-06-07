@@ -1,0 +1,21 @@
+[Unit]
+Description=Harvester-Nexus cockpit (web UI)
+Documentation=https://github.com/sggr57a/harvester-nexus
+After=network-online.target nexus-bootstrap.service
+Wants=network-online.target
+Requires=nexus-bootstrap.service
+
+[Service]
+Type=notify
+ExecStartPre=/usr/local/bin/nexus-cockpit --check-config /etc/nexus/config.yaml
+ExecStart=/usr/local/bin/nexus-cockpit --serve --config /etc/nexus/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/nexus /var/lib/nexus
+
+[Install]
+WantedBy=multi-user.target
