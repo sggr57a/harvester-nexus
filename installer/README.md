@@ -77,8 +77,9 @@ The iso-builder image is based on `registry.suse.com/bci/golang:1.25` with the s
 xorriso / squashfs / Helm / **Docker 29 CLI** toolchain Harvester upstream uses — **not**
 `rancher/harvester-installer:<tag>`, which is a `FROM scratch` image containing only
 the `/usr/bin/harvester-installer` binary and no shell. The zypper `docker` package is
-deliberately omitted (API 1.42); a current static CLI is installed instead so `elemental
-build-iso` can talk to Docker 29+ host daemons.
+deliberately omitted (API 1.42); a current static CLI is installed instead. The `elemental`
+binary copied from `rancher/harvester-os` embeds moby client API 1.42 as well, so the
+builder image sets `DOCKER_API_VERSION=1.44` for Docker 29+ host daemons.
 
 ```bash
 cd installer

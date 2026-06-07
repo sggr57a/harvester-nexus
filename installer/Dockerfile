@@ -54,6 +54,10 @@ RUN DOCKER_ARCH=$([ "${ARCH}" = "arm64" ] && echo aarch64 || echo x86_64) && \
 # (BCI golang images do not include /usr/local/bin by default).
 ENV PATH="/usr/local/bin:${PATH}"
 
+# elemental (copied from rancher/harvester-os during package-harvester-os) embeds
+# go-containerregistry/moby with API 1.42. Docker 29+ host daemons require >= 1.44.
+ENV DOCKER_API_VERSION=1.44
+
 # Node.js 20 — the golang BCI image does not ship nodejs20 in its default
 # zypper repos; install the official upstream binary (same approach as yq/Helm).
 ARG NODE_VERSION=20.18.3

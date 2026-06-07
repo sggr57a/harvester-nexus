@@ -47,6 +47,7 @@ iso: iso-builder
 	  -e BUILD_DIR=/build \
 	  -e REPO_ROOT=/src \
 	  -e NEXUS_VERSION=$(VERSION) \
+	  -e DOCKER_API_VERSION=1.44 \
 	  $(ISO_BUILDER_IMG) \
 	  /src/installer/build-iso.sh
 	@echo ">> ISO produced: $(ISO_FILE)"

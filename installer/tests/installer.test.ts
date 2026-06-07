@@ -248,6 +248,12 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
     expect(dockerfile).toMatch(/tar xzf "docker-\$\{DOCKER_CLI_VERSION\}\.tgz" docker\/docker/);
     expect(dockerfile).toMatch(/mv docker\/docker \/usr\/local\/bin\/docker/);
   });
+
+  it('sets DOCKER_API_VERSION for elemental embedded moby client (API 1.42)', () => {
+    expect(dockerfile).toMatch(/ENV DOCKER_API_VERSION=1\.44/);
+    const makefile = readFileSync(join(INSTALLER, 'Makefile'), 'utf8');
+    expect(makefile).toMatch(/DOCKER_API_VERSION=1\.44/);
+  });
 });
 
 describe('installer · upstream harvester-installer patches', () => {

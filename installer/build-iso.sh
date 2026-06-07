@@ -35,6 +35,11 @@ mkdir -p "${NEXUS_OVERLAY}" "${DIST}"
 log()  { printf '[%s] [build-iso] %s\n' "$(date -Iseconds)" "$*"; }
 fail() { printf '[%s] [build-iso] FATAL %s\n' "$(date -Iseconds)" "$*" >&2; exit 1; }
 
+# elemental build-iso uses go-containerregistry against docker.sock; the binary
+# copied from rancher/harvester-os embeds moby client API 1.42. Docker 29+ daemons
+# require >= 1.44 — force negotiation before any harvester-installer scripts run.
+export DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
+
 log "harvester-nexus iso builder · version=${VERSION}"
 log "REPO_ROOT=${REPO_ROOT}"
 log "BUILD_DIR=${BUILD_DIR}"
