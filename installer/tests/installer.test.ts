@@ -244,8 +244,8 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
   it('installs a current Docker CLI static binary (not zypper docker API 1.42)', () => {
     expect(dockerfile).not.toMatch(/^\s+docker\s*\\/m);
     expect(dockerfile).toMatch(/DOCKER_CLI_VERSION=/);
-    expect(dockerfile).toMatch(/download\.docker\.com\/linux\/static/);
-    expect(dockerfile).toMatch(/ENV PATH="\/usr\/local\/bin:\$\{PATH\}"/);
+    expect(dockerfile).toMatch(/tar xzf "docker-\$\{DOCKER_CLI_VERSION\}\.tgz" docker\/docker/);
+    expect(dockerfile).toMatch(/mv docker\/docker \/usr\/local\/bin\/docker/);
   });
 });
 
