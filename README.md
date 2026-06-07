@@ -232,30 +232,67 @@ lighting in the SOC. Theme selection persists in `localStorage`.
 
 ## Installation
 
-Two install paths:
+Nexus ships two install paths. **Production** installs the full HCI platform — Harvester base OS, Kubernetes, KubeVirt, storage fabric, XDR / MDR stack, and the Nexus cockpit — from a bootable ISO. **Development** runs only the React cockpit against mock data on your workstation.
 
-1. **Production: bootable ISO** — `harvester-nexus-<version>.iso` bundles the base Harvester installer with every Nexus component already inside. Boot a machine from the ISO, answer the wizard (or accept the defaults), wait for the first-boot bootstrap, log in with **`admin` / `admin`**, and rotate the password. See [`installer/README.md`](./installer/README.md) for the full build + install + verify guide. The default credentials, XDR profile, AnyRAID toggle, GitOps controller, theme, and launch animation can all be picked during the install wizard or accepted as documented defaults.
+> **Important:** Ubuntu is the **build host** and/or **QEMU hypervisor**. The ISO does **not** install Ubuntu on the target node — it installs **SLE Micro + Harvester + Nexus**. The machine you boot from the ISO (bare metal or VM) becomes a dedicated HCI node whose local disk is consumed by the installer.
 
-2. **Development: cockpit dev server** — the React + TypeScript cockpit alone, served by Vite at `http://localhost:4173`. The instructions below get you from a clean Ubuntu 22.04 / 24.04 box to a running Nexus dev server.
+### Choose your path
+
+| Goal | Where it runs | What you need | Start here |
+|---|---|---|---|
+| **Full Nexus cluster** (production / lab) | Bare-metal server **or** VM that boots the ISO | ISO build host (Ubuntu 24.10+), target node meeting [platform requirements](#nexus-platform--single-node-lab), USB stick or virtual disk | [Build the ISO](#3-build-the-install-iso-on-ubuntu-2410) → [Install on bare metal](#4-install-on-bare-metal) or [Install in a VM](#5-install-in-a-kvm-vm-on-ubuntu) |
+| **Validate the installer without Docker** | Any Linux/macOS with Node 20+ | 4 GB RAM, git clone | [Validate before building](#2-validate-the-installer-without-docker) |
+| **Cockpit UI only** (mock data, no cluster) | Ubuntu 24.10+ dev laptop | 4 GB RAM, Node 20+ | [Development cockpit](#development-cockpit-only) |
+
+Current release version: **`1.0.0+nexus.1`** (see `installer/VERSION`). The ISO artifact is `dist/harvester-nexus-1.0.0+nexus.1.iso`.
+
+---
 
 ### Hardware requirements
 
-Two profiles apply: the **cockpit** (the React app you install via the steps in this section, which configures and orchestrates the platform) and the **Nexus platform** itself (the bare-metal HCI host or cluster that the cockpit ultimately provisions and protects with the bundled XDR / MDR stack).
+Three profiles apply depending on which machine you are sizing.
 
-#### Cockpit (dev / preview host)
+#### ISO build host (Ubuntu 24.10+)
+
+The machine where you run `make iso`. It does **not** become part of the cluster unless you also boot the ISO on it.
+
+| Resource | Minimum | Recommended |
+|---|---|---|
+| OS | **Ubuntu 24.10** or later (24.04 LTS also works) | Ubuntu 24.10+ on bare metal with native Docker |
+| CPU | 4 cores, x86_64 | 8+ cores |
+| Memory | 8 GB RAM | 16 GB RAM |
+| Disk | **30 GB free** for Docker layers + build tree | 50+ GB free on SSD/NVMe |
+| Software | Docker Engine, git, Node.js 20+ (pulled into the builder image automatically) | KVM + QEMU if you also plan to test the ISO locally |
+| Network | Outbound HTTPS to GitHub, Docker Hub, npm registry, and container registries | Same |
+
+> **Nested VMs:** Building the ISO inside a cloud VM or nested hypervisor often fails with Docker overlay mount errors. Use a bare-metal Ubuntu 24.10+ host, or run only [`make simulate`](#2-validate-the-installer-without-docker) in constrained environments.
+
+#### QEMU / KVM test host (optional)
+
+If you test the ISO in a VM **on** Ubuntu before bare-metal deployment:
+
+| Resource | Minimum | Recommended |
+|---|---|---|
+| Host OS | Ubuntu 24.10+ with `/dev/kvm` | Same |
+| CPU | 8 cores with VT-x / AMD-V | 16 cores |
+| Memory | **16 GB RAM** free for the guest | 32 GB RAM |
+| Disk | **200 GB** qcow2 sparse file for the guest | 500 GB NVMe-backed qcow2 |
+| Network | User networking or bridged NIC | Bridged NIC so the guest gets a routable IP |
+
+#### Cockpit dev / preview host
 
 | Resource | Minimum | Optimal |
 |---|---|---|
 | CPU | 2 cores, x86_64 or arm64 | 4+ cores |
 | Memory | 4 GB RAM | 8 GB RAM |
-| Disk | 2 GB free (≈ 500 MB `node_modules`, 50 MB build output, headroom for Playwright / Chromium) | 10 GB free on SSD/NVMe |
-| OS | Ubuntu 22.04 / 24.04 (any modern Linux works) | Ubuntu 24.04 LTS |
-| Network | Outbound HTTPS to npm registry + GitHub for `npm install` and `git clone` | Same |
-| Browser | Chromium / Firefox / Safari with ES2020 + `backdrop-filter` support | Chromium-based browser at 1920×1080 or wider for the full HUD layout |
+| Disk | 2 GB free | 10 GB free on SSD/NVMe |
+| OS | **Ubuntu 24.10+** (any modern Linux works) | Ubuntu 24.10 |
+| Network | Outbound HTTPS to npm registry + GitHub | Same |
+| Browser | Chromium / Firefox / Safari with ES2020 + `backdrop-filter` | Chromium at 1920×1080 or wider |
 
 #### Nexus platform — single-node lab
 
-A single host running the bundled Harvester base + Kubernetes + KubeVirt + XDR sensors. Suitable for development, proofs-of-concept, and small edge deployments.
+The **target node** that boots the ISO. Suitable for development, proofs-of-concept, and small edge deployments.
 
 | Resource | Minimum | Optimal |
 |---|---|---|
@@ -292,99 +329,260 @@ A 3+ node hyperconverged cluster running the full Poly-Compute Engine (KubeVirt 
 | Memory | 8 GB RAM total (OpenSearch + Wazuh Manager + MISP) | 24+ GB RAM total — OpenSearch heap 4 GB, Wazuh Manager 4 GB, MISP + ThreatFox replica 4 GB, the rest distributed across host DaemonSets |
 | Disk | 100 GB for the event lake (≈ 30 days at low event rate) | 1+ TB NVMe for the OpenSearch event lake (≥ 90 days hot retention, plus warm-tier archive for compliance evidence) |
 
-> The cockpit will start and run on the **Cockpit minimum**. The Nexus platform requirements only apply when you actually deploy the manifests the cockpit generates onto real hardware.
+---
 
-### 1. System prerequisites
+### Production install on Ubuntu 24.10+ (full walkthrough)
+
+These steps take you from a clean Ubuntu 24.10 machine to a running Nexus cluster on bare metal or in a KVM VM.
+
+#### 1. Prepare the build host
+
+On **Ubuntu 24.10 or later**:
 
 ```bash
 sudo apt update
-sudo apt install -y git curl build-essential ca-certificates
+sudo apt install -y git curl ca-certificates \
+  docker.io qemu-system-x86 qemu-utils genisoimage \
+  cpu-checker
+
+# Add your user to the docker group (log out/in afterward)
+sudo usermod -aG docker "$USER"
+
+# Confirm hardware virtualization (needed for local KVM testing)
+kvm-ok || true
+docker --version   # Docker 24+ recommended
 ```
 
-### 2. Install Node.js 20.x
-
-The project requires **Node.js ≥ 20** (matches `vite@5` and `vitest@4`). Use one of these:
-
-**Option A — nvm (recommended for development):**
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-nvm install 20
-nvm use 20
-```
-
-**Option B — NodeSource APT (system install):**
+Install **Node.js 20+** (needed for validation targets and pulled automatically during ISO build):
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
-```
-
-Confirm the install:
-
-```bash
 node --version   # v20.x or higher
-npm --version    # 10.x or higher
 ```
 
-### 3. Clone the repository
+Clone the repository:
 
 ```bash
 git clone https://github.com/sggr57a/harvester-nexus.git
 cd harvester-nexus
+npm install      # installs Vitest + cockpit toolchain for validation
 ```
 
-> To run the bleeding-edge XDR / MDR branch instead of `main`, check it out:
-> `git checkout cursor/xdr-mdr-foss-d3bc`
+#### 2. Validate the installer (without Docker)
 
-### 4. Install JavaScript dependencies
+Run this on any machine with Node 20+ before committing to a 30-minute ISO build. Exit code `0` means the install pipeline is sound.
 
 ```bash
+cd installer
+make simulate
+```
+
+The simulator performs **59 checks**: parses `/etc/nexus/config.yaml`, validates all bootstrap manifests, reconciles 26 Kubernetes objects against a mock apiserver, and verifies `admin` / `admin` login with forced password change. A report lands at `build/install-simulation-report.yaml`.
+
+Additional contract tests:
+
+```bash
+npm run test -- installer   # 20 installer contract tests
+npm run test                # 237 tests across the whole repo
+```
+
+#### 3. Build the install ISO on Ubuntu 24.10+
+
+Requires Docker, ~30 minutes, and ~25 GB free disk on a **native** (non-nested) host:
+
+```bash
+cd installer
+make iso-builder    # builds harvester-nexus-iso-builder:1.0.0-nexus.1 Docker image
+make iso            # produces dist/harvester-nexus-1.0.0+nexus.1.iso
+```
+
+Verify the artifact:
+
+```bash
+ls -lh dist/harvester-nexus-*.iso
+sha256sum -c dist/harvester-nexus-*.iso.sha256
+```
+
+The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
+
+- Upstream **Harvester** (SLE Micro + K3s/RKE2 + KubeVirt + Longhorn + Multus + Rancher)
+- The **Nexus cockpit** production bundle
+- **12 FOSS XDR sensors** + detection rules + intel feeds + response actions
+- **AnyRAID CSI** driver
+- **16 Nexus-specific install-wizard questions** layered on Harvester's base wizard
+
+#### 4. Install on bare metal
+
+1. **Write the ISO to USB** (replace `/dev/sdX` with your USB device):
+
+   ```bash
+   sudo dd if=dist/harvester-nexus-1.0.0+nexus.1.iso of=/dev/sdX bs=4M status=progress conv=fsync
+   ```
+
+2. **Boot the target server** from the USB stick. Enter firmware setup and confirm:
+   - Boot mode: **UEFI**
+   - Secure Boot: **disabled**
+   - Virtualization (VT-x / AMD-V): **enabled**
+   - IOMMU (VT-d / AMD-Vi): **enabled** if you plan GPU / SR-IOV pass-through
+
+3. **Answer the install wizard.** Two question sets appear in order:
+
+   **Harvester base wizard** (required):
+   - Install mode: *Create a new cluster* (single-node lab) or *Join an existing cluster*
+   - Management NIC, IP / gateway / DNS, cluster VIP, NTP servers
+   - Cluster token (create mode) and OS / SSH password
+
+   **Nexus wizard** (optional — defaults are fine for a first install):
+
+   | Setting | Default | Notes |
+   |---|---|---|
+   | Cockpit admin username | `admin` | Forced password change on first login |
+   | Cockpit admin password | `admin` | Rotate immediately after login |
+   | Default theme | Route Grid | Arctic Hologram, Arctic Command, Ice Spectrum also available |
+   | Launch animation | Concentric boot | |
+   | Default storage backend | Longhorn | AnyRAID, Ceph, Vitastor, ZFS, … also listed |
+   | Enable AnyRAID | No | Set Yes to install the CSI driver on first boot |
+   | KubeVirt / Incus / LXC | Yes / Yes | Poly-Compute Engine |
+   | XDR / MDR platform | Yes, **Hardened** profile | Baseline (6 sensors) or Maximum (17 sensors) |
+   | Automated XDR responses | Yes | Alert-only if disabled |
+   | GitOps (ArgoCD) | Yes | Flux or Jenkins-X alternatives |
+   | Compliance scans | Yes | kube-bench, OpenSCAP, Lynis schedules |
+   | Prometheus + logging | Yes | Loki stack |
+
+4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk and enables `nexus-bootstrap.service` and `nexus-cockpit.service`.
+
+5. **First boot bootstrap** (automatic, 5–15 minutes depending on disk and network):
+   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/local/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit → `99-` features)
+   - `nexus-cockpit` serves the bundled cockpit on port **8443** (HTTPS) and **8080** (health)
+   - Logs: `/var/log/nexus/bootstrap.log`
+
+6. **Open the cockpit** at `https://<cluster-vip>` (or the node IP if no VIP is configured). Accept the self-signed TLS certificate.
+
+7. **Log in and rotate the password:**
+
+   | Field | Value |
+   |---|---|
+   | Username | `admin` |
+   | Password | `admin` |
+
+   The cockpit **requires a new password** before any privileged action. The legacy `admin` / `demo` alias still works in dev builds but production installs should use `admin` / `admin` and rotate immediately.
+
+#### 5. Install in a KVM VM on Ubuntu
+
+Use this to lab-test the ISO on the same Ubuntu 24.10+ build host before touching bare metal.
+
+```bash
+# Create a 200 GB disk image
+qemu-img create -f qcow2 ~/harvester-nexus.qcow2 200G
+
+# Boot the ISO (adjust paths; -enable-kvm requires /dev/kvm)
+qemu-system-x86_64 \
+  -enable-kvm \
+  -m 16384 \
+  -smp 8 \
+  -cpu host \
+  -drive file=$HOME/harvester-nexus.qcow2,if=virtio,format=qcow2 \
+  -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
+  -boot d \
+  -netdev user,id=net0,hostfwd=tcp::8443-:443 \
+  -device virtio-net-pci,netdev=net0 \
+  -nographic
+```
+
+After installation completes and the VM reboots from disk, open `https://localhost:8443` on the Ubuntu host (the `hostfwd` rule maps host port 8443 → guest port 443).
+
+For a graphical console, drop `-nographic` and add `-display gtk` or use `virt-manager` with the same disk + ISO settings.
+
+> **Memory note:** The guest needs **≥ 32 GB RAM** for a comfortable single-node lab (Harvester minimum). The `-m 16384` example above is the QEMU *host allocation* floor from the installer docs; increase to `-m 32768` if the host has headroom.
+
+#### 6. Post-install verification
+
+On the build host (or any machine with `kubectl` configured against the cluster):
+
+```bash
+# From the installed node (SSH in after wizard completes):
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml   # or /etc/rancher/k3s/k3s.yaml
+
+kubectl get nodes
+kubectl get pods -A | grep -E 'nexus|falco|longhorn'
+
+# Confirm bootstrap finished cleanly
+sudo tail -50 /var/log/nexus/bootstrap.log
+```
+
+In the cockpit, confirm these views load under the sidebar groups **MONITOR · COMPUTE · SECURE · DEPLOY**:
+
+- Mission Control, Telemetry Wave, Networking (Threat-Intel Map), Storage
+- Poly-Compute, Acceleration, Operations, Resource Monitor
+- XDR Operations Center, Security Posture wizard
+- Cluster Console, Setup Wizard
+
+Re-run the install simulator on the build host any time you change installer artifacts:
+
+```bash
+cd installer && make simulate   # expect: 59 / 59 checks passed
+```
+
+---
+
+### Development cockpit only
+
+Run the React cockpit against mock / computed local data — no cluster, no ISO, no Docker required. Suitable for UI development and demos on **Ubuntu 24.10+**.
+
+```bash
+sudo apt update
+sudo apt install -y git curl build-essential ca-certificates
+
+# Node.js 20+
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+git clone https://github.com/sggr57a/harvester-nexus.git
+cd harvester-nexus
 npm install
-```
-
-This installs React, Vite, CodeMirror, Vitest, TypeScript, and the rest of the toolchain (~280 packages).
-
-### 5. Run the dev server
-
-```bash
 npm run dev
 ```
 
-Open `http://localhost:4173` in any browser. **Demo credentials**: `admin` / `demo`.
+Open `http://localhost:4173`. Credentials: `admin` / `demo` or `admin` / `admin`.
 
-> The dev server binds to port **4173** (not the default Vite 5173) — see `vite.config.ts`.
-
-### 6. Verify the build
+Verify the build:
 
 ```bash
-npx tsc --noEmit     # type-check the project
-npm run test         # run the Vitest suite (178 tests)
-npm run build        # production build into ./dist
-npm run preview      # preview the production bundle on :4173
+npx tsc --noEmit
+npm run test         # 237 Vitest tests
+npm run build
+npm run preview      # production bundle on :4173
 ```
 
-### 7. Optional — Playwright capture scripts
-
-The `scripts/` folder contains optional Playwright-based mockup-capture scripts (`smoke-shot.mjs`, `record-mockups.mjs`, `capture.mjs`, `capture-login.mjs`). Install Chromium for Playwright before first use:
+Optional Playwright capture scripts (`scripts/capture.mjs`, `smoke-shot.mjs`, …) require Chromium:
 
 ```bash
 npx playwright install chromium
-node scripts/capture.mjs
+node scripts/capture.mjs mission-control /tmp/mission-control.png
 ```
 
-### 8. Optional — run inside Docker
-
-If you'd rather not install Node on the host:
+Optional — run inside Docker without installing Node on the host:
 
 ```bash
 docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
   bash -c "npm install && npm run dev -- --host 0.0.0.0"
 ```
 
-Open `http://localhost:4173` from your host browser.
+---
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `make iso-builder` fails with `invalid reference format` | Docker tag cannot contain `+` in the version string | Ensure you are on a branch with the `DOCKER_TAG` sanitization in `installer/Makefile` (maps `1.0.0+nexus.1` → `1.0.0-nexus.1` for the image tag) |
+| Docker build fails with `overlay … invalid argument` | Nested / cloud VM without working overlayfs | Build the ISO on bare-metal Ubuntu 24.10+; use `make simulate` instead |
+| `make iso` runs out of disk | ISO build needs ~25 GB | Free space under `/var/lib/docker` and the repo checkout |
+| QEMU `-enable-kvm` error | KVM not available | Run `kvm-ok`; enable virtualization in firmware; or drop `-enable-kvm` (much slower) |
+| Cockpit unreachable after install | VIP / firewall / bootstrap still running | Check `kubectl get pods -A`; wait for bootstrap log to finish; confirm VIP answers on 443 |
+| Login rejected | Wrong credentials | Production default is `admin` / `admin`; dev server also accepts `admin` / `demo` |
+
+For installer internals, manifest layout, and simulator details, see [`installer/README.md`](./installer/README.md).
 
 ### Repository layout
 
@@ -408,8 +606,9 @@ docs/mockups/                 Reference screenshots & videos
 ## Verified build
 
 - `npx tsc --noEmit` — clean type-check
-- `npm run test` — 178 / 178 Vitest tests pass (cockpit + XDR engine + rules + responses + manifests)
+- `npm run test` — 237 / 237 Vitest tests pass (cockpit + XDR engine + rules + responses + manifests + installer)
 - `npm run build` — production bundle succeeds
+- `cd installer && make simulate` — 59 / 59 install pipeline checks pass
 
 ## GitHub branches and pull requests
 

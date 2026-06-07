@@ -10,9 +10,11 @@
 REPO_ROOT       := $(shell cd .. && pwd)
 INSTALLER_DIR   := $(REPO_ROOT)/installer
 VERSION         := $(shell cat $(INSTALLER_DIR)/VERSION)
+# Docker tags cannot contain '+'; keep the human-readable VERSION for ISO filenames.
+DOCKER_TAG      := $(subst +,-,$(VERSION))
 DIST            := $(REPO_ROOT)/dist
 BUILD_DIR       := $(REPO_ROOT)/build
-ISO_BUILDER_IMG := harvester-nexus-iso-builder:$(VERSION)
+ISO_BUILDER_IMG := harvester-nexus-iso-builder:$(DOCKER_TAG)
 ISO_FILE        := $(DIST)/harvester-nexus-$(VERSION).iso
 
 .PHONY: overlay
