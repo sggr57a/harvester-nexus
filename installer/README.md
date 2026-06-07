@@ -136,5 +136,5 @@ The contract tests lock in:
 - The XDR stack ships Falco, Tetragon, Wazuh agent + manager, Suricata, Hubble relay, Trivy operator, OpenSearch, Polaris, kube-bench, Grype, and Syft.
 - Every workload image references a real upstream FOSS registry — no placeholder or private registries.
 - The wizard question schema exposes every install-time setting the cockpit checks at boot.
-- The systemd units order correctly (`nexus-bootstrap` after `k3s/rke2`, `nexus-cockpit` after `nexus-bootstrap`).
+- The systemd units order correctly (`nexus-bootstrap` after `k3s/rke2`; `nexus-cockpit` after `network-online.target`).
 - Every helper script under `overlay/usr/local/bin/` is present and starts with a bash shebang.

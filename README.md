@@ -430,7 +430,7 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
 
    Nexus-specific settings are **not** shown in the install TUI today — they come from the baked-in defaults in `/etc/nexus/config.yaml` (admin/admin, Route Grid theme, XDR hardened profile, Longhorn storage, etc.). See `installer/installer-config/nexus-wizard-questions.yaml` for the full settings catalog.
 
-4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk. On first boot from disk, `system/oem/92_nexus.yaml` enables `nexus-bootstrap.service` and `nexus-cockpit.service`.
+4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk. When install completes, `system/oem/92_nexus.yaml` enables and **starts** `nexus-cockpit.service` (and enables `nexus-bootstrap.service` for when Kubernetes is up).
 
 5. **First boot bootstrap** (automatic, 5–15 minutes depending on disk and network):
    - `nexus-cockpit` serves the bundled React cockpit from `/usr/local/share/nexus-cockpit/dist/` on port **8443** (HTTPS) and **8080** (HTTP health)
@@ -567,7 +567,7 @@ docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
 | Docker build fails with `overlay … invalid argument` | Nested / cloud VM without working overlayfs | Build the ISO on bare-metal Ubuntu 24.10+; use `make simulate` instead |
 | `make iso` runs out of disk | ISO build needs ~25 GB | Free space under `/var/lib/docker` and the repo checkout |
 | QEMU `-enable-kvm` error | KVM not available | Run `kvm-ok`; enable virtualization in firmware; or drop `-enable-kvm` (much slower) |
-| Cockpit unreachable after install | VIP / firewall / bootstrap still running | Check `kubectl get pods -A`; wait for bootstrap log to finish; confirm VIP answers on 443 |
+| Cockpit unreachable after install | Wrong URL (Harvester `:443` vs Nexus `:8443`) or `nexus-cockpit.service` failed | Open `https://<node-ip>:8443` or `http://<node-ip>:8080`. On the node: `systemctl status nexus-cockpit`, `journalctl -u nexus-cockpit -b`, `ls /usr/local/share/nexus-cockpit/dist/index.html` |
 | Login rejected | Wrong credentials | Production default is `admin` / `admin`; dev server also accepts `admin` / `demo` |
 
 For installer internals, manifest layout, and simulator details, see [`installer/README.md`](./installer/README.md).

@@ -284,12 +284,14 @@ describe('installer · build-iso.sh artifact staging', () => {
 });
 
 describe('installer · first-boot OEM + host cockpit wiring', () => {
-  it('ships an Elemental OEM stage that enables Nexus systemd units', () => {
+  it('ships an Elemental OEM stage that enables and starts Nexus systemd units', () => {
     const oem = join(INSTALLER, 'overlay', 'system', 'oem', '92_nexus.yaml');
     expect(existsSync(oem), `${oem} missing`).toBe(true);
     const text = readFileSync(oem, 'utf8');
+    expect(text).toMatch(/after-install-chroot/);
     expect(text).toMatch(/nexus-bootstrap\.service/);
     expect(text).toMatch(/nexus-cockpit\.service/);
+    expect(text).toMatch(/start:/);
   });
 
   it('documents host-static cockpit instead of an unpublished container image', () => {
@@ -311,7 +313,8 @@ describe('installer · systemd units have correct After / Wants ordering', () =>
   it('nexus-cockpit.service serves the static bundle after network is online', () => {
     const text = readFileSync(join(unitsDir, 'nexus-cockpit.service'), 'utf8');
     expect(text).toContain('After=network-online.target');
-    expect(text).not.toContain('Requires=nexus-bootstrap.service');
-    expect(text).toContain('--ensure-tls');
+    expect(text).toContain('Type=simple');
+    expect(text).toMatch(/ExecStartPre=-\/usr\/local\/bin\/nexus-cockpit --ensure-tls/);
+    expect(text).not.toContain('ProtectSystem=strict');
   });
 });

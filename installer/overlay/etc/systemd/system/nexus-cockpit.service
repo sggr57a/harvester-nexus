@@ -5,17 +5,14 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
-ExecStartPre=/usr/local/bin/nexus-cockpit --ensure-tls
+Type=simple
+ExecStartPre=-/usr/local/bin/nexus-cockpit --ensure-tls
 ExecStartPre=/usr/local/bin/nexus-cockpit --check-config /etc/nexus/config.yaml
 ExecStart=/usr/local/bin/nexus-cockpit --serve --config /etc/nexus/config.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/log/nexus /var/lib/nexus /etc/nexus/tls
+ReadWritePaths=/var/log/nexus /var/lib/nexus /etc/nexus /tmp /run
 
 [Install]
 WantedBy=multi-user.target

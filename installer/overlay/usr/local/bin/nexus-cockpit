@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# nexus-cockpit — wraps an nginx serving the cockpit's static
-# production bundle from /usr/local/share/nexus-cockpit/. The cockpit
-# is also deployed as a Kubernetes Deployment for HA, but THIS
-# locally-served copy is what the operator hits on first boot before
-# the k8s ingress is fully reconciled. After bootstrap completes, the
-# ingress takes over.
+# nexus-cockpit — serves the cockpit production bundle from
+# /usr/local/share/nexus-cockpit/dist on each node (nginx, python3, or busybox).
 
 set -euo pipefail
 
@@ -26,7 +22,7 @@ ensure_tls() {
     return 0
   fi
   if ! command -v openssl >/dev/null 2>&1; then
-    printf 'openssl not found; HTTPS will be unavailable\n' >&2
+    printf 'openssl not found; serving HTTP only on port %s\n' "${HTTP_PORT}" >&2
     return 1
   fi
   openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
@@ -36,10 +32,81 @@ ensure_tls() {
   chmod 0600 "${TLS_KEY}"
 }
 
+nginx_mime_block() {
+  cat <<'MIME'
+    types {
+      text/html                             html htm;
+      text/css                              css;
+      application/javascript                js mjs;
+      application/json                      json map;
+      image/png                             png;
+      image/jpeg                            jpg jpeg;
+      image/svg+xml                         svg svgz;
+      image/webp                            webp;
+      image/x-icon                          ico;
+      font/woff                             woff;
+      font/woff2                            woff2;
+      application/octet-stream              bin;
+    }
+    default_type application/octet-stream;
+MIME
+}
+
+write_nginx_config() {
+  local conf=$1 has_tls=$2
+  cat > "${conf}" <<NGX
+worker_processes auto;
+pid /run/nexus-cockpit-nginx.pid;
+error_log ${LOG_DIR}/nginx-error.log warn;
+events { worker_connections 1024; }
+http {
+  sendfile on;
+  gzip on;
+$(nginx_mime_block)
+  server {
+NGX
+  if [[ "${has_tls}" == true ]]; then
+    cat >> "${conf}" <<NGX
+    listen ${HTTPS_PORT} ssl;
+    listen ${HTTP_PORT};
+    ssl_certificate     ${TLS_CRT};
+    ssl_certificate_key ${TLS_KEY};
+NGX
+  else
+    cat >> "${conf}" <<NGX
+    listen ${HTTP_PORT};
+NGX
+  fi
+  cat >> "${conf}" <<NGX
+    server_name _;
+    root ${COCKPIT_ROOT}/dist;
+    index index.html;
+    location /healthz { return 200 'ok'; add_header Content-Type text/plain; }
+    location / { try_files \$uri \$uri/ /index.html; }
+  }
+}
+NGX
+}
+
+start_busybox_httpd() {
+  local port=$1
+  if ! command -v busybox >/dev/null 2>&1; then
+    return 1
+  fi
+  if ! busybox httpd -h 2>&1 | grep -q httpd; then
+    return 1
+  fi
+  exec busybox httpd -f -v -p "${port}" -h "${COCKPIT_ROOT}/dist"
+}
+
 case "${ACTION}" in
   --ensure-tls)
-    ensure_tls && printf 'TLS material ready under %s\n' "${TLS_DIR}"
-    exit $?
+    if ensure_tls; then
+      printf 'TLS material ready under %s\n' "${TLS_DIR}"
+    else
+      printf 'TLS not configured; cockpit will serve HTTP on port %s\n' "${HTTP_PORT}" >&2
+    fi
+    exit 0
     ;;
 
   --check-config)
@@ -48,8 +115,8 @@ case "${ACTION}" in
       printf 'config file not found: %s\n' "${CFG}" >&2
       exit 1
     fi
-    if [[ ! -d "${COCKPIT_ROOT}/dist" ]]; then
-      printf 'cockpit static bundle missing: %s/dist\n' "${COCKPIT_ROOT}" >&2
+    if [[ ! -f "${COCKPIT_ROOT}/dist/index.html" ]]; then
+      printf 'cockpit static bundle missing: %s/dist/index.html\n' "${COCKPIT_ROOT}" >&2
       exit 1
     fi
     printf 'config OK: %s\n' "${CFG}"
@@ -58,77 +125,32 @@ case "${ACTION}" in
     ;;
 
   --serve)
-    mkdir -p "${LOG_DIR}"
+    mkdir -p "${LOG_DIR}" /run
     log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "${LOG_DIR}/cockpit.log"; }
 
     HAS_TLS=false
     if ensure_tls; then HAS_TLS=true; fi
 
     if [[ "${HAS_TLS}" == true ]]; then
-      log "nexus-cockpit starting on https://0.0.0.0:${HTTPS_PORT} (static root ${COCKPIT_ROOT}/dist)"
+      log "starting cockpit on https://0.0.0.0:${HTTPS_PORT} and http://0.0.0.0:${HTTP_PORT}"
     else
-      log "nexus-cockpit starting on http://0.0.0.0:${HTTP_PORT} (no TLS material; static root ${COCKPIT_ROOT}/dist)"
+      log "starting cockpit on http://0.0.0.0:${HTTP_PORT} (TLS unavailable)"
     fi
 
-    # systemd-notify so the service is treated as ready
-    systemd-notify --ready --status="serving cockpit" 2>/dev/null || true
-
-    # If nginx is present, generate a temp config and exec into it.
     if command -v nginx >/dev/null 2>&1; then
       TMP_CONF=$(mktemp /tmp/nexus-cockpit.XXXXXX.conf)
-      if [[ "${HAS_TLS}" == true ]]; then
-        cat > "${TMP_CONF}" <<NGX
-worker_processes auto;
-events { worker_connections 1024; }
-http {
-  include       mime.types;
-  default_type  application/octet-stream;
-  sendfile      on;
-  gzip          on;
-  server {
-    listen ${HTTPS_PORT} ssl http2;
-    listen ${HTTP_PORT};
-    server_name _;
-    ssl_certificate     ${TLS_CRT};
-    ssl_certificate_key ${TLS_KEY};
-    root ${COCKPIT_ROOT}/dist;
-    index index.html;
-    location /healthz { return 200 'ok'; add_header Content-Type text/plain; }
-    location / { try_files \$uri \$uri/ /index.html; }
-  }
-}
-NGX
-      else
-        cat > "${TMP_CONF}" <<NGX
-worker_processes auto;
-events { worker_connections 1024; }
-http {
-  include       mime.types;
-  default_type  application/octet-stream;
-  sendfile      on;
-  gzip          on;
-  server {
-    listen ${HTTP_PORT};
-    server_name _;
-    root ${COCKPIT_ROOT}/dist;
-    index index.html;
-    location /healthz { return 200 'ok'; add_header Content-Type text/plain; }
-    location / { try_files \$uri \$uri/ /index.html; }
-  }
-}
-NGX
-      fi
+      write_nginx_config "${TMP_CONF}" "${HAS_TLS}"
       exec nginx -c "${TMP_CONF}" -g 'daemon off;'
     fi
 
-    # Fallback: use python's built-in HTTP server (works during early boot
-    # before nginx is installed). Only HTTP — TLS is added by nginx later.
     if command -v python3 >/dev/null 2>&1; then
       cd "${COCKPIT_ROOT}/dist"
       exec python3 -m http.server "${HTTP_PORT}" --bind 0.0.0.0
     fi
 
-    printf 'no nginx or python3 available; cannot serve cockpit\n' >&2
+    start_busybox_httpd "${HTTP_PORT}"
+
+    printf 'no nginx, python3, or busybox httpd available; cannot serve cockpit\n' >&2
     exit 1
     ;;
 
@@ -138,18 +160,9 @@ nexus-cockpit — Harvester-Nexus cockpit launcher
 
 Usage:
   nexus-cockpit --check-config [<path>]
-      Verify config file + static bundle are present.
-
-  nexus-cockpit --serve --config <path>
-      Serve the cockpit (nginx if present, else python http.server).
-
+  nexus-cockpit --ensure-tls
+  nexus-cockpit --serve [--config <path>]
   nexus-cockpit help
-      Show this message.
-
-Paths:
-  static bundle:   ${COCKPIT_ROOT}/dist
-  config:          ${CONFIG_FILE}
-  log:             ${LOG_DIR}/cockpit.log
 USAGE
     ;;
 

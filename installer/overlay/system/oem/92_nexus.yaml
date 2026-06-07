@@ -1,9 +1,24 @@
 name: "Enable Harvester-Nexus cockpit + bootstrap"
 stages:
-  initramfs:
-    - name: "prepare Nexus state dirs and enable first-boot units"
-      if: 'grep -q root=LABEL=COS_STATE /proc/cmdline && [ -n "$(blkid -L COS_STATE)" ]'
+  after-install-chroot:
+    - name: "enable Nexus units when harvester install completes"
       commands:
         - mkdir -p /var/lib/nexus /var/log/nexus /etc/nexus/tls
         - /usr/local/bin/nexus-postinstall || true
-        - systemctl enable nexus-bootstrap.service nexus-cockpit.service
+      systemctl:
+        enable:
+          - nexus-bootstrap.service
+          - nexus-cockpit.service
+        start:
+          - nexus-cockpit.service
+  boot:
+    - name: "ensure Nexus cockpit starts on installed system boot"
+      if: 'grep -q root=LABEL=COS_STATE /proc/cmdline && [ -n "$(blkid -L COS_STATE)" ]'
+      commands:
+        - mkdir -p /var/lib/nexus /var/log/nexus /etc/nexus/tls
+      systemctl:
+        enable:
+          - nexus-bootstrap.service
+          - nexus-cockpit.service
+        start:
+          - nexus-cockpit.service
