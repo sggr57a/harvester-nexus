@@ -17,12 +17,13 @@ ENV ARCH=${ARCH}
 
 # ISO build toolchain — mirrors harvester-installer/Dockerfile.dapper.
 # mtools + dosfstools are required by luet-makeiso >= 0.4.0 for hybrid ISOs.
+# NOTE: do NOT install the zypper "docker" package — it ships CLI API 1.42,
+# which modern host daemons (Docker 29+, min API 1.44) reject.
 RUN zypper -n rm container-suseconnect && \
     zypper -n install \
       bash \
       git \
       curl \
-      docker \
       gzip \
       tar \
       wget \
@@ -36,6 +37,14 @@ RUN zypper -n rm container-suseconnect && \
       unzip \
       rsync \
       patch
+
+# Docker CLI — must match the host daemon API (Docker 29+ requires >= 1.44).
+ARG DOCKER_CLI_VERSION=29.1.3
+RUN DOCKER_ARCH=$([ "${ARCH}" = "arm64" ] && echo aarch64 || echo x86_64) && \
+    curl -sfLO "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" && \
+    tar xzf "docker-${DOCKER_CLI_VERSION}.tgz" -C /usr/local/bin docker && \
+    rm "docker-${DOCKER_CLI_VERSION}.tgz" && \
+    docker version --format 'Docker CLI {{.Client.Version}} (API {{.Client.APIVersion}})'
 
 # Node.js 20 — the golang BCI image does not ship nodejs20 in its default
 # zypper repos; install the official upstream binary (same approach as yq/Helm).

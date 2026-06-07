@@ -74,9 +74,11 @@ Exit code is 0 on success, non-zero on any failure. The latest verified run repo
 ### Build the full ISO (needs Docker on native Ubuntu 24.10+ · ~30 minutes · ~25 GB free disk)
 
 The iso-builder image is based on `registry.suse.com/bci/golang:1.25` with the same
-xorriso / squashfs / Helm / Docker CLI toolchain Harvester upstream uses — **not**
+xorriso / squashfs / Helm / **Docker 29 CLI** toolchain Harvester upstream uses — **not**
 `rancher/harvester-installer:<tag>`, which is a `FROM scratch` image containing only
-the `/usr/bin/harvester-installer` binary and no shell.
+the `/usr/bin/harvester-installer` binary and no shell. The zypper `docker` package is
+deliberately omitted (API 1.42); a current static CLI is installed instead so `elemental
+build-iso` can talk to Docker 29+ host daemons.
 
 ```bash
 cd installer

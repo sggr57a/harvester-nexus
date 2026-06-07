@@ -240,6 +240,12 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
     expect(dockerfile).not.toMatch(/zypper.*nodejs20/);
     expect(dockerfile).toMatch(/nodejs\.org\/dist/);
   });
+
+  it('installs a current Docker CLI static binary (not zypper docker API 1.42)', () => {
+    expect(dockerfile).not.toMatch(/^\s+docker\s*\\/m);
+    expect(dockerfile).toMatch(/DOCKER_CLI_VERSION=/);
+    expect(dockerfile).toMatch(/download\.docker\.com\/linux\/static/);
+  });
 });
 
 describe('installer · upstream harvester-installer patches', () => {
