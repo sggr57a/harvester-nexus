@@ -239,6 +239,7 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
     // registry.suse.com/bci/golang does not expose nodejs20 in default repos.
     expect(dockerfile).not.toMatch(/zypper.*nodejs20/);
     expect(dockerfile).toMatch(/nodejs\.org\/dist/);
+    expect(dockerfile).toMatch(/^\s+xz\s*\\/m);
   });
 
   it('installs a current Docker CLI static binary (not zypper docker API 1.42)', () => {

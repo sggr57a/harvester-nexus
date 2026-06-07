@@ -26,6 +26,7 @@ RUN zypper -n rm container-suseconnect && \
       curl \
       gzip \
       tar \
+      xz \
       wget \
       zstd \
       squashfs \
