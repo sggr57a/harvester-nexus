@@ -106,6 +106,9 @@ rm -rf "${INSTALLER_SRC}"
 git clone --branch "${HARVESTER_INSTALLER_REF}" --single-branch --depth 1 \
   "${HARVESTER_INSTALLER_REPO}" "${INSTALLER_SRC}"
 
+log "stage 3 · patching collect-deps.sh (reliable rancher-charts index extraction)"
+install -m 0755 "${INSTALLER_DIR}/patches/collect-deps.sh" "${INSTALLER_SRC}/scripts/collect-deps.sh"
+
 log "stage 3 · merging Nexus overlay into installer rootfs"
 INSTALLER_ROOTFS=${INSTALLER_SRC}/package/harvester-os/iso/rootfs
 copy_tree "${NEXUS_OVERLAY}" "${INSTALLER_ROOTFS}"

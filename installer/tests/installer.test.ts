@@ -242,6 +242,16 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
   });
 });
 
+describe('installer · upstream harvester-installer patches', () => {
+  it('ships a patched collect-deps.sh for rancher-charts index extraction', () => {
+    const patch = join(INSTALLER, 'patches', 'collect-deps.sh');
+    expect(existsSync(patch), `${patch} missing`).toBe(true);
+    const text = readFileSync(patch, 'utf8');
+    expect(text).toMatch(/extract_rancher_charts_index/);
+    expect(text).toMatch(/rancher\/data\/local-catalogs/);
+  });
+});
+
 describe('installer · systemd units have correct After / Wants ordering', () => {
   const unitsDir = join(INSTALLER, 'overlay', 'etc', 'systemd', 'system');
 

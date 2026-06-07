@@ -90,8 +90,9 @@ The `make iso` target runs `build-iso.sh` inside the `harvester-nexus-iso-builde
 2. Stages the overlay tree at `/build/nexus-overlay`.
 3. Clones `harvester-installer` (master) and merges the overlay into its `package/harvester-os/iso/rootfs/`.
 4. Injects `nexus-wizard-questions.yaml` into `pkg/console/questions/` and patches the installer's question loader.
-5. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
-6. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
+5. Replaces `scripts/collect-deps.sh` with a Nexus patch that waits for the Rancher `rancher-charts` catalog `index.yaml` (upstream only sleeps 10s).
+6. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
+7. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
 
 ### Install + verify (real ISO on bare metal or QEMU)
 
