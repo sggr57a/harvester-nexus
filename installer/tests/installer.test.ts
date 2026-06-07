@@ -234,6 +234,12 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
   it('ENTRYPOINT invokes bash explicitly so make iso does not depend on /bin/sh', () => {
     expect(dockerfile).toMatch(/ENTRYPOINT\s+\["\/bin\/bash",\s*"\/src\/installer\/build-iso\.sh"\]/);
   });
+
+  it('installs Node.js from the upstream tarball (not zypper nodejs20)', () => {
+    // registry.suse.com/bci/golang does not expose nodejs20 in default repos.
+    expect(dockerfile).not.toMatch(/zypper.*nodejs20/);
+    expect(dockerfile).toMatch(/nodejs\.org\/dist/);
+  });
 });
 
 describe('installer · systemd units have correct After / Wants ordering', () => {

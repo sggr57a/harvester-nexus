@@ -35,8 +35,16 @@ RUN zypper -n rm container-suseconnect && \
       dosfstools \
       unzip \
       rsync \
-      patch \
-      nodejs20
+      patch
+
+# Node.js 20 — the golang BCI image does not ship nodejs20 in its default
+# zypper repos; install the official upstream binary (same approach as yq/Helm).
+ARG NODE_VERSION=20.18.3
+RUN NODE_ARCH=$([ "${ARCH}" = "arm64" ] && echo arm64 || echo x64) && \
+    curl -sfLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" && \
+    tar -xJf "node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" -C /usr/local --strip-components=1 && \
+    rm "node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" && \
+    node --version && npm --version
 
 # yq (same source/version family as upstream harvester-installer)
 ARG YQ_VERSION=v4.52.5
