@@ -575,7 +575,8 @@ docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `make iso` fails with `Could not find the file … rancher-charts … index.yaml` | Upstream `collect-deps.sh` copies the Rancher catalog index after only 10s; the index is often not ready yet | Rebuild with the current branch — `build-iso.sh` installs `installer/patches/collect-deps.sh` which polls up to 6 minutes and checks both `/var/lib/rancher-data/…` and `/var/lib/rancher/data/…` |
+| `make iso` fails with `Could not find the file … rancher-charts … index.yaml` | Upstream `collect-deps.sh` copies the Rancher catalog index after only 10s; the index is often not ready yet | Rebuild with the current branch — uses `installer/patches/collect-deps.sh` |
+| `make iso` fails with `Rancher must be ran with the --privileged flag` | Nested Docker (iso-builder container) cannot start a privileged Rancher child container | Same patch — reads `index.yaml` from the Rancher **image** via `docker run --entrypoint bash`, or falls back to `build.yaml` fleet/webhook versions without starting Rancher |
 | `make iso-builder` fails with `'nodejs20' not found in package names` | `nodejs20` is not in the golang BCI zypper repos | Rebuild with the current `installer/Dockerfile` (installs Node 20 from nodejs.org tarball) |
 | `make iso` fails with `exec: "/bin/sh": stat /bin/sh: no such file or directory` | Old iso-builder image used `rancher/harvester-installer` as its base — that image is `FROM scratch` (binary only, no shell) | Rebuild with the current `installer/Dockerfile` (BCI golang base): `docker rmi harvester-nexus-iso-builder:1.0.0-nexus.1 && make iso-builder && make iso` |
 | `make iso-builder` fails with `invalid reference format` | Docker tag cannot contain `+` in the version string | Ensure you are on a branch with the `DOCKER_TAG` sanitization in `installer/Makefile` (maps `1.0.0+nexus.1` → `1.0.0-nexus.1` for the image tag) |

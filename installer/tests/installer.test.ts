@@ -247,8 +247,9 @@ describe('installer · upstream harvester-installer patches', () => {
     const patch = join(INSTALLER, 'patches', 'collect-deps.sh');
     expect(existsSync(patch), `${patch} missing`).toBe(true);
     const text = readFileSync(patch, 'utf8');
-    expect(text).toMatch(/extract_rancher_charts_index/);
-    expect(text).toMatch(/rancher\/data\/local-catalogs/);
+    expect(text).toMatch(/read_index_from_image/);
+    expect(text).toMatch(/update_rancher_deps_from_build_yaml/);
+    expect(text).not.toMatch(/docker run --privileged -d/);
   });
 });
 
