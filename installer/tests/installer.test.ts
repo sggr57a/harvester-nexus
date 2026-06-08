@@ -242,7 +242,7 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
   it('installs Node.js from the upstream tarball (not zypper nodejs20)', () => {
     // registry.suse.com/bci/golang does not expose nodejs20 in default repos.
     expect(dockerfile).not.toMatch(/zypper.*nodejs20/);
-    expect(dockerfile).toMatch(/^\s*RUN\b.*nodejs\.org\/dist\b/m);
+    expect(dockerfile).toMatch(/\bhttps?:\/\/nodejs\.org\/dist(?:\/|["'\s]|$)/);
     expect(dockerfile).toMatch(/^\s+xz\s*\\/m);
   });
 
@@ -335,7 +335,7 @@ describe('installer · first-boot OEM + host cockpit wiring', () => {
   it('documents host-static cockpit instead of an unpublished container image', () => {
     const manifest = readFileSync(join(INSTALLER, 'manifests', '40-cockpit-service.yaml'), 'utf8');
     expect(manifest).toMatch(/kind:\s*ConfigMap/);
-    expect(manifest).not.toMatch(/^ghcr\.io\/sggr57a\/nexus-cockpit$/m);
+    expect(manifest).not.toMatch(/^ghcr\.io\/sggr57a\/nexus-cockpit(?:[:@][^\s'"]+)?$/m);
   });
 });
 

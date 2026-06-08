@@ -2,7 +2,6 @@
 function lerp(a, b, t) { return a + (b - a) * t; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function fmtPct(v) { return v.toFixed(1) + '%'; }
-function fmtK(v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : Math.round(v).toString(); }
 function fmtMb(v) { return Math.round(v) + ' Mb/s'; }
 
 /** Simulates correlated cluster bursts (migration, backup, scrape storm, idle). */
@@ -157,7 +156,6 @@ function drawScope(canvas, channels, tick, opts = {}) {
         const hi = Math.max(...slice);
         const x = points[i].x;
         const yLo = padT + plotH - (lo / maxV) * plotH;
-        const yHi = padT + plotH - (hi / maxV) * plotH;
         if (i === 0) ctx.moveTo(x, yHi);
         else ctx.lineTo(x, yHi);
         if (i === points.length - 1) {
@@ -243,7 +241,7 @@ function drawMiniStrip(canvas, series, color, tick, maxV = 100) {
   drawScope(canvas, [{ series, color, max: maxV, envelope: true }], tick, { compact: true, showCrosshair: false });
 }
 
-function initMockCharts(config) {
+export function initMockCharts(config) {
   const sim = createClusterSim(config.nodeCount ?? 3);
   let tick = 0;
   const ribbons = config.ribbons || [];
@@ -316,62 +314,7 @@ function initMockCharts(config) {
   return sim;
 }
 
-function initHeatmapRows(container, rowLabels, sim) {
-  const cols = 36;
-  const grid = rowLabels.map(() => Array.from({ length: cols }, () => 15 + Math.random() * 20));
-  container.innerHTML = '';
-  container.style.gridTemplateColumns = `88px repeat(${cols}, 1fr)`;
 
-  const header = document.createElement('div');
-  header.textContent = '';
-  container.appendChild(header);
-  for (let c = 0; c < cols; c++) {
-    const h = document.createElement('div');
-    h.textContent = c % 6 === 0 ? `-${cols - c}m` : '';
-    h.style.fontSize = '0.55rem';
-    h.style.color = '#6b7280';
-    h.style.alignSelf = 'end';
-    container.appendChild(h);
-  }
-
-  const cells = [];
-  rowLabels.forEach((label, ri) => {
-    const name = document.createElement('div');
-    name.className = 'heatmap-node-label';
-    name.innerHTML = `<strong>${label}</strong><small id="hm-load-${ri}">—</small>`;
-    container.appendChild(name);
-    const rowCells = [];
-    for (let c = 0; c < cols; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      container.appendChild(cell);
-      rowCells.push(cell);
-    }
-    cells.push(rowCells);
-  });
-
-  let frame = 0;
-  return function updateHeatmap() {
-    frame += 1;
-    if (frame % 8 !== 0) return;
-    rowLabels.forEach((_, ri) => {
-      const s = sim.sample('hm', ri);
-      grid[ri].shift();
-      grid[ri].push(s.cpu);
-      const el = document.getElementById(`hm-load-${ri}`);
-      if (el) el.textContent = fmtPct(s.cpu);
-      grid[ri].forEach((v, c) => {
-        const cell = cells[ri][c];
-        const hot = v > 70;
-        const hue = hot ? 25 - (v - 70) * 0.5 : 210 - v * 1.4;
-        const light = hot ? 52 + (v - 50) * 0.3 : 38 + v * 0.15;
-        cell.style.background = `hsla(${hue}, ${hot ? 90 : 70}%, ${light}%, ${0.35 + v / 120})`;
-        cell.style.boxShadow = hot && c === cols - 1 ? '0 0 8px rgba(248,113,113,0.6)' : 'none';
-        cell.classList.toggle('cell-hot', hot && c === cols - 1);
-      });
-    });
-  };
-}
 
 function setupDynamicPillars(container, nodeConfigs, sim) {
   container.innerHTML = `
@@ -446,7 +389,7 @@ function setupDynamicPillars(container, nodeConfigs, sim) {
   frame();
 }
 
-function initSpatialMap(container, nodes, sim) {
+export function initSpatialMap(container, nodes, sim) {
   container.innerHTML = `
     <canvas class="spatial-canvas" id="spatial-canvas"></canvas>
     <div class="spatial-overlay" id="spatial-pins"></div>

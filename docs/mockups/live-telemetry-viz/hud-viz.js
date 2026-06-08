@@ -241,7 +241,6 @@ function drawHexTopology(canvas, nodes, sim, tick) {
   drawHudBrackets(ctx, w, h, 10);
 
   const size = 36;
-  const hexH = size * Math.sqrt(3);
 
   function hexPath(x, y, s) {
     ctx.beginPath();
@@ -416,7 +415,6 @@ function drawMultiLineChart(canvas, channels, tick, opts = {}) {
     if (len < 2) return;
     const maxV = ch.max ?? 100;
     const min = Math.min(...ch.series);
-    const max = Math.max(...ch.series);
     const avg = ch.series.reduce((a, b) => a + b, 0) / len;
 
     // faint area under line
@@ -1617,7 +1615,6 @@ function drawMultiRingScope(canvas, channels, tick) {
     const ringR = maxR * (0.35 + ci * 0.14);
     const len = ch.series.length;
     const maxV = ch.max ?? 100;
-    const { r, g, b } = hexToRgb(ch.color);
 
     ctx.beginPath();
     for (let i = 0; i <= len; i++) {
@@ -1656,7 +1653,7 @@ function drawMultiRingScope(canvas, channels, tick) {
 }
 
 /** Initialize full HUD dashboard wiring */
-function initHudDashboard(sim, config) {
+export function initHudDashboard(sim, config) {
   let tick = 0;
   const series = {};
   (config.seriesKeys || []).forEach(k => { series[k] = []; });
