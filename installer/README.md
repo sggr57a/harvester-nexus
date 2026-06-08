@@ -17,14 +17,16 @@ This directory holds everything needed to produce **`harvester-nexus-<version>.i
 installer/
 ├── README.md                         (this file)
 ├── VERSION                           "1.0.0+nexus.1"
-├── Dockerfile                        nexus-flavored iso-builder image
+├── Dockerfile                        ISO builder image (BCI golang + Dapper toolchain + Node 20)
 ├── Makefile                          overlay / simulate / iso-builder / iso / clean / tests
 ├── build-iso.sh                      6-stage build pipeline
 │
 ├── overlay/                          files merged into the squashfs root
 │   ├── etc/nexus/config.yaml         install-time config (admin/admin, themes, XDR profile, ...)
 │   ├── etc/systemd/system/           nexus-bootstrap.service + nexus-cockpit.service
-│   └── usr/local/bin/                nexus-bootstrap, nexus-cockpit, nexus-postinstall
+│   ├── usr/bin/                      nexus-bootstrap, nexus-cockpit, nexus-postinstall
+│   ├── usr/share/nexus-cockpit/      cockpit bundle + bootstrap manifests
+│   └── usr/lib/nexus/                serve-cockpit.py
 │
 ├── manifests/                        applied by nexus-bootstrap on first boot
 │   ├── 00-nexus-namespace.yaml       3 namespaces (nexus-system / nexus-xdr / nexus-cockpit)
@@ -73,6 +75,14 @@ Exit code is 0 on success, non-zero on any failure. The latest verified run repo
 
 ### Build the full ISO (needs Docker on native Ubuntu 24.10+ · ~30 minutes · ~25 GB free disk)
 
+The iso-builder image is based on `registry.suse.com/bci/golang:1.25` with the same
+xorriso / squashfs / Helm / **Docker 29 CLI** toolchain Harvester upstream uses — **not**
+`rancher/harvester-installer:<tag>`, which is a `FROM scratch` image containing only
+the `/usr/bin/harvester-installer` binary and no shell. The zypper `docker` package is
+deliberately omitted (API 1.42); a current static CLI is installed instead. The `elemental`
+binary copied from `rancher/harvester-os` embeds moby client API 1.42 as well, so the
+builder image sets `DOCKER_API_VERSION=1.44` for Docker 29+ host daemons.
+
 ```bash
 cd installer
 make iso-builder        # builds harvester-nexus-iso-builder:1.0.0-nexus.1 (Docker tag sanitizes '+')
@@ -83,10 +93,11 @@ The `make iso` target runs `build-iso.sh` inside the `harvester-nexus-iso-builde
 
 1. Builds the cockpit production bundle (`npm run build`).
 2. Stages the overlay tree at `/build/nexus-overlay`.
-3. Clones `harvester-installer` (master) and merges the overlay into its `package/harvester-os/iso/rootfs/`.
-4. Injects `nexus-wizard-questions.yaml` into `pkg/console/questions/` and patches the installer's question loader.
-5. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
-6. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
+3. Clones `harvester-installer` (master) and merges the overlay into **`package/harvester-os/files/`** (the path upstream `COPY files/ /` uses — not `iso/rootfs/`).
+4. Copies `nexus-wizard-questions.yaml` into `/etc/nexus/installer/` as reference defaults (the stock Harvester install TUI does not yet surface these questions).
+5. Replaces `scripts/collect-deps.sh` with a Nexus patch that waits for the Rancher `rancher-charts` catalog `index.yaml` (upstream only sleeps 10s).
+6. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
+7. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
 
 ### Install + verify (real ISO on bare metal or QEMU)
 
@@ -97,10 +108,10 @@ qemu-system-x86_64 \
   -drive file=harvester-nexus.qcow2,if=virtio,size=200G \
   -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
   -boot d \
-  -netdev user,id=net0,hostfwd=tcp::8443-:443 -device virtio-net,netdev=net0
+  -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 -device virtio-net,netdev=net0
 ```
 
-On boot the operator sees the **base Harvester wizard** (mode / network / VIP / NTP / cluster token / OS password) followed by the **Nexus wizard questions** declared in `installer-config/nexus-wizard-questions.yaml`. Accepting the defaults yields a single-node Harvester cluster with the full Nexus cockpit, XDR stack, and AnyRAID driver all installed automatically on first boot.
+On boot the operator sees the **base Harvester wizard** (mode / network / VIP / NTP / cluster token / OS password). Nexus defaults are baked into `/etc/nexus/config.yaml`. After install, open **`https://<node-ip>:8443`** for the Nexus cockpit (not `https://<vip>:443`, which is the stock Harvester dashboard).
 
 ### Default credentials
 
@@ -127,5 +138,5 @@ The contract tests lock in:
 - The XDR stack ships Falco, Tetragon, Wazuh agent + manager, Suricata, Hubble relay, Trivy operator, OpenSearch, Polaris, kube-bench, Grype, and Syft.
 - Every workload image references a real upstream FOSS registry — no placeholder or private registries.
 - The wizard question schema exposes every install-time setting the cockpit checks at boot.
-- The systemd units order correctly (`nexus-bootstrap` after `k3s/rke2`, `nexus-cockpit` after `nexus-bootstrap`).
-- Every helper script under `overlay/usr/local/bin/` is present and starts with a bash shebang.
+- The systemd units order correctly (`nexus-bootstrap` after `k3s/rke2`; `nexus-cockpit` after `network-online.target`).
+- Every helper script under `overlay/usr/bin/` is present and starts with a bash shebang. Assets must not live under `/usr/local/` — Elemental mounts that path as persistent storage and hides squashfs files baked there.

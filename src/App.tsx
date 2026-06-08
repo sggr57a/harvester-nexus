@@ -4,7 +4,8 @@ import { generateManifest } from './lib/manifestGenerator';
 import { buildApplyTestRun, buildCsiTemplatePreview, buildLivePreview, buildNexusClusterOperationBundle, buildVClusterPlan, validateKubernetesManifest } from './lib/clusterWorkflow';
 import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
 import { isDemoLogin } from './lib/auth';
-import { useLiveTelemetry } from './lib/liveTelemetry';
+import { useEnvironmentTelemetry } from './lib/telemetry/useEnvironmentTelemetry';
+import { useClusterDashboards } from './lib/telemetry/useClusterDashboards';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from './lib/themes';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
 import { ResourceMonitoringPage } from './components/ActiveWorkPage';
@@ -84,7 +85,8 @@ function App() {
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
   const [includeManifestSetup, setIncludeManifestSetup] = useState(false);
-  const telemetry = useLiveTelemetry(1600);
+  const { snapshot: telemetry, telemetry: telemetryState, setRequestedMode } = useEnvironmentTelemetry(1600);
+  const clusterDashboards = useClusterDashboards(telemetryState, 1600);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -200,12 +202,20 @@ function App() {
         </div>
       </aside>
       <main className="main-view">
-        <EnvironmentTicker snapshot={telemetry} />
+        <EnvironmentTicker
+          snapshot={telemetry}
+          telemetry={telemetryState}
+          onTelemetryModeChange={setRequestedMode}
+        />
         {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
         {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
-        {cockpitView === 'storage' && <StorageDashboardView telemetry={telemetry} />}
-        {cockpitView === 'machines' && <MachinesDashboardView telemetry={telemetry} />}
+        {cockpitView === 'storage' && (
+          <StorageDashboardView telemetry={telemetry} storageDashboard={clusterDashboards.storage} />
+        )}
+        {cockpitView === 'machines' && (
+          <MachinesDashboardView telemetry={telemetry} machinesDashboard={clusterDashboards.machines} />
+        )}
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
         {cockpitView === 'environment' && <EnvironmentDashboardView />}
         {cockpitView === 'activity' && <ActivityDashboardView />}
@@ -213,9 +223,15 @@ function App() {
         {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
         {cockpitView === 'environment' && <EnvironmentDashboardView />}
         {cockpitView === 'activity' && <ActivityDashboardView />}
-        {cockpitView === 'operations' && <OperationsDashboardView telemetry={telemetry} />}
-        {cockpitView === 'resource-monitoring' && <ResourceMonitoringPage />}
-        {cockpitView === 'xdr-operations' && <XdrOperationsCenter />}
+        {cockpitView === 'operations' && (
+          <OperationsDashboardView telemetry={telemetry} operationsLinks={clusterDashboards.operations} />
+        )}
+        {cockpitView === 'resource-monitoring' && (
+          <ResourceMonitoringPage resourceMonitoring={clusterDashboards.resourceMonitoring} />
+        )}
+        {cockpitView === 'xdr-operations' && (
+          <XdrOperationsCenter telemetry={telemetryState} xdrLive={clusterDashboards.xdr} />
+        )}
         {cockpitView === 'security-posture' && <SecurityPostureWizard />}
         {cockpitView === 'cluster' && (
           <ClusterIntegrationPanel

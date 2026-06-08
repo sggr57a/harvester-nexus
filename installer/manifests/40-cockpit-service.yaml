@@ -1,79 +1,18 @@
-# Nexus cockpit — served from the host's nginx (port 8443) and also
-# exposed as a Kubernetes Service so it can be reached via the
-# management VIP from any cluster member.
+# Nexus cockpit endpoint metadata.
+# The production UI is served on each node by nexus-cockpit.service from the
+# static bundle baked into the ISO at /usr/share/nexus-cockpit/dist/.
 ---
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
-  name: nexus-cockpit
+  name: nexus-cockpit-host
   namespace: nexus-cockpit
   labels:
     app.kubernetes.io/name: nexus-cockpit
     app.kubernetes.io/managed-by: harvester-nexus-installer
-  annotations:
-    nexus.io/exposed-on-vip: "true"
-spec:
-  type: ClusterIP
-  selector:
-    app.kubernetes.io/name: nexus-cockpit
-  ports:
-    - { name: https, port: 8443, targetPort: 8443 }
-    - { name: http,  port: 8080, targetPort: 8080 }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nexus-cockpit
-  namespace: nexus-cockpit
-  labels: { app.kubernetes.io/name: nexus-cockpit }
-spec:
-  replicas: 2
-  selector: { matchLabels: { app.kubernetes.io/name: nexus-cockpit } }
-  template:
-    metadata: { labels: { app.kubernetes.io/name: nexus-cockpit } }
-    spec:
-      serviceAccountName: admin
-      automountServiceAccountToken: true
-      containers:
-        - name: cockpit
-          image: ghcr.io/sggr57a/nexus-cockpit:1.0.0
-          ports:
-            - { containerPort: 8443, name: https }
-            - { containerPort: 8080, name: http }
-          env:
-            - { name: NEXUS_DEFAULT_THEME, value: route-grid }
-            - { name: NEXUS_LAUNCH_VARIANT, value: concentric-boot }
-            - { name: NEXUS_FORCE_PASSWORD_CHANGE, value: "true" }
-          readinessProbe:
-            httpGet: { path: /healthz, port: 8080 }
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8080 }
-            initialDelaySeconds: 30
-            periodSeconds: 30
-          resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits:   { cpu: 500m, memory: 512Mi }
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: nexus-cockpit
-  namespace: nexus-cockpit
-  annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-    cert-manager.io/cluster-issuer: nexus-self-signed
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts: ["cockpit.nexus.local"]
-      secretName: nexus-cockpit-tls
-  rules:
-    - host: cockpit.nexus.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: nexus-cockpit, port: { number: 8443 } }
+data:
+  mode: host-static
+  staticRoot: /usr/share/nexus-cockpit/dist
+  httpsPort: "8443"
+  httpPort: "8080"
+  loginHint: "Open https://<node-ip>:8443 (Nexus cockpit), not https://<vip>:443 (Harvester dashboard)."

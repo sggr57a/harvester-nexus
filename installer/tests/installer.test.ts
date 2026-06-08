@@ -45,6 +45,10 @@ describe('installer · default config (etc/nexus/config.yaml)', () => {
     expect(cfg.admin.forcePasswordChangeOnFirstLogin).toBe(true);
   });
 
+  it('declares telemetryMode for demo vs live cluster metrics', () => {
+    expect(cfg.cockpit.telemetryMode).toBe('auto');
+  });
+
   it('enables the cockpit on port 8443 with a TLS self-signed cert + a default theme', () => {
     expect(cfg.cockpit.enabled).toBe(true);
     expect(cfg.cockpit.port).toBe(8443);
@@ -210,15 +214,129 @@ describe('installer · wizard questions cover every install-time setting', () =>
 });
 
 describe('installer · overlay scripts are present + executable', () => {
-  const binDir = join(INSTALLER, 'overlay', 'usr', 'local', 'bin');
+  const binDir = join(INSTALLER, 'overlay', 'usr', 'bin');
   for (const script of ['nexus-bootstrap', 'nexus-cockpit', 'nexus-postinstall']) {
-    it(`${script} exists and starts with a shebang`, () => {
+    it(`${script} exists and starts with a bash shebang`, () => {
       const p = join(binDir, script);
       expect(existsSync(p), `${p} missing`).toBe(true);
       const text = readFileSync(p, 'utf8');
-      expect(text.startsWith('#!/usr/bin/env bash') || text.startsWith('#!/bin/bash')).toBe(true);
+      expect(text.startsWith('#!/bin/bash') || text.startsWith('#!/usr/bin/env bash')).toBe(true);
     });
   }
+});
+
+describe('installer · Dockerfile uses a shell-capable ISO builder base', () => {
+  const dockerfile = readFileSync(join(INSTALLER, 'Dockerfile'), 'utf8');
+
+  it('does not use the scratch-only rancher/harvester-installer image as its base', () => {
+    // rancher/harvester-installer:<tag> ships only /usr/bin/harvester-installer (FROM scratch).
+    // Layering a shell script ENTRYPOINT on top yields: exec /bin/sh: no such file or directory.
+    expect(dockerfile).not.toMatch(/FROM\s+rancher\/harvester-installer/);
+    expect(dockerfile).not.toMatch(/FROM\s+scratch\b/);
+  });
+
+  it('ENTRYPOINT invokes bash explicitly so make iso does not depend on /bin/sh', () => {
+    expect(dockerfile).toMatch(/ENTRYPOINT\s+\["\/bin\/bash",\s*"\/src\/installer\/build-iso\.sh"\]/);
+  });
+
+  it('installs Node.js from the upstream tarball (not zypper nodejs20)', () => {
+    // registry.suse.com/bci/golang does not expose nodejs20 in default repos.
+    expect(dockerfile).not.toMatch(/zypper.*nodejs20/);
+    expect(dockerfile).toMatch(/nodejs\.org\/dist/);
+    expect(dockerfile).toMatch(/^\s+xz\s*\\/m);
+  });
+
+  it('installs a current Docker CLI static binary (not zypper docker API 1.42)', () => {
+    expect(dockerfile).not.toMatch(/^\s+docker\s*\\/m);
+    expect(dockerfile).toMatch(/DOCKER_CLI_VERSION=/);
+    expect(dockerfile).toMatch(/tar xzf "docker-\$\{DOCKER_CLI_VERSION\}\.tgz" docker\/docker/);
+    expect(dockerfile).toMatch(/mv docker\/docker \/usr\/local\/bin\/docker/);
+    expect(dockerfile).toMatch(/\/usr\/local\/bin\/yq/);
+  });
+
+  it('sets DOCKER_API_VERSION for elemental embedded moby client (API 1.42)', () => {
+    expect(dockerfile).toMatch(/ENV DOCKER_API_VERSION=1\.44/);
+    const makefile = readFileSync(join(INSTALLER, 'Makefile'), 'utf8');
+    expect(makefile).toMatch(/DOCKER_API_VERSION=1\.44/);
+  });
+});
+
+describe('installer · upstream harvester-installer patches', () => {
+  it('ships a patched collect-deps.sh for rancher-charts index extraction', () => {
+    const patch = join(INSTALLER, 'patches', 'collect-deps.sh');
+    expect(existsSync(patch), `${patch} missing`).toBe(true);
+    const text = readFileSync(patch, 'utf8');
+    expect(text).toMatch(/read_index_from_image/);
+    expect(text).toMatch(/update_rancher_deps_from_build_yaml/);
+    expect(text).not.toMatch(/docker run --privileged -d/);
+  });
+});
+
+describe('installer · build-iso.sh artifact staging', () => {
+  const script = readFileSync(join(INSTALLER, 'build-iso.sh'), 'utf8');
+
+  it('copies only the primary ISO when amd64 also builds a net-install variant', () => {
+    expect(script).toMatch(/! -name '\*-net-install\.iso'/);
+    expect(script).not.toMatch(/dist\/artifacts\/"\*\.iso/);
+  });
+
+  it('merges the Nexus overlay into package/harvester-os/files (not iso/rootfs)', () => {
+    expect(script).toMatch(/INSTALLER_FILES=\$\{INSTALLER_SRC\}\/package\/harvester-os\/files/);
+    expect(script).toMatch(/copy_tree "\$\{NEXUS_OVERLAY\}" "\$\{INSTALLER_FILES\}"/);
+    expect(script).not.toMatch(/copy_tree.*iso\/rootfs/);
+    expect(script).toMatch(/dist\.tar\.gz/);
+    expect(script).toMatch(/DOCKER_BUILDKIT="\$\{DOCKER_BUILDKIT:-0\}"/);
+  });
+
+  it('patches harvester-os Dockerfile to extract cockpit tarball after COPY files/', () => {
+    const patchScript = join(INSTALLER, 'patches', 'apply-harvester-os-dockerfile.sh');
+    expect(existsSync(patchScript)).toBe(true);
+    const text = readFileSync(patchScript, 'utf8');
+    expect(text).toMatch(/HARVESTER_NEXUS_COCKPIT_DIST_EXTRACT/);
+    expect(text).not.toMatch(/\\&\\&/);
+    expect(text).toMatch(/mkdir -p \/usr\/share\/nexus-cockpit\/dist &&/);
+  });
+
+  it('bootstraps yq in build-iso.sh when iso-builder image is stale', () => {
+    expect(script).toMatch(/ensure_toolchain/);
+    expect(script).toMatch(/yq_linux_\$\{arch\}/);
+  });
+
+  it('verifies Nexus overlay files exist under harvester-os/files before running ci', () => {
+    expect(script).toMatch(/verify_overlay_merge/);
+    expect(script).toMatch(/usr\/bin\/nexus-cockpit/);
+    expect(script).toMatch(/usr\/share\/nexus-cockpit/);
+  });
+});
+
+describe('installer · first-boot OEM + host cockpit wiring', () => {
+  it('ships an Elemental OEM stage that enables and starts Nexus systemd units', () => {
+    const oem = join(INSTALLER, 'overlay', 'system', 'oem', '92_nexus.yaml');
+    expect(existsSync(oem), `${oem} missing`).toBe(true);
+    const text = readFileSync(oem, 'utf8');
+    expect(text).toMatch(/after-install-chroot/);
+    expect(text).toMatch(/python3/);
+    expect(text).toMatch(/var\/lib\/nexus\/cockpit-dist/);
+    expect(text).toMatch(/nexus-bootstrap\.service/);
+    expect(text).toMatch(/nexus-cockpit\.service/);
+    expect(text).toMatch(/start:/);
+  });
+
+  it('opens cockpit ports 8443 and 8080 through the host firewall on install and boot', () => {
+    const oem = join(INSTALLER, 'overlay', 'system', 'oem', '93_nexus-network.yaml');
+    expect(existsSync(oem), `${oem} missing`).toBe(true);
+    const text = readFileSync(oem, 'utf8');
+    expect(text).toMatch(/8443/);
+    expect(text).toMatch(/8080/);
+    expect(text).toMatch(/after-install-chroot/);
+    expect(text).toMatch(/boot:/);
+  });
+
+  it('documents host-static cockpit instead of an unpublished container image', () => {
+    const manifest = readFileSync(join(INSTALLER, 'manifests', '40-cockpit-service.yaml'), 'utf8');
+    expect(manifest).toMatch(/kind:\s*ConfigMap/);
+    expect(manifest).not.toMatch(/^ghcr\.io\/sggr57a\/nexus-cockpit(?:[:@][^\s'"]+)?$/m);
+  });
 });
 
 describe('installer · systemd units have correct After / Wants ordering', () => {
@@ -227,12 +345,49 @@ describe('installer · systemd units have correct After / Wants ordering', () =>
   it('nexus-bootstrap.service runs after k3s/rke2 and before nexus-cockpit', () => {
     const text = readFileSync(join(unitsDir, 'nexus-bootstrap.service'), 'utf8');
     expect(text).toMatch(/After=.*k3s\.service.*rke2-server\.service/);
-    expect(text).toContain('ExecStart=/usr/local/bin/nexus-bootstrap');
+    expect(text).toContain('ExecStart=/usr/bin/nexus-bootstrap');
   });
 
-  it('nexus-cockpit.service requires the bootstrap to complete first', () => {
+  it('nexus-cockpit.service serves the static bundle after network is online', () => {
     const text = readFileSync(join(unitsDir, 'nexus-cockpit.service'), 'utf8');
-    expect(text).toContain('After=network-online.target nexus-bootstrap.service');
-    expect(text).toContain('Requires=nexus-bootstrap.service');
+    expect(text).toContain('After=network-online.target');
+    expect(text).toContain('Type=simple');
+    expect(text).toMatch(/ExecStartPre=-\/usr\/bin\/nexus-cockpit --ensure-tls/);
+    expect(text).toMatch(/ExecStart=\/usr\/bin\/nexus-cockpit --serve$/m);
+    expect(text).toContain('/var/lib/nexus/cockpit-dist');
+    expect(text).not.toContain('ProtectSystem=strict');
+  });
+});
+
+describe('installer · nexus-cockpit launcher serves HTTPS on 8443', () => {
+  const launcher = readFileSync(join(INSTALLER, 'overlay', 'usr', 'bin', 'nexus-cockpit'), 'utf8');
+  const servePy = join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'serve-cockpit.py');
+
+  it('ships a python fallback that listens on both 8443 and 8080', () => {
+    expect(existsSync(servePy), `${servePy} missing`).toBe(true);
+    const text = readFileSync(servePy, 'utf8');
+    expect(text).toMatch(/HTTPS_PORT/);
+    expect(text).toMatch(/0\.0\.0\.0/);
+    expect(text).toMatch(/healthz/);
+    expect(launcher).toMatch(/serve-cockpit\.py/);
+    expect(launcher).toMatch(/--status/);
+    expect(launcher).toMatch(/usr\/share\/nexus-cockpit/);
+    expect(launcher).toMatch(/var\/lib\/nexus\/cockpit-dist/);
+    expect(launcher).toMatch(/resolve_serve_root/);
+    expect(launcher).not.toMatch(/usr\/local\/share\/nexus-cockpit/);
+  });
+});
+
+describe('installer · overlay avoids Elemental /usr/local persistent mount', () => {
+  it('does not install Nexus assets under /usr/local (hidden by COS_PERSISTENT)', () => {
+    expect(existsSync(join(INSTALLER, 'overlay', 'usr', 'local'))).toBe(false);
+  });
+
+  it('ships cluster metrics collector for live telemetry BFF', () => {
+    const metrics = join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'cluster_metrics.py');
+    expect(existsSync(metrics)).toBe(true);
+    const serve = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'serve-cockpit.py'), 'utf8');
+    expect(serve).toMatch(/\/api\/v1\/telemetry\/environment/);
+    expect(serve).toMatch(/\/api\/v1\/health\/live/);
   });
 });

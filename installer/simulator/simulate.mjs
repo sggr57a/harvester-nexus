@@ -38,7 +38,7 @@ const REPO_ROOT     = process.env.REPO_ROOT     ?? join(__dirname, '..', '..');
 const INSTALLER_DIR = join(REPO_ROOT, 'installer');
 const OVERLAY       = process.env.HARVESTER_NEXUS_OVERLAY ?? join(REPO_ROOT, 'build', 'nexus-overlay');
 const CONFIG_PATH   = join(OVERLAY, 'etc', 'nexus', 'config.yaml');
-const MANIFESTS_DIR = join(OVERLAY, 'usr', 'local', 'share', 'nexus-cockpit', 'manifests');
+const MANIFESTS_DIR = join(OVERLAY, 'usr', 'share', 'nexus-cockpit', 'manifests');
 const REPORT_PATH   = process.env.SIM_REPORT ?? join(REPO_ROOT, 'build', 'install-simulation-report.yaml');
 
 /* ============================================================
@@ -77,6 +77,10 @@ function loadConfig() {
   check('config has required apiVersion + kind', () => {
     if (cfg.apiVersion !== 'nexus.io/v1') throw new Error(`apiVersion=${cfg.apiVersion}`);
     if (cfg.kind !== 'NexusInstallConfig') throw new Error(`kind=${cfg.kind}`);
+  });
+  check('cockpit static bundle present (dist/index.html)', () => {
+    const index = join(OVERLAY, 'usr', 'share', 'nexus-cockpit', 'dist', 'index.html');
+    if (!existsSync(index)) throw new Error(`missing ${index} — run \`make overlay\` to build and stage the SPA`);
   });
   check('admin username defaults to "admin"', () => {
     if (cfg.admin?.username !== 'admin') throw new Error(`got ${cfg.admin?.username}`);
@@ -199,13 +203,11 @@ function simulateBootstrap(manifests) {
       throw new Error('rotate-on-first-login annotation missing');
     }
   });
-  check('nexus-cockpit Deployment is ready (2 replicas)', () => {
-    const dep = cluster.get('apps/v1/Deployment/nexus-cockpit/nexus-cockpit');
-    if (!dep) throw new Error('cockpit deployment missing');
-    if (dep.spec.replicas !== 2) throw new Error(`wanted 2 replicas, got ${dep.spec.replicas}`);
-    const env = dep.spec.template.spec.containers[0].env ?? [];
-    const force = env.find((e) => e.name === 'NEXUS_FORCE_PASSWORD_CHANGE');
-    if (force?.value !== 'true') throw new Error('cockpit not configured to force password change');
+  check('nexus-cockpit host endpoint ConfigMap is present', () => {
+    const cm = cluster.get('v1/ConfigMap/nexus-cockpit/nexus-cockpit-host');
+    if (!cm) throw new Error('cockpit host ConfigMap missing');
+    if (cm.data?.mode !== 'host-static') throw new Error(`unexpected cockpit mode ${cm.data?.mode}`);
+    if (cm.data?.httpsPort !== '8443') throw new Error('cockpit httpsPort != 8443');
   });
   check('XDR sensors are deployed (Falco + Tetragon + Wazuh + Suricata + Hubble + Trivy + OpenSearch + Polaris + kube-bench + Grype + Syft)', () => {
     const want = [
@@ -235,10 +237,6 @@ function simulateBootstrap(manifests) {
     for (const w of want) {
       if (!cluster.has(w)) throw new Error(`missing ${w}`);
     }
-  });
-  check('cockpit Service + Ingress present', () => {
-    if (!cluster.has('v1/Service/nexus-cockpit/nexus-cockpit')) throw new Error('cockpit Service missing');
-    if (!cluster.has('networking.k8s.io/v1/Ingress/nexus-cockpit/nexus-cockpit')) throw new Error('cockpit Ingress missing');
   });
   check('nexus-features ConfigMap declares every cockpit view', () => {
     const cm = cluster.get('v1/ConfigMap/nexus-cockpit/nexus-features');

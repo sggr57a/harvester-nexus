@@ -34,19 +34,28 @@ simulate: overlay
 iso-builder:
 	@echo ">> building iso-builder image $(ISO_BUILDER_IMG)"
 	@docker build -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
+	@echo ">> verifying iso-builder toolchain"
+	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
+	  'export PATH=/usr/local/bin:/usr/bin:/bin; yq --version && helm version --short && docker --version'
 
 .PHONY: iso
 iso: iso-builder
 	@echo ">> building ISO via $(ISO_BUILDER_IMG)"
 	@mkdir -p $(DIST) $(BUILD_DIR)
 	@docker run --rm --privileged \
+	  --entrypoint /bin/bash \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  -v $(REPO_ROOT):/src \
+	  -v $(BUILD_DIR):/build \
 	  -v $(DIST):/build/dist \
 	  -e BUILD_DIR=/build \
+	  -e HARVESTER_NEXUS_DIST=/build/dist \
 	  -e REPO_ROOT=/src \
 	  -e NEXUS_VERSION=$(VERSION) \
-	  $(ISO_BUILDER_IMG)
+	  -e DOCKER_API_VERSION=1.44 \
+	  -e DOCKER_BUILDKIT=0 \
+	  $(ISO_BUILDER_IMG) \
+	  /src/installer/build-iso.sh
 	@echo ">> ISO produced: $(ISO_FILE)"
 	@ls -lh $(ISO_FILE)
 

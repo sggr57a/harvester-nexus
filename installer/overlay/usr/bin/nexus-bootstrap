@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # nexus-bootstrap — runs once on first boot AFTER k3s/rke2 is up and the
 # kubeconfig is reachable. Applies every YAML in
-# /usr/local/share/nexus-cockpit/manifests/ in lexical order, waits for
+# /usr/share/nexus-cockpit/manifests/ in lexical order, waits for
 # each to reconcile, and writes a structured log to
 # /var/log/nexus/bootstrap.log.
 
@@ -12,7 +12,7 @@ LOG_FILE=${LOG_DIR}/bootstrap.log
 mkdir -p "${LOG_DIR}"
 
 CONFIG_FILE=${NEXUS_CONFIG:-/etc/nexus/config.yaml}
-MANIFESTS_DIR=${NEXUS_MANIFESTS:-/usr/local/share/nexus-cockpit/manifests}
+MANIFESTS_DIR=${NEXUS_MANIFESTS:-/usr/share/nexus-cockpit/manifests}
 KUBECONFIG=${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}
 
 # Fallback to k3s kubeconfig if rke2 isn't present.
@@ -58,14 +58,11 @@ for m in "${MANIFESTS_DIR}"/*.yaml; do
 done
 log "applied ${APPLIED} manifests"
 
-# Wait for the cockpit deployment to be ready so the operator can actually
-# log in when the bootstrap completes.
-log "waiting for nexus-cockpit deployment"
-if kubectl -n nexus-cockpit wait deployment/nexus-cockpit \
-    --for=condition=Available --timeout=300s 2>&1 | tee -a "${LOG_FILE}"; then
-  log "cockpit ready"
+# Host nexus-cockpit.service serves the React bundle from /usr/share/nexus-cockpit/dist.
+if systemctl is-active --quiet nexus-cockpit.service 2>/dev/null; then
+  log "host cockpit service is active"
 else
-  warn "cockpit did not become Available within 5 minutes (will continue)"
+  warn "host nexus-cockpit.service is not active (open https://<node-ip>:8443 after it starts)"
 fi
 
 # Record what we installed so the cockpit can show install provenance.

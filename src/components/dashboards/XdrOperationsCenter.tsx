@@ -1,32 +1,43 @@
-import { useLiveXdrEngine } from '../../lib/xdr/hooks';
+import { useClusterXdrEngine } from '../../lib/telemetry/useClusterXdrEngine';
+import type { LiveXdrSlice } from '../../lib/telemetry/dashboardTypes';
+import type { TelemetryState } from '../../lib/telemetry/mode';
 import { SENSORS } from '../../lib/xdr/sensors';
 import { RULES } from '../../lib/xdr/rules';
 import { INTEL_FEEDS } from '../../lib/xdr/intel';
 import { ThreatSurface3D } from './ThreatSurface3D';
 
-/** XDR Operations Center — a live SOC view that reads from the XDR engine
- * (which is fed by the deterministic attack simulator while the demo runs).
- * Every number on this page is computed from real engine output, not from a
- * static catalog.
- */
-export function XdrOperationsCenter() {
-  const snap = useLiveXdrEngine({ intervalMs: 1600, simulate: true, loop: true });
+interface XdrOperationsCenterProps {
+  telemetry?: TelemetryState;
+  xdrLive?: LiveXdrSlice;
+}
+
+/** XDR Operations Center — live SOC view from the XDR engine (simulator in demo, cluster sensors in live). */
+export function XdrOperationsCenter({ telemetry, xdrLive }: XdrOperationsCenterProps = {}) {
+  const mode = telemetry?.mode ?? 'demo';
+  const { snap, simulate, sensorsLive } = useClusterXdrEngine(
+    telemetry ?? { mode: 'demo', requested: 'auto', liveAvailable: false, clusterReady: false },
+    xdrLive,
+  );
 
   return (
     <section className="dash dash-xdr-soc" aria-label="XDR / MDR operations center">
       <header className="dash-header">
         <div>
-          <span className="dash-kicker">SOC // XDR-MDR LIVE</span>
+          <span className="dash-kicker">SOC // XDR-MDR {simulate ? 'DEMO' : 'LIVE'}</span>
           <h2>XDR / MDR operations center</h2>
           <p>
-            Live snapshot from the in-app Nexus XDR engine. Sensors (Falco / Tetragon / Wazuh /
-            Trivy / Suricata / Hubble / OpenCanary) emit events; {RULES.length} Sigma-style
-            detection rules evaluate every event; matched indicators come from{' '}
-            {INTEL_FEEDS.length} free intel feeds; response actions are dispatched as real
-            Kubernetes manifests.
+            {simulate
+              ? 'Demo mode — deterministic attack simulator feeds the in-app Nexus XDR engine.'
+              : 'Live mode — Nexus XDR sensors deployed on cluster; k8s warning events ingested.'}
+            {' '}
+            {RULES.length} Sigma-style rules; {INTEL_FEEDS.length} intel feeds.
+            {sensorsLive && xdrLive
+              ? ` Sensors ${xdrLive.sensorsHealthy}/${xdrLive.sensorsTotal} healthy.`
+              : ''}
           </p>
         </div>
         <div className="dash-totals">
+          <div><span>Mode</span><strong>{mode}</strong></div>
           <div><span>Alerts/min</span><strong>{snap.stats.alertsPerMin}</strong></div>
           <div><span>Blocked 24h</span><strong>{snap.stats.blocked24h}</strong></div>
           <div><span>Isolated hosts</span><strong>{snap.stats.isolatedHosts}</strong></div>
@@ -88,7 +99,13 @@ export function XdrOperationsCenter() {
               </li>
             ))}
             {snap.alerts.length === 0 && (
-              <li className="xdr-alert sev-low"><em>No alerts yet — waiting for the simulator to emit events…</em></li>
+              <li className="xdr-alert sev-low">
+                <em>
+                  {simulate
+                    ? 'No alerts yet — waiting for the simulator to emit events…'
+                    : 'No alerts yet — waiting for sensor events from the cluster…'}
+                </em>
+              </li>
             )}
           </ul>
         </article>
@@ -159,7 +176,11 @@ export function XdrOperationsCenter() {
         <article className="dash-panel">
           <header className="panel-title">
             <span>Sensor health</span>
-            <strong>{snap.stats.sensorsHealthy} / {snap.stats.sensorsTotal}</strong>
+            <strong>
+              {xdrLive?.deployed
+                ? `${xdrLive.sensorsHealthy} / ${xdrLive.sensorsTotal} cluster pods`
+                : `${snap.stats.sensorsHealthy} / ${snap.stats.sensorsTotal}`}
+            </strong>
           </header>
           <ul className="xdr-sensor-list">
             {SENSORS.map((s) => (

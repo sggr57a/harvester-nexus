@@ -28,10 +28,12 @@ cockpit:
   port: 8443
   tlsSelfSigned: true
   # Path that the static cockpit assets are served from. Populated by
-  # the install overlay at /usr/local/share/nexus-cockpit.
-  staticRoot: /usr/local/share/nexus-cockpit
+  # the install overlay at /usr/share/nexus-cockpit.
+  staticRoot: /usr/share/nexus-cockpit
   # Hosts the cockpit binds to. `0.0.0.0` exposes on the management VIP.
   bindAddress: 0.0.0.0
+  # demo = synthetic tick; live = Harvester cluster metrics; auto = live when API up
+  telemetryMode: auto
 
 # Storage fabric defaults — every backend is registered but only the
 # selected one is provisioned at install. Operators can toggle the

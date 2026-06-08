@@ -426,38 +426,20 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
    - Virtualization (VT-x / AMD-V): **enabled**
    - IOMMU (VT-d / AMD-Vi): **enabled** if you plan GPU / SR-IOV pass-through
 
-3. **Answer the install wizard.** Two question sets appear in order:
+3. **Answer the Harvester install wizard** (required): install mode, management NIC, IP / gateway / DNS, cluster VIP, NTP, cluster token, OS / SSH password.
 
-   **Harvester base wizard** (required):
-   - Install mode: *Create a new cluster* (single-node lab) or *Join an existing cluster*
-   - Management NIC, IP / gateway / DNS, cluster VIP, NTP servers
-   - Cluster token (create mode) and OS / SSH password
+   Nexus-specific settings are **not** shown in the install TUI today — they come from the baked-in defaults in `/etc/nexus/config.yaml` (admin/admin, Route Grid theme, XDR hardened profile, Longhorn storage, etc.). See `installer/installer-config/nexus-wizard-questions.yaml` for the full settings catalog.
 
-   **Nexus wizard** (optional — defaults are fine for a first install):
-
-   | Setting | Default | Notes |
-   |---|---|---|
-   | Cockpit admin username | `admin` | Forced password change on first login |
-   | Cockpit admin password | `admin` | Rotate immediately after login |
-   | Default theme | Route Grid | Arctic Hologram, Arctic Command, Ice Spectrum also available |
-   | Launch animation | Concentric boot | |
-   | Default storage backend | Longhorn | AnyRAID, Ceph, Vitastor, ZFS, … also listed |
-   | Enable AnyRAID | No | Set Yes to install the CSI driver on first boot |
-   | KubeVirt / Incus / LXC | Yes / Yes | Poly-Compute Engine |
-   | XDR / MDR platform | Yes, **Hardened** profile | Baseline (6 sensors) or Maximum (17 sensors) |
-   | Automated XDR responses | Yes | Alert-only if disabled |
-   | GitOps (ArgoCD) | Yes | Flux or Jenkins-X alternatives |
-   | Compliance scans | Yes | kube-bench, OpenSCAP, Lynis schedules |
-   | Prometheus + logging | Yes | Loki stack |
-
-4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk and enables `nexus-bootstrap.service` and `nexus-cockpit.service`.
+4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk. When install completes, `system/oem/92_nexus.yaml` enables and **starts** `nexus-cockpit.service` (and enables `nexus-bootstrap.service` for when Kubernetes is up).
 
 5. **First boot bootstrap** (automatic, 5–15 minutes depending on disk and network):
-   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/local/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit → `99-` features)
-   - `nexus-cockpit` serves the bundled cockpit on port **8443** (HTTPS) and **8080** (health)
-   - Logs: `/var/log/nexus/bootstrap.log`
+   - `nexus-cockpit` serves the bundled React cockpit from `/usr/share/nexus-cockpit/dist/` on port **8443** (HTTPS) and **8080** (HTTP health)
+   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit metadata → `99-` features)
+   - Logs: `/var/log/nexus/bootstrap.log`, `/var/log/nexus/cockpit.log`
 
-6. **Open the cockpit** at `https://<cluster-vip>` (or the node IP if no VIP is configured). Accept the self-signed TLS certificate.
+6. **Open the Nexus cockpit** at `https://<node-ip>:8443` (or `http://<node-ip>:8080` if TLS material is unavailable). Accept the self-signed certificate.
+
+   **Do not confuse this with the Harvester dashboard** at `https://<cluster-vip>:443` — that is the stock Rancher/Harvester UI and does not include the Nexus Mission Control cockpit.
 
 7. **Log in and rotate the password:**
 
@@ -485,12 +467,12 @@ qemu-system-x86_64 \
   -drive file=$HOME/harvester-nexus.qcow2,if=virtio,format=qcow2 \
   -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
   -boot d \
-  -netdev user,id=net0,hostfwd=tcp::8443-:443 \
+  -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 \
   -device virtio-net-pci,netdev=net0 \
   -nographic
 ```
 
-After installation completes and the VM reboots from disk, open `https://localhost:8443` on the Ubuntu host (the `hostfwd` rule maps host port 8443 → guest port 443).
+After installation completes and the VM reboots from disk, open `https://localhost:8443` on the Ubuntu host (the `hostfwd` rule maps host port 8443 → guest port 8443).
 
 For a graphical console, drop `-nographic` and add `-display gtk` or use `virt-manager` with the same disk + ISO settings.
 
@@ -575,11 +557,21 @@ docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| `make iso` fails with `Could not find the file … rancher-charts … index.yaml` | Upstream `collect-deps.sh` copies the Rancher catalog index after only 10s; the index is often not ready yet | Rebuild with the current branch — uses `installer/patches/collect-deps.sh` |
+| `make iso` fails with `client version 1.42 is too old. Minimum supported API version is 1.44` during `elemental build-iso` | The `elemental` binary copied from `rancher/harvester-os` embeds moby client API 1.42; Docker 29+ host daemons require ≥ 1.44 | Rebuild iso-builder on the current branch (`DOCKER_API_VERSION=1.44` is set in the builder image and `make iso` run). If it persists, confirm inside the container: `docker version` shows Client API ≥ 1.44 and `echo $DOCKER_API_VERSION` is `1.44` |
+| `make iso` fails with `Rancher must be ran with the --privileged flag` | Nested Docker (iso-builder container) cannot start a privileged Rancher child container | Same patch — reads `index.yaml` from the Rancher **image** via `docker run --entrypoint bash`, or falls back to `build.yaml` fleet/webhook versions without starting Rancher |
+| `make iso-builder` fails with `'nodejs20' not found in package names` | `nodejs20` is not in the golang BCI zypper repos | Rebuild with the current `installer/Dockerfile` (installs Node 20 from nodejs.org tarball) |
+| `make iso-builder` fails with `tar (child): xz: Cannot exec` | Node tarball is `.tar.xz` but `xz` was not installed in the builder image | Rebuild with the current `installer/Dockerfile` (`xz` added to the zypper toolchain list) |
+| `make iso` fails with `exec: "/bin/sh": stat /bin/sh: no such file or directory` | Old iso-builder image used `rancher/harvester-installer` as its base — that image is `FROM scratch` (binary only, no shell) | Rebuild with the current `installer/Dockerfile` (BCI golang base): `docker rmi harvester-nexus-iso-builder:1.0.0-nexus.1 && make iso-builder && make iso` |
 | `make iso-builder` fails with `invalid reference format` | Docker tag cannot contain `+` in the version string | Ensure you are on a branch with the `DOCKER_TAG` sanitization in `installer/Makefile` (maps `1.0.0+nexus.1` → `1.0.0-nexus.1` for the image tag) |
+| `make iso` fails with `yq: command not found` in `version-harvester` | Stale iso-builder image missing `yq` on PATH | Run `cd installer && make iso-builder` (current image installs `yq` to `/usr/local/bin`). `build-iso.sh` also bootstraps `yq` at runtime if missing |
+| `make iso` fails with `error waiting for container: unexpected EOF` on `COPY files/ /` | BuildKit + docker.sock from inside iso-builder, or Docker daemon OOM during harvester-os build | Rebuild on current branch (`DOCKER_BUILDKIT=0`, cockpit shipped as `dist.tar.gz`, full `build/` mounted). Ensure ≥25 GB free under `/var/lib/docker` and ≥8 GB RAM/swap |
 | Docker build fails with `overlay … invalid argument` | Nested / cloud VM without working overlayfs | Build the ISO on bare-metal Ubuntu 24.10+; use `make simulate` instead |
 | `make iso` runs out of disk | ISO build needs ~25 GB | Free space under `/var/lib/docker` and the repo checkout |
 | QEMU `-enable-kvm` error | KVM not available | Run `kvm-ok`; enable virtualization in firmware; or drop `-enable-kvm` (much slower) |
-| Cockpit unreachable after install | VIP / firewall / bootstrap still running | Check `kubectl get pods -A`; wait for bootstrap log to finish; confirm VIP answers on 443 |
+| Cockpit unreachable after install | Wrong URL (Harvester `:443` vs Nexus `:8443`), service not running, missing bundle, or firewall | Use the **node management IP** (not the cluster VIP). Try `https://<node-ip>:8443` then `http://<node-ip>:8080`. On the node: `sudo nexus-cockpit --status`, `systemctl status nexus-cockpit`, `journalctl -u nexus-cockpit -b`, `curl -sk https://127.0.0.1:8443/healthz`. If `index.html` is missing, rebuild + reinstall from the current branch |
+| `nexus-cockpit.service` fails / restart loop | Read-only root blocked tarball extract, missing `python3`, or broken nginx picked first | On the node: `journalctl -u nexus-cockpit -b --no-pager`. Check `python3 --version`, `ls /usr/share/nexus-cockpit/dist/index.html /var/lib/nexus/cockpit-dist/index.html`. Rebuild ISO from current branch |
+| `cannot execute /usr/local/bin/nexus-cockpit: No such file or directory` | **Wrong path** — Nexus lives under `/usr/bin/nexus-cockpit`, not `/usr/local` (Elemental mounts `/usr/local` as empty persistent storage and hides ISO files). Or stock Harvester ISO | On the node: `ls -la /usr/bin/nexus-cockpit /usr/share/nexus-cockpit/`. Rebuild with `git pull origin cursor/fix-iso-entrypoint-d930 && cd installer && make iso-builder && make iso`, then **reinstall** using `dist/harvester-nexus-*.iso` |
 | Login rejected | Wrong credentials | Production default is `admin` / `admin`; dev server also accepts `admin` / `demo` |
 
 For installer internals, manifest layout, and simulator details, see [`installer/README.md`](./installer/README.md).
