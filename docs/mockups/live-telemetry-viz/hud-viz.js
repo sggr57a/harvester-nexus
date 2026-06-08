@@ -1107,11 +1107,51 @@ function drawHologramLandscape(canvas, nodes, sim, tick, opts = {}) {
       if (x === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
-    const alpha = 0.08 + (z / gridRows) * 0.22;
+    const flicker = 0.92 + Math.sin(tick / 7 + z * 0.3) * 0.08;
+    const alpha = (0.08 + (z / gridRows) * 0.22) * flicker;
     ctx.strokeStyle = `rgba(${ar},${ag},${ab},${alpha})`;
     ctx.lineWidth = z % 4 === 0 ? 1.5 : 1;
     ctx.stroke();
   }
+
+  // iso-height contour rings (topographic hologram lines)
+  const contourLevels = [12, 20, 28, 36, 44];
+  contourLevels.forEach((level, li) => {
+    ctx.beginPath();
+    let started = false;
+    for (let z = 1; z < gridRows; z++) {
+      for (let x = 1; x < gridCols; x++) {
+        const h00 = heightAt(x, z);
+        const h10 = heightAt(x + 1, z);
+        const h01 = heightAt(x, z + 1);
+        const h11 = heightAt(x + 1, z + 1);
+        const crosses =
+          (h00 < level && h10 >= level) || (h00 >= level && h10 < level) ||
+          (h00 < level && h01 >= level) || (h00 >= level && h01 < level) ||
+          (h10 < level && h11 >= level) || (h10 >= level && h11 < level) ||
+          (h01 < level && h11 >= level) || (h01 >= level && h11 < level);
+        if (crosses) {
+          const p = mesh[z][x];
+          if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+          else ctx.lineTo(p.x, p.y);
+        }
+      }
+    }
+    ctx.strokeStyle = `rgba(${ar},${ag},${ab},${0.12 + li * 0.06})`;
+    ctx.lineWidth = li === contourLevels.length - 1 ? 1.5 : 1;
+    ctx.setLineDash([3, 6]);
+    ctx.lineDashOffset = tick * 0.2 + li * 4;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // hologram base glow cone
+  const cone = ctx.createRadialGradient(cx, horizon + h * 0.18, 0, cx, horizon + h * 0.18, w * 0.42);
+  cone.addColorStop(0, `rgba(${ar},${ag},${ab},${0.14 + activity * 0.1})`);
+  cone.addColorStop(0.55, `rgba(${ar},${ag},${ab},0.04)`);
+  cone.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = cone;
+  ctx.fillRect(0, horizon, w, h - horizon);
 
   // filled terrain glow under peaks
   for (let z = 1; z < gridRows; z++) {
@@ -1190,19 +1230,37 @@ function drawHologramLandscape(canvas, nodes, sim, tick, opts = {}) {
   });
 
   // horizontal scan sweep across terrain
-  const scanZ = Math.floor(((tick * 0.045) % 1) * gridRows);
+  const scanZ = Math.floor(((tick * 0.065) % 1) * gridRows);
   ctx.beginPath();
   for (let x = 0; x <= gridCols; x++) {
     const p = mesh[scanZ][x];
     if (x === 0) ctx.moveTo(p.x, p.y);
     else ctx.lineTo(p.x, p.y);
   }
-  ctx.strokeStyle = `rgba(255,255,255,${0.35 + activity * 0.25})`;
-  ctx.lineWidth = 2;
-  ctx.shadowColor = '#fff';
-  ctx.shadowBlur = 14;
+  ctx.strokeStyle = `rgba(255,255,255,${0.4 + activity * 0.35})`;
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = accent;
+  ctx.shadowBlur = 18;
   ctx.stroke();
   ctx.shadowBlur = 0;
+
+  // comet trail on live scan edge
+  const trailZ = Math.max(0, scanZ - 2);
+  ctx.beginPath();
+  for (let x = 0; x <= gridCols; x++) {
+    const p = mesh[trailZ][x];
+    if (x === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.strokeStyle = `rgba(${ar},${ag},${ab},0.25)`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // hologram scanlines overlay
+  for (let sy = horizon; sy < h; sy += 6) {
+    ctx.fillStyle = `rgba(0,0,0,${0.08 + Math.sin(tick / 9 + sy * 0.04) * 0.03})`;
+    ctx.fillRect(0, sy, w, 2);
+  }
 
   // title readout
   ctx.font = '600 20px Inter, sans-serif';
@@ -1250,18 +1308,34 @@ function drawWaveVibration(canvas, series, tick, opts = {}) {
   ctx.beginPath();
   series.forEach((v, i) => {
     const x = pad.l + (i / (len - 1)) * plotW;
-    const amp = (v / maxV) * plotH * 0.42;
+    const amp = (v / maxV) * plotH * 0.42 * (1 + Math.sin(tick / 6 + i * 0.15) * 0.08);
     if (i === 0) ctx.moveTo(x, midY);
     else ctx.lineTo(x, midY - amp);
   });
   for (let i = len - 1; i >= 0; i--) {
     const x = pad.l + (i / (len - 1)) * plotW;
-    const amp = (series[i] / maxV) * plotH * 0.42;
-    ctx.lineTo(x, midY + amp * 0.65);
+    const amp = (series[i] / maxV) * plotH * 0.42 * 0.65;
+    ctx.lineTo(x, midY + amp);
   }
   ctx.closePath();
-  ctx.fillStyle = `rgba(${r},${g},${b},0.18)`;
+  const wg = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
+  wg.addColorStop(0, `rgba(${r},${g},${b},0.35)`);
+  wg.addColorStop(1, `rgba(${r},${g},${b},0.04)`);
+  ctx.fillStyle = wg;
   ctx.fill();
+
+  // secondary harmonic trace
+  ctx.beginPath();
+  series.forEach((v, i) => {
+    const x = pad.l + (i / (len - 1)) * plotW;
+    const amp = (v / maxV) * plotH * 0.22;
+    const y = midY - amp * Math.sin(tick / 4 + i * 0.35);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.35)`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
   ctx.beginPath();
   series.forEach((v, i) => {

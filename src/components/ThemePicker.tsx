@@ -32,7 +32,7 @@ export function ThemePicker({ active, onSelect }: ThemePickerProps) {
   }, [open]);
 
   return (
-    <div className="theme-dropdown" ref={wrapperRef}>
+    <div className={`theme-dropdown${open ? ' is-open' : ''}`} ref={wrapperRef}>
       <span className="theme-dropdown-label">THEME</span>
       <button
         type="button"
