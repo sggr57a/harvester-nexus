@@ -242,7 +242,7 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
   it('installs Node.js from the upstream tarball (not zypper nodejs20)', () => {
     // registry.suse.com/bci/golang does not expose nodejs20 in default repos.
     expect(dockerfile).not.toMatch(/zypper.*nodejs20/);
-    expect(dockerfile).toMatch(/nodejs\.org\/dist/);
+    expect(dockerfile).toMatch(/\bhttps?:\/\/nodejs\.org\/dist(?:\/|["'\s]|$)/);
     expect(dockerfile).toMatch(/^\s+xz\s*\\/m);
   });
 
