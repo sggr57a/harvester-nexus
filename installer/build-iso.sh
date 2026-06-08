@@ -45,11 +45,19 @@ YQ_VERSION=${YQ_VERSION:-v4.52.5}
 
 ensure_toolchain() {
   if ! command -v yq >/dev/null 2>&1; then
+    if [[ "${SKIP_ISO_STAGE:-0}" == "1" ]]; then
+      log "yq not required for overlay-only stage · skipping install"
+      return 0
+    fi
     log "yq not found — installing to /usr/local/bin (rebuild iso-builder to bake this in)"
     local arch=${ARCH:-amd64}
     curl -sfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${arch}" \
       -o /usr/local/bin/yq
     chmod +x /usr/local/bin/yq
+  fi
+  if [[ "${SKIP_ISO_STAGE:-0}" == "1" ]]; then
+    log "overlay-only mode · skipping helm/docker/go toolchain check"
+    return 0
   fi
   local tool
   for tool in yq helm docker go git; do
