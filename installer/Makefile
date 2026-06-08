@@ -43,11 +43,14 @@ iso: iso-builder
 	  --entrypoint /bin/bash \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  -v $(REPO_ROOT):/src \
+	  -v $(BUILD_DIR):/build \
 	  -v $(DIST):/build/dist \
 	  -e BUILD_DIR=/build \
+	  -e HARVESTER_NEXUS_DIST=/build/dist \
 	  -e REPO_ROOT=/src \
 	  -e NEXUS_VERSION=$(VERSION) \
 	  -e DOCKER_API_VERSION=1.44 \
+	  -e DOCKER_BUILDKIT=0 \
 	  $(ISO_BUILDER_IMG) \
 	  /src/installer/build-iso.sh
 	@echo ">> ISO produced: $(ISO_FILE)"

@@ -80,8 +80,29 @@ copy_tree() {
 # Static overlay (systemd units, scripts, /etc/nexus/).
 copy_tree "${INSTALLER_DIR}/overlay" "${NEXUS_OVERLAY}"
 
-# Cockpit production bundle (everything under dist/) goes inside the overlay.
-copy_tree "${REPO_ROOT}/dist" "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/dist"
+# Cockpit production bundle — expanded tree for overlay/simulator checks,
+# plus a single dist.tar.zst for docker build (avoids huge COPY layers).
+COCKPIT_ROOT="${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit"
+COCKPIT_STAGING=$(mktemp -d)
+cleanup_cockpit_staging() { rm -rf "${COCKPIT_STAGING}"; }
+trap cleanup_cockpit_staging EXIT
+
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a --delete \
+    --exclude 'nexus-overlay/' \
+    --exclude '*.map' \
+    "${REPO_ROOT}/dist/" "${COCKPIT_STAGING}/"
+else
+  mkdir -p "${COCKPIT_STAGING}"
+  cp -a "${REPO_ROOT}/dist/." "${COCKPIT_STAGING}/"
+  rm -rf "${COCKPIT_STAGING}/nexus-overlay"
+fi
+[[ -f "${COCKPIT_STAGING}/index.html" ]] || fail "cockpit build missing index.html in dist/"
+
+mkdir -p "${COCKPIT_ROOT}"
+copy_tree "${COCKPIT_STAGING}" "${COCKPIT_ROOT}/dist"
+tar -C "${COCKPIT_STAGING}" -cf - . | zstd -T0 -19 -o "${COCKPIT_ROOT}/dist.tar.zst"
+log "cockpit bundle packed · $(du -h "${COCKPIT_ROOT}/dist.tar.zst" | awk '{print $1}') dist.tar.zst"
 
 # Bootstrap manifests.
 copy_tree "${INSTALLER_DIR}/manifests" "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/manifests"
@@ -117,9 +138,16 @@ git clone --branch "${HARVESTER_INSTALLER_REF}" --single-branch --depth 1 \
 log "stage 3 · patching collect-deps.sh (reliable rancher-charts index extraction)"
 install -m 0755 "${INSTALLER_DIR}/patches/collect-deps.sh" "${INSTALLER_SRC}/scripts/collect-deps.sh"
 
+log "stage 3 · patching harvester-os Dockerfile (extract cockpit tarball after COPY files/)"
+bash "${INSTALLER_DIR}/patches/apply-harvester-os-dockerfile.sh" \
+  "${INSTALLER_SRC}/package/harvester-os/Dockerfile"
+
 log "stage 3 · merging Nexus overlay into harvester-os/files (installed rootfs)"
 INSTALLER_FILES=${INSTALLER_SRC}/package/harvester-os/files
 [[ -d "${INSTALLER_FILES}" ]] || fail "harvester-installer layout changed: missing ${INSTALLER_FILES}"
+
+# Docker COPY files/ / is fragile with many small SPA assets — ship the tarball only.
+rm -rf "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/dist"
 copy_tree "${NEXUS_OVERLAY}" "${INSTALLER_FILES}"
 
 # ============================================================
@@ -144,6 +172,10 @@ git config --global --add safe.directory "${INSTALLER_SRC}" || true
 git config --global --add safe.directory "$(dirname "${INSTALLER_SRC}")/harvester" || true
 git config --global --add safe.directory "$(dirname "${INSTALLER_SRC}")/addons" || true
 cd "${INSTALLER_SRC}/scripts"
+# BuildKit + docker.sock from inside the iso-builder container can fail with
+# "error waiting for container: unexpected EOF" on COPY files/ / — use legacy builder.
+export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-0}"
+export COMPOSE_DOCKER_CLI_BUILD=0
 ./ci
 
 # ============================================================

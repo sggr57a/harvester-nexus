@@ -279,7 +279,14 @@ describe('installer · build-iso.sh artifact staging', () => {
     expect(script).toMatch(/INSTALLER_FILES=\$\{INSTALLER_SRC\}\/package\/harvester-os\/files/);
     expect(script).toMatch(/copy_tree "\$\{NEXUS_OVERLAY\}" "\$\{INSTALLER_FILES\}"/);
     expect(script).not.toMatch(/copy_tree.*iso\/rootfs/);
-    expect(script).toMatch(/index\.html/);
+    expect(script).toMatch(/dist\.tar\.zst/);
+    expect(script).toMatch(/DOCKER_BUILDKIT="\$\{DOCKER_BUILDKIT:-0\}"/);
+  });
+
+  it('patches harvester-os Dockerfile to extract cockpit tarball after COPY files/', () => {
+    const patchScript = join(INSTALLER, 'patches', 'apply-harvester-os-dockerfile.sh');
+    expect(existsSync(patchScript)).toBe(true);
+    expect(readFileSync(patchScript, 'utf8')).toMatch(/HARVESTER_NEXUS_COCKPIT_DIST_EXTRACT/);
   });
 });
 
