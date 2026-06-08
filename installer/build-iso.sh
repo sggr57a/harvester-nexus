@@ -133,7 +133,7 @@ tar -C "${COCKPIT_STAGING}" -czf "${COCKPIT_ROOT}/dist.tar.gz" .
 log "cockpit bundle packed · $(du -h "${COCKPIT_ROOT}/dist.tar.gz" | awk '{print $1}') dist.tar.gz"
 
 # Bootstrap manifests.
-copy_tree "${INSTALLER_DIR}/manifests" "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/manifests"
+copy_tree "${INSTALLER_DIR}/manifests" "${NEXUS_OVERLAY}/usr/share/nexus-cockpit/manifests"
 
 # Wizard question file + post-install hook.
 copy_tree "${INSTALLER_DIR}/installer-config" "${NEXUS_OVERLAY}/etc/nexus/installer"
