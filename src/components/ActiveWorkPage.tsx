@@ -1,5 +1,7 @@
 import type { ResourceMonitoring } from '../lib/activeOperations';
 import { buildResourceMonitoring } from '../lib/activeOperations';
+import type { TelemetryDataSource } from '../lib/telemetry/dashboardAdapters';
+import { LiveEmptyPanel } from './dashboards/LiveEmptyPanel';
 
 const defaultOperations = buildResourceMonitoring();
 
@@ -9,17 +11,23 @@ function points(samples: number[]): string {
 
 interface ResourceMonitoringPageProps {
   resourceMonitoring?: ResourceMonitoring;
+  dataSource?: TelemetryDataSource;
 }
 
-export function ResourceMonitoringPage({ resourceMonitoring }: ResourceMonitoringPageProps = {}) {
+export function ResourceMonitoringPage({ resourceMonitoring, dataSource }: ResourceMonitoringPageProps = {}) {
   const operations = resourceMonitoring ?? defaultOperations;
+  const isLive = dataSource === 'live';
 
   return (
     <section className="active-work-page hud-panel" aria-label="Resource monitoring and live security audit cockpit">
       <div className="active-work-bg-grid" />
       <div className="hud-panel-title active-work-title">
         <span>{operations.pageTitle} // important active systems</span>
-        <strong>{operations.summary.activeWorkCount} operations / risk {operations.summary.highestSecurityScore}</strong>
+        <strong>
+          {isLive
+            ? `${operations.summary.activeWorkCount} active operations`
+            : `${operations.summary.activeWorkCount} operations / risk ${operations.summary.highestSecurityScore}`}
+        </strong>
       </div>
 
       <nav className="active-work-menu" aria-label="Resource monitoring cockpit menu">
@@ -30,6 +38,13 @@ export function ResourceMonitoringPage({ resourceMonitoring }: ResourceMonitorin
           </button>
         ))}
       </nav>
+
+      {isLive && operations.workItems.length === 0 && operations.resourceGraphs.length === 0 && (
+        <LiveEmptyPanel
+          title="No active user workload operations"
+          detail="Migrations, pending PVCs, and resource graphs appear when you create VMs, pods, or storage in tenant namespaces."
+        />
+      )}
 
       <div className="active-work-layout">
         <div className="active-work-stack">
@@ -94,6 +109,7 @@ export function ResourceMonitoringPage({ resourceMonitoring }: ResourceMonitorin
           </div>
         </div>
 
+        {!isLive && (
         <aside className="security-audit-stack">
           <div className="security-sweep">
             <span />
@@ -111,6 +127,7 @@ export function ResourceMonitoringPage({ resourceMonitoring }: ResourceMonitorin
             </article>
           ))}
         </aside>
+        )}
       </div>
     </section>
   );

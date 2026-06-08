@@ -12,108 +12,146 @@ import type {
   LiveStorageSlice,
 } from './dashboardTypes';
 
-function mergeStorage(staticDash: StorageDashboard, live?: LiveStorageSlice): StorageDashboard {
-  if (!live || (live.pvcs.length === 0 && live.backends.length === 0)) {
-    return staticDash;
-  }
-  const backendById = new Map(staticDash.backends.map((b) => [b.id, b]));
-  const mergedBackends =
-    live.backends.length > 0
-      ? live.backends.map((liveBackend) => {
-          const demo = backendById.get(liveBackend.id);
-          return demo ? { ...demo, ...liveBackend, features: demo.features } : liveBackend;
-        })
-      : staticDash.backends;
+export type TelemetryDataSource = 'demo' | 'live';
+
+export interface ClusterDashboardBundle {
+  dataSource: TelemetryDataSource;
+  storage: StorageDashboard;
+  machines: MachinesDashboard;
+  resourceMonitoring: ResourceMonitoring;
+  xdr?: DashboardTelemetryPayload['xdr'];
+  operations?: DashboardTelemetryPayload['operations'];
+}
+
+const EMPTY_STORAGE: StorageDashboard = {
+  id: 'storage',
+  title: 'Storage Fabric',
+  backends: [],
+  pvcs: [],
+  snapshots: [],
+  replicationLinks: [],
+};
+
+const EMPTY_MACHINES: MachinesDashboard = {
+  id: 'machines',
+  title: 'Machines & Containers',
+  fleet: [],
+  migrations: [],
+  affinityRules: [],
+  ha: [],
+  consoleChips: [],
+};
+
+function buildLiveStorage(live: LiveStorageSlice): StorageDashboard {
   return {
-    ...staticDash,
-    backends: mergedBackends,
-    pvcs: live.pvcs.length > 0 ? live.pvcs : staticDash.pvcs,
+    ...EMPTY_STORAGE,
+    backends: live.backends,
+    pvcs: live.pvcs,
   };
 }
 
-function mergeMachines(staticDash: MachinesDashboard, live?: LiveMachinesSlice): MachinesDashboard {
-  if (!live || (live.fleet.length === 0 && live.migrations.length === 0)) {
-    return staticDash;
-  }
+function buildLiveMachines(live: LiveMachinesSlice): MachinesDashboard {
   return {
-    ...staticDash,
-    fleet: live.fleet.length > 0 ? live.fleet : staticDash.fleet,
-    migrations: live.migrations.length > 0 ? live.migrations : staticDash.migrations,
+    ...EMPTY_MACHINES,
+    fleet: live.fleet,
+    migrations: live.migrations,
   };
 }
 
-function mergeResourceMonitoring(
-  staticOps: ResourceMonitoring,
-  live?: LiveResourceMonitoringSlice,
-): ResourceMonitoring {
-  if (!live) return staticOps;
+function buildLiveResourceMonitoring(live: LiveResourceMonitoringSlice): ResourceMonitoring {
   const memoryPressurePercent = live.memoryPressurePercent;
-  const workItems = live.workItems.length > 0 ? live.workItems : staticOps.workItems;
-  const resourceGraphs = staticOps.resourceGraphs.map((graph) => {
-    if (graph.label === 'CPU' && live.cpuSeries.length > 0) {
-      return { ...graph, samples: live.cpuSeries };
-    }
-    if (graph.label === 'RAM' && live.ramSeries.length > 0) {
-      return { ...graph, samples: live.ramSeries };
-    }
-    return graph;
-  });
-  const migrationProcesses =
-    live.workItems.filter((item) => item.kind === 'migration').length > 0
-      ? live.workItems
-          .filter((item) => item.kind === 'migration')
-          .map((item, index) => ({
-            id: item.id || `live-mig-${index}`,
-            workloadType: 'VirtualMachine' as const,
-            sourceNode: item.target.split('->')[0]?.trim() ?? '?',
-            targetNode: item.target.split('->')[1]?.trim() ?? '?',
-            processModel: 'vMotion-style live migration' as const,
-            memoryStatePreserved: true,
-            requiresShutdown: false,
-            progress: item.progress,
-          }))
-      : staticOps.migrationProcesses;
+  const graphs: ResourceMonitoring['resourceGraphs'] = [];
+  if (live.cpuSeries.length > 0) {
+    graphs.push({ label: 'CPU', unit: '%', samples: live.cpuSeries });
+  }
+  if (live.ramSeries.length > 0) {
+    graphs.push({ label: 'RAM', unit: '%', samples: live.ramSeries });
+  }
+
+  const migrationProcesses = live.workItems
+    .filter((item) => item.kind === 'migration')
+    .map((item, index) => ({
+      id: item.id || `live-mig-${index}`,
+      workloadType: 'VirtualMachine' as const,
+      sourceNode: item.target.split('->')[0]?.trim() ?? '?',
+      targetNode: item.target.split('->')[1]?.trim() ?? '?',
+      processModel: 'vMotion-style live migration' as const,
+      memoryStatePreserved: true,
+      requiresShutdown: false,
+      progress: item.progress,
+    }));
 
   return {
-    ...staticOps,
-    workItems,
-    resourceGraphs,
-    migrationProcesses,
+    pageTitle: 'Resource Monitoring',
+    menuItems: [
+      { id: 'workloads', label: 'Workloads', signal: 'POD_IO' },
+      { id: 'kubernetes', label: 'Kubernetes', signal: 'K8S_PV' },
+      { id: 'storage', label: 'Storage', signal: 'CSI_AL' },
+      { id: 'compute', label: 'Compute', signal: 'CPU_RAM' },
+      { id: 'security', label: 'Security', signal: 'AUDIT' },
+    ],
+    workItems: live.workItems,
+    monitoredResourceClasses: ['pods', 'virtual-machines', 'persistent-volumes', 'cpu', 'ram'],
+    resourceGraphs: graphs,
     memoryPressure: {
       visible: memoryPressurePercent >= 80,
       severity: memoryPressurePercent >= 92 ? 'critical' : memoryPressurePercent >= 80 ? 'warning' : 'normal',
       node: 'cluster',
       pressurePercent: memoryPressurePercent,
     },
+    migrationProcesses,
+    securityAudits: [],
     summary: {
-      ...staticOps.summary,
-      activeWorkCount: workItems.length,
+      activeWorkCount: live.workItems.length,
+      highestSecurityScore: 0,
+      monitoredButHiddenCount: 0,
+      blackGlassPanels: true,
+      animationStyle: 'drawn-hud',
     },
   };
 }
 
-export function buildClusterDashboardBundle(payload?: DashboardTelemetryPayload | null) {
-  const staticStorage = buildStorageDashboard();
-  const staticMachines = buildMachinesDashboard();
-  const staticResource = buildResourceMonitoring();
+const EMPTY_RESOURCE: ResourceMonitoring = buildLiveResourceMonitoring({
+  workItems: [],
+  cpuSeries: [],
+  ramSeries: [],
+  memoryPressurePercent: 0,
+});
 
-  if (!payload) {
+export function buildClusterDashboardBundle(
+  payload: DashboardTelemetryPayload | null | undefined,
+  dataSource: TelemetryDataSource,
+): ClusterDashboardBundle {
+  if (dataSource === 'demo') {
     return {
-      storage: staticStorage,
-      machines: staticMachines,
-      resourceMonitoring: staticResource,
+      dataSource: 'demo',
+      storage: buildStorageDashboard(),
+      machines: buildMachinesDashboard(),
+      resourceMonitoring: buildResourceMonitoring(),
       xdr: undefined,
       operations: undefined,
-      live: false,
     };
   }
 
+  const live = payload ?? {
+    storage: { pvcs: [], backends: [], longhornVolumes: [] },
+    machines: { fleet: [], migrations: [] },
+    resourceMonitoring: {
+      workItems: [],
+      cpuSeries: [],
+      ramSeries: [],
+      memoryPressurePercent: 0,
+    },
+  };
+
   return {
-    storage: mergeStorage(staticStorage, payload.storage),
-    machines: mergeMachines(staticMachines, payload.machines),
-    resourceMonitoring: mergeResourceMonitoring(staticResource, payload.resourceMonitoring),
-    xdr: payload.xdr,
-    operations: payload.operations,
-    live: true,
+    dataSource: 'live',
+    storage: buildLiveStorage(live.storage),
+    machines: buildLiveMachines(live.machines),
+    resourceMonitoring: buildLiveResourceMonitoring(live.resourceMonitoring),
+    xdr: payload?.xdr,
+    operations: payload?.operations,
   };
 }
+
+export { EMPTY_STORAGE, EMPTY_MACHINES, EMPTY_RESOURCE };

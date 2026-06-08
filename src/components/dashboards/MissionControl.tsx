@@ -50,9 +50,67 @@ const channelOf: Record<string, 'mgmt' | 'storage' | 'mesh' | 'vm' | 'gitops'> =
 
 interface MissionControlProps {
   telemetry?: EnvironmentSnapshot;
+  dataSource?: import('../../lib/telemetry/dashboardAdapters').TelemetryDataSource;
 }
 
-export function MissionControlView({ telemetry }: MissionControlProps = {}) {
+function LiveMissionControl({ telemetry }: { telemetry?: EnvironmentSnapshot }) {
+  const cpuSeries = useRollingSeries(telemetry?.cpuPercent ?? 0, 48, telemetry?.tick);
+  const ramSeries = useRollingSeries(telemetry?.ramPercent ?? 0, 48, telemetry?.tick);
+  const rings = useMemo(
+    () => [
+      { label: 'CPU pressure', value: telemetry?.cpuPercent ?? 0, color: 'accent' as const },
+      { label: 'DRAM utilisation', value: telemetry?.ramPercent ?? 0, color: 'accent-2' as const },
+      { label: 'IOPS (cluster)', value: telemetry ? Math.min(100, telemetry.totalIops / 10_000) : 0, color: 'good' as const },
+      { label: 'NIC ingress', value: telemetry ? Math.min(100, telemetry.ingressMbps / 1_000) : 0, color: 'warn' as const },
+    ],
+    [telemetry],
+  );
+
+  return (
+    <section className="dash dash-mission-control live-mission-control" aria-label="Mission Control live cluster view">
+      <header className="dash-header">
+        <div>
+          <span className="dash-kicker">CMD // LIVE CLUSTER</span>
+          <h2>Mission Control</h2>
+          <p>Cluster-wide CPU, memory, network, and user workload counts from your Harvester node. Demo catalog widgets (GPUs, synthetic fleets, chargeback) are hidden in live mode.</p>
+        </div>
+        <div className="dash-totals">
+          <div><span>User workloads</span><strong>{telemetry?.totalWorkloads ?? 0}</strong></div>
+          <div><span>Migrations</span><strong>{telemetry?.activeMigrations ?? 0}</strong></div>
+          <div><span>CPU</span><strong>{telemetry?.cpuPercent?.toFixed(1) ?? '0'}%</strong></div>
+          <div><span>RAM</span><strong>{telemetry?.ramPercent?.toFixed(1) ?? '0'}%</strong></div>
+        </div>
+      </header>
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <WidgetTitle kicker="CLUSTER" title="Resource rings" trailing={<span className="osc-readout">live</span>} />
+          <MultiRingGauge rings={rings} size={220} />
+        </article>
+        <article className="dash-panel">
+          <WidgetTitle kicker="SCOPE" title="Oscilloscope · CPU &amp; RAM" trailing={<span className="osc-readout">metrics-server / Prometheus</span>} />
+          <AnnotatedOscilloscope
+            channels={[
+              { label: 'CPU', color: 'var(--theme-accent)', series: cpuSeries, unit: '%' },
+              { label: 'DRAM', color: 'var(--theme-accent-2)', series: ramSeries, unit: '%' },
+            ]}
+            height={180}
+          />
+        </article>
+      </div>
+      {(telemetry?.totalWorkloads ?? 0) === 0 && (
+        <article className="dash-panel live-empty-panel">
+          <p><strong>No user VMs or tenant pods yet</strong></p>
+          <small>Platform infrastructure pods are excluded. Create a VM or deploy a workload to a tenant namespace to populate fleet views.</small>
+        </article>
+      )}
+    </section>
+  );
+}
+
+export function MissionControlView({ telemetry, dataSource }: MissionControlProps = {}) {
+  if (dataSource === 'live') {
+    return <LiveMissionControl telemetry={telemetry} />;
+  }
   const cpuSeries = useRollingSeries(telemetry?.cpuPercent ?? 58, 48, telemetry?.tick);
   const ramSeries = useRollingSeries(telemetry?.ramPercent ?? 64, 48, telemetry?.tick);
   const iopsSeries = useRollingSeries(telemetry ? telemetry.totalIops / 12_000 : 90, 48, telemetry?.tick);
@@ -322,7 +380,7 @@ export function MissionControlView({ telemetry }: MissionControlProps = {}) {
 
         <article key="meters" className="dash-panel mission-meters">
           <WidgetTitle kicker="LEVELS" title="Fleet CPU level meters" trailing={<span className="osc-readout">{machines.fleet.length} workloads</span>} />
-          <VerticalMeterBank meters={verticalMeters} height={170} scale={100} />
+          <VerticalMeterBank meters={verticalMeters} height={170} scale={100} thermal />
         </article>
 
         <article key="ring-cluster" className="dash-panel mission-ring-cluster">

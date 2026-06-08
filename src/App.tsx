@@ -87,6 +87,7 @@ function App() {
   const [includeManifestSetup, setIncludeManifestSetup] = useState(false);
   const { snapshot: telemetry, telemetry: telemetryState, setRequestedMode } = useEnvironmentTelemetry(1600);
   const clusterDashboards = useClusterDashboards(telemetryState, 1600);
+  const dataSource = clusterDashboards.dataSource;
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -207,27 +208,25 @@ function App() {
           telemetry={telemetryState}
           onTelemetryModeChange={setRequestedMode}
         />
-        {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
-        {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
-        {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}
+        {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} dataSource={dataSource} />}
         {cockpitView === 'storage' && (
-          <StorageDashboardView telemetry={telemetry} storageDashboard={clusterDashboards.storage} />
+          <StorageDashboardView telemetry={telemetry} dataSource={dataSource} storageDashboard={clusterDashboards.storage} />
         )}
         {cockpitView === 'machines' && (
-          <MachinesDashboardView telemetry={telemetry} machinesDashboard={clusterDashboards.machines} />
+          <MachinesDashboardView telemetry={telemetry} dataSource={dataSource} machinesDashboard={clusterDashboards.machines} />
         )}
-        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} />}
-        {cockpitView === 'environment' && <EnvironmentDashboardView />}
-        {cockpitView === 'activity' && <ActivityDashboardView />}
-        {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} />}
-        {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} />}
-        {cockpitView === 'environment' && <EnvironmentDashboardView />}
-        {cockpitView === 'activity' && <ActivityDashboardView />}
+        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'environment' && <EnvironmentDashboardView dataSource={dataSource} />}
+        {cockpitView === 'activity' && <ActivityDashboardView dataSource={dataSource} />}
+        {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} dataSource={dataSource} />}
         {cockpitView === 'operations' && (
-          <OperationsDashboardView telemetry={telemetry} operationsLinks={clusterDashboards.operations} />
+          <OperationsDashboardView telemetry={telemetry} dataSource={dataSource} operationsLinks={clusterDashboards.operations} />
         )}
         {cockpitView === 'resource-monitoring' && (
-          <ResourceMonitoringPage resourceMonitoring={clusterDashboards.resourceMonitoring} />
+          <ResourceMonitoringPage resourceMonitoring={clusterDashboards.resourceMonitoring} dataSource={dataSource} />
         )}
         {cockpitView === 'xdr-operations' && (
           <XdrOperationsCenter telemetry={telemetryState} xdrLive={clusterDashboards.xdr} />

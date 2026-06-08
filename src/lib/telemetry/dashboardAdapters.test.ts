@@ -4,22 +4,22 @@ import type { DashboardTelemetryPayload } from './dashboardTypes';
 
 const samplePayload: DashboardTelemetryPayload = {
   environment: {
-    totalWorkloads: 10,
+    totalWorkloads: 2,
     totalIops: 50000,
     ingressMbps: 100,
     egressMbps: 90,
     cpuPercent: 40,
     ramPercent: 55,
     watts: 880,
-    activeMigrations: 1,
-    openCves: 2,
+    activeMigrations: 0,
+    openCves: 0,
     trustScore: 88,
     tick: 3,
     source: 'mixed',
     clusterReady: true,
     monitoringEnabled: true,
     nodeCount: 2,
-    podCount: 8,
+    podCount: 0,
     vmCount: 2,
   },
   storage: {
@@ -69,25 +69,16 @@ const samplePayload: DashboardTelemetryPayload = {
     migrations: [],
   },
   resourceMonitoring: {
-    workItems: [
-      {
-        id: 'mig-live',
-        kind: 'migration',
-        label: 'Live migration process',
-        target: 'vm-a / node-1 -> node-2',
-        progress: 55,
-        status: 'migrating',
-      },
-    ],
+    workItems: [],
     cpuSeries: [10, 20, 30, 40],
     ramSeries: [50, 52, 54, 55],
-    memoryPressurePercent: 85,
+    memoryPressurePercent: 55,
   },
   xdr: {
-    sensorsHealthy: 2,
-    sensorsTotal: 3,
-    deployed: true,
-    events: [{ message: 'FailedScheduling', namespace: 'default', name: 'ev-1' }],
+    sensorsHealthy: 0,
+    sensorsTotal: 0,
+    deployed: false,
+    events: [],
   },
   operations: {
     grafanaUrl: '/grafana',
@@ -98,21 +89,31 @@ const samplePayload: DashboardTelemetryPayload = {
 };
 
 describe('buildClusterDashboardBundle', () => {
-  it('returns static dashboards when no payload', () => {
-    const bundle = buildClusterDashboardBundle(null);
-    expect(bundle.live).toBe(false);
+  it('returns demo catalog when dataSource is demo', () => {
+    const bundle = buildClusterDashboardBundle(null, 'demo');
+    expect(bundle.dataSource).toBe('demo');
     expect(bundle.storage.pvcs.length).toBeGreaterThan(0);
     expect(bundle.machines.fleet.length).toBeGreaterThan(0);
   });
 
-  it('merges live PVC and fleet rows when payload present', () => {
-    const bundle = buildClusterDashboardBundle(samplePayload);
-    expect(bundle.live).toBe(true);
+  it('uses only live cluster rows — never demo catalog fallbacks', () => {
+    const bundle = buildClusterDashboardBundle(samplePayload, 'live');
+    expect(bundle.dataSource).toBe('live');
+    expect(bundle.storage.pvcs).toHaveLength(1);
     expect(bundle.storage.pvcs[0]?.name).toBe('data-vol');
-    expect(bundle.machines.fleet.some((row) => row.name === 'test-vm')).toBe(true);
-    expect(bundle.resourceMonitoring.workItems[0]?.id).toBe('mig-live');
-    expect(bundle.resourceMonitoring.memoryPressure.visible).toBe(true);
-    expect(bundle.operations?.grafanaUrl).toBe('/grafana');
-    expect(bundle.xdr?.sensorsHealthy).toBe(2);
+    expect(bundle.storage.backends).toHaveLength(1);
+    expect(bundle.machines.fleet).toHaveLength(1);
+    expect(bundle.machines.affinityRules).toHaveLength(0);
+    expect(bundle.resourceMonitoring.securityAudits).toHaveLength(0);
+    expect(bundle.resourceMonitoring.resourceGraphs.map((g) => g.label)).toEqual(['CPU', 'RAM']);
+  });
+
+  it('returns empty live dashboards when payload missing in live mode', () => {
+    const bundle = buildClusterDashboardBundle(null, 'live');
+    expect(bundle.dataSource).toBe('live');
+    expect(bundle.storage.backends).toHaveLength(0);
+    expect(bundle.storage.pvcs).toHaveLength(0);
+    expect(bundle.machines.fleet).toHaveLength(0);
+    expect(bundle.resourceMonitoring.workItems).toHaveLength(0);
   });
 });

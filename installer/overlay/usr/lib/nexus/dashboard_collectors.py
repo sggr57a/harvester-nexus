@@ -6,10 +6,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from cluster_filters import is_user_namespace
 from cluster_metrics import (
     _count_active_migrations,
-    _count_kubevirt_vms,
-    _count_running_pods,
     _find_kubeconfig,
     _kubectl_json,
     _kubectl_raw_json,
@@ -43,6 +42,9 @@ def _pvc_rows(kubeconfig: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item in data.get("items") or []:
         meta = item.get("metadata") or {}
+        namespace = meta.get("namespace", "")
+        if not is_user_namespace(namespace):
+            continue
         spec = item.get("spec") or {}
         status = item.get("status") or {}
         phase = status.get("phase", "Pending").lower()
@@ -66,7 +68,9 @@ def _pvc_rows(kubeconfig: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _storage_classes(kubeconfig: str) -> list[dict[str, Any]]:
+def _storage_classes(kubeconfig: str, used_classes: set[str]) -> list[dict[str, Any]]:
+    if not used_classes:
+        return []
     data = _kubectl_json(kubeconfig, "get", "storageclass")
     if not isinstance(data, dict):
         return []
@@ -74,6 +78,8 @@ def _storage_classes(kubeconfig: str) -> list[dict[str, Any]]:
     for item in data.get("items") or []:
         meta = item.get("metadata") or {}
         name = meta.get("name", "")
+        if name not in used_classes:
+            continue
         prov = (item.get("provisioner") or "").lower()
         kind = "file" if "nfs" in prov or "smb" in prov else "block"
         label = name
@@ -132,7 +138,10 @@ def _vm_fleet(kubeconfig: str) -> list[dict[str, Any]]:
         return rows
     for item in vms.get("items") or []:
         meta = item.get("metadata") or {}
-        key = "%s/%s" % (meta.get("namespace"), meta.get("name"))
+        namespace = meta.get("namespace", "")
+        if not is_user_namespace(namespace):
+            continue
+        key = "%s/%s" % (namespace, meta.get("name"))
         vmi = vmi_by_key.get(key) or {}
         vmi_status = vmi.get("status") or {}
         phase = (vmi_status.get("phase") or "stopped").lower()
@@ -174,6 +183,9 @@ def _pod_fleet(kubeconfig: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item in data.get("items") or []:
         meta = item.get("metadata") or {}
+        namespace = meta.get("namespace", "")
+        if not is_user_namespace(namespace):
+            continue
         status = item.get("status") or {}
         if status.get("phase") != "Running":
             continue
@@ -197,6 +209,32 @@ def _pod_fleet(kubeconfig: str) -> list[dict[str, Any]]:
             }
         )
     return rows[:120]
+
+
+def _count_user_running_pods(kubeconfig: str) -> int:
+    data = _kubectl_json(kubeconfig, "get", "pods", "-A")
+    if not isinstance(data, dict):
+        return 0
+    count = 0
+    for item in data.get("items") or []:
+        meta = item.get("metadata") or {}
+        if not is_user_namespace(meta.get("namespace", "")):
+            continue
+        if (item.get("status") or {}).get("phase") == "Running":
+            count += 1
+    return count
+
+
+def _count_user_vms(kubeconfig: str) -> int:
+    data = _kubectl_json(kubeconfig, "get", "virtualmachines.kubevirt.io", "-A")
+    if not isinstance(data, dict):
+        return 0
+    count = 0
+    for item in data.get("items") or []:
+        meta = item.get("metadata") or {}
+        if is_user_namespace(meta.get("namespace", "")):
+            count += 1
+    return count
 
 
 def _migration_rows(kubeconfig: str) -> list[dict[str, Any]]:
@@ -319,8 +357,8 @@ def collect_dashboards_live() -> dict[str, Any]:
 
     monitoring = _monitoring_addon_enabled(kubeconfig)
     cpu_percent, ram_percent, node_count = _node_capacity_usage(kubeconfig)
-    pod_count = _count_running_pods(kubeconfig)
-    vm_count = _count_kubevirt_vms(kubeconfig)
+    pod_count = _count_user_running_pods(kubeconfig)
+    vm_count = _count_user_vms(kubeconfig)
     migrations_count = _count_active_migrations(kubeconfig)
 
     total_iops = 0.0
@@ -360,8 +398,9 @@ def collect_dashboards_live() -> dict[str, Any]:
     _save_state(state)
 
     pvcs = _pvc_rows(kubeconfig)
-    backends = _storage_classes(kubeconfig)
-    longhorn = _longhorn_volumes(kubeconfig)
+    used_classes = {pvc["storageClass"] for pvc in pvcs if pvc.get("storageClass")}
+    backends = _storage_classes(kubeconfig, used_classes)
+    longhorn = _longhorn_volumes(kubeconfig) if used_classes else []
     fleet = _vm_fleet(kubeconfig) + _pod_fleet(kubeconfig)
     migrations = _migration_rows(kubeconfig)
     xdr = _xdr_sensor_health(kubeconfig)

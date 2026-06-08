@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mockup — Environment Intel (Hologram HUD)</title>
+  <link rel="stylesheet" href="shared.css" />
+  <link rel="stylesheet" href="hologram.css" />
+</head>
+<body class="hud-mode hologram">
+  <header class="mock-header">
+    <span class="kicker">MOCKUP · ENVIRONMENT INTEL · HOLOGRAM HUD · ORIGINAL CANVAS</span>
+    <h1>Environment Intel <span class="badge-live"><i></i> LIVE</span></h1>
+  </header>
+
+  <div class="hologram-grid">
+    <div class="tile gauge"><span class="tile-label">THERMAL</span><canvas id="g-cpu"></canvas></div>
+    <div class="tile gauge"><span class="tile-label">POWER</span><canvas id="g-pwr"></canvas></div>
+    <div class="tile gauge"><span class="tile-label">AIRFLOW</span><canvas id="g-net"></canvas></div>
+    <div class="tile gauge"><span class="tile-label">DISK</span><canvas id="g-disk"></canvas></div>
+    <div class="tile gauge-sm"><span class="tile-label">HUMIDITY</span><canvas id="g-therm"></canvas></div>
+    <div class="tile event-strip" id="event-tile"><strong>FACILITY EVENT</strong><span id="env-activity-text">—</span></div>
+
+    <div class="tile linear-row">
+      <div class="mini-bar"><canvas id="lg-t1"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-t2"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-t3"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-hum"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-in"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-out"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-co2"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-fan"></canvas></div>
+    </div>
+
+    <div class="tile wave"><span class="tile-label">Wave · thermal</span><canvas id="wave-therm"></canvas></div>
+    <div class="tile wave"><span class="tile-label">Wave · airflow</span><canvas id="wave-air"></canvas></div>
+    <div class="tile hologram" id="holo-tile"><span class="tile-label">Virtual hologram · facility terrain</span><canvas id="hologram"></canvas></div>
+    <div class="tile level-bank"><span class="tile-label">Level bank · thermal · power · air</span><canvas id="level-bank-hero"></canvas></div>
+
+    <div class="tile side-stack">
+      <div class="sub-tile"><span class="tile-label">Globe</span><canvas id="globe"></canvas></div>
+      <div class="sub-tile"><span class="tile-label">Mix</span><canvas id="donut-env"></canvas></div>
+    </div>
+    <div class="tile radar"><span class="tile-label">Thermal radar</span><canvas id="radar"></canvas></div>
+    <div class="tile hex"><span class="tile-label">Hex grid</span><canvas id="hex"></canvas></div>
+    <div class="tile col-chart wide"><span class="tile-label">Thermal</span><canvas id="cols-thermal"></canvas></div>
+    <div class="tile col-chart wide"><span class="tile-label">Power</span><canvas id="cols-power"></canvas></div>
+
+    <div class="tile stack"><span class="tile-label">Facility stack · ingress egress power</span><canvas id="stack-env"></canvas></div>
+
+    <div class="tile lines"><span class="tile-label">Thermal · power · airflow</span><canvas id="lines-env"></canvas></div>
+    <div class="tile spark"><span class="tile-label">Facility sparklines · 12ch</span><canvas id="spark-env"></canvas></div>
+
+    <div class="tile history" id="hist-tile"><span class="tile-label">Historical histogram · thermal · power · airflow</span><canvas id="bars"></canvas></div>
+
+    <div class="tile events">
+      <span class="tile-label">Event rail</span>
+      <ul class="event-rail" id="event-rail"><li><span>—</span><strong>Waiting…</strong></li></ul>
+    </div>
+    <div class="tile table-wrap">
+      <span class="tile-label">Facility nodes</span>
+      <table class="metric-table" id="metric-table">
+        <thead><tr><th>Node</th><th>°C</th><th>Power</th><th>Airflow</th><th>Disk</th><th>CPU</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="mock-charts.js"></script>
+  <script src="hud-viz.js"></script>
+  <script>
+    const NODE_NAMES = ['h-01', 'h-02', 'h-03'];
+    const HIST = 48;
+    const events = [];
+    const barHist = NODE_NAMES.map(() => []);
+    const powerHist = NODE_NAMES.map(() => []);
+    const netHist = NODE_NAMES.map(() => []);
+
+    const HOLO_NODES = [
+      { name: 'h-01', gx: 9, gz: 13 },
+      { name: 'h-02', gx: 15, gz: 9 },
+      { name: 'h-03', gx: 19, gz: 17 },
+    ];
+
+    const sim = createClusterSim(3);
+
+    initHudDashboard(sim, {
+      gauges: [
+        { el: document.getElementById('g-cpu'), metric: 'cpu', label: 'THM', unit: '°C', color: '#a855f7', max: 100, opts: { format: v => Math.round(32+v*0.18)+'°', ticks: 24, compact: true } },
+        { el: document.getElementById('g-pwr'), metric: 'power', label: 'PWR', unit: 'W', color: '#34d399', max: 900, opts: { format: v => Math.round(v), ticks: 24, compact: true } },
+        { el: document.getElementById('g-net'), metric: 'net', label: 'AIR', unit: 'Mb/s', color: '#fbbf24', max: 1200, opts: { format: fmtMb, ticks: 24, compact: true } },
+        { el: document.getElementById('g-disk'), metric: 'disk', label: 'DSK', unit: 'IOPS', color: '#38bdf8', max: 22000, opts: { format: fmtK, ticks: 24, compact: true } },
+        { el: document.getElementById('g-therm'), metric: 'ram', label: 'HUM', unit: '%', color: '#5b8cff', max: 100, opts: { format: fmtPct, ticks: 24, compact: true } },
+      ],
+      linearGauges: [
+        ...NODE_NAMES.map((n, i) => ({ el: document.getElementById(['lg-t1','lg-t2','lg-t3'][i]), node: i, metric: 'cpu', label: 'T'+(i+1), color: '#f87171', max: 100 })),
+        { el: document.getElementById('lg-hum'), metric: 'ram', label: 'HUM', color: '#38bdf8', max: 100 },
+        { el: document.getElementById('lg-in'), metric: 'net-rx', label: 'IN', color: '#fbbf24', max: 1200 },
+        { el: document.getElementById('lg-out'), metric: 'net-tx', label: 'OUT', color: '#f87171', max: 1200 },
+        { el: document.getElementById('lg-co2'), metric: 'cpu', label: 'CO2', color: '#34d399', max: 100 },
+        { el: document.getElementById('lg-fan'), metric: 'net', label: 'FAN', color: '#fbbf24', max: 1200 },
+      ],
+      hologramLandscapes: [{
+        el: document.getElementById('hologram'),
+        nodes: HOLO_NODES,
+        opts: { title: 'VIRTUAL HOLOGRAM · FACILITY TERRAIN', accent: '#f87171', accent2: '#38bdf8' },
+      }],
+      waveVibrations: [
+        { el: document.getElementById('wave-therm'), key: 'wv-thm', metric: 'cpu', max: 100, len: 72, opts: { title: 'THERMAL WAVE', color: '#a855f7' } },
+        { el: document.getElementById('wave-air'), key: 'wv-air', metric: 'net', max: 1200, len: 72, opts: { title: 'AIRFLOW WAVE', color: '#fbbf24' } },
+      ],
+      levelBanks: [{
+        el: document.getElementById('level-bank-hero'),
+        cells: [
+          { metric: 'cpu', max: 100, label: 'THM', color: '#a855f7', format: v => Math.round(32+v*0.18)+'°', thermal: true },
+          { metric: 'power', max: 900, label: 'PWR', color: '#34d399', format: v => Math.round(v)+'W' },
+          { metric: 'net', max: 1200, label: 'AIR', color: '#fbbf24', format: fmtMb },
+        ],
+      }],
+      stackedAreas: [{
+        el: document.getElementById('stack-env'), len: 72, opts: { title: '' },
+        channels: [
+          { key: 'se-in', metric: 'net-rx', color: '#fbbf24', label: 'IN', max: 1200 },
+          { key: 'se-out', metric: 'net-tx', color: '#f87171', label: 'OUT', max: 1200 },
+          { key: 'se-pwr', metric: 'power', color: '#34d399', label: 'PWR', max: 900 },
+        ],
+      }],
+      lineCharts: [{
+        el: document.getElementById('lines-env'), len: 64, opts: { title: '' },
+        channels: [
+          { key: 'le-cpu', metric: 'cpu', color: '#f87171', label: 'THM', format: fmtPct },
+          { key: 'le-pwr', metric: 'power', color: '#34d399', label: 'PWR', max: 900, format: v => Math.round(v)+'W' },
+          { key: 'le-net', metric: 'net', color: '#fbbf24', label: 'AIR', max: 1200, format: fmtMb },
+          { key: 'le-disk', metric: 'disk', color: '#38bdf8', label: 'DSK', max: 22000, format: fmtK },
+        ],
+      }],
+      donuts: [{
+        el: document.getElementById('donut-env'), opts: { center: 'FAC', sub: '' },
+        segments: [
+          { metric: 'cpu', label: 'THM', color: '#f87171', format: fmtPct },
+          { metric: 'power', label: 'PWR', color: '#34d399', format: v => Math.round(v) },
+          { metric: 'net', label: 'AIR', color: '#fbbf24', format: fmtMb },
+          { metric: 'disk', label: 'DSK', color: '#38bdf8', format: fmtK },
+        ],
+      }],
+      columnCharts: [
+        { el: document.getElementById('cols-thermal'), opts: { title: '', thermal: true }, bars: NODE_NAMES.map((n,i) => ({ label: n, node: i, metric: 'cpu', max: 100, color: '#a855f7', format: v => Math.round(32+v*0.18)+'°' })) },
+        { el: document.getElementById('cols-power'), opts: { title: '' }, bars: NODE_NAMES.map((n,i) => ({ label: n, node: i, metric: 'power', max: 900, color: '#34d399', format: v => Math.round(v)+'W' })) },
+      ],
+      globes: [{ el: document.getElementById('globe'), nodes: NODE_NAMES.map((name,i) => ({ name, lon: (i/3)*Math.PI*1.6-0.8, lat: (i-1)*0.35 })) }],
+      radars: [{ el: document.getElementById('radar'), nodes: NODE_NAMES.map((name,i) => ({ name, angle: (i/3)*Math.PI*2 })) }],
+      hexMaps: [{ el: document.getElementById('hex'), nodes: ['harvester-01','harvester-02','harvester-03'].map((name,i) => ({ name, hx: [0.25,0.5,0.75][i], hy: [0.5,0.35,0.65][i] })) }],
+      sparklineGrids: [{
+        el: document.getElementById('spark-env'),
+        cells: NODE_NAMES.flatMap((_, ni) => [
+          { key: `sp-t${ni}`, node: ni, metric: 'cpu', label: `0${ni+1} THM`, color: '#a855f7', max: 100, format: v => Math.round(32+v*0.18)+'°', len: 40 },
+          { key: `sp-p${ni}`, node: ni, metric: 'power', label: `0${ni+1} PWR`, color: '#34d399', max: 900, format: v => Math.round(v)+'W', len: 40 },
+          { key: `sp-a${ni}`, node: ni, metric: 'net', label: `0${ni+1} AIR`, color: '#fbbf24', max: 1200, format: fmtMb, len: 40 },
+          { key: `sp-d${ni}`, node: ni, metric: 'disk', label: `0${ni+1} DSK`, color: '#38bdf8', max: 22000, format: fmtK, len: 40 },
+        ]),
+      }],
+      onTick(tick, agg, sim, activity) {
+        document.getElementById('env-activity-text').textContent = agg.event;
+        document.getElementById('holo-tile').classList.toggle('burst', activity > 0.55);
+        document.getElementById('event-tile').classList.toggle('burst', activity > 0.5);
+        document.getElementById('hist-tile').classList.toggle('burst', activity > 0.65);
+
+        NODE_NAMES.forEach((_, i) => {
+          const s = sim.sample('bh', i);
+          pushSeries(barHist[i], s.cpu, HIST);
+          pushSeries(powerHist[i], 180 + s.cpu * 4.2, HIST);
+          pushSeries(netHist[i], s.net, HIST);
+        });
+
+        drawBarMatrix(document.getElementById('bars'), [
+          { label: 'THM h-01', unit: '°C', color: '#a855f7', max: 100, thermal: true, format: v => Math.round(32+v*0.18)+'', readout: Math.round(32+sim.sample('b1',0).cpu*0.18)+'°', values: [...barHist[0]] },
+          { label: 'THM h-02', unit: '°C', color: '#a855f7', max: 100, thermal: true, format: v => Math.round(32+v*0.18)+'', readout: Math.round(32+sim.sample('b1',1).cpu*0.18)+'°', values: [...barHist[1]] },
+          { label: 'THM h-03', unit: '°C', color: '#a855f7', max: 100, thermal: true, format: v => Math.round(32+v*0.18)+'', readout: Math.round(32+sim.sample('b1',2).cpu*0.18)+'°', values: [...barHist[2]] },
+          { label: 'PWR h-01', unit: 'W', color: '#34d399', max: 900, format: v => Math.round(v)+'', readout: Math.round(powerHist[0].slice(-1)[0]||0)+'W', values: [...powerHist[0]] },
+          { label: 'PWR h-02', unit: 'W', color: '#34d399', max: 900, format: v => Math.round(v)+'', readout: Math.round(powerHist[1].slice(-1)[0]||0)+'W', values: [...powerHist[1]] },
+          { label: 'AIR h-01', unit: 'Mb/s', color: '#fbbf24', max: 1200, format: v => Math.round(v)+'', readout: fmtMb(sim.sample('b3',0).net), values: [...netHist[0]] },
+          { label: 'AIR h-02', unit: 'Mb/s', color: '#fbbf24', max: 1200, format: v => Math.round(v)+'', readout: fmtMb(sim.sample('b3',1).net), values: [...netHist[1]] },
+          { label: 'AIR cluster', unit: 'Mb/s', color: '#fbbf24', max: 1200, format: v => Math.round(v)+'', readout: fmtMb(agg.net), values: [...netHist[0], ...netHist[1], ...netHist[2]].slice(-HIST) },
+        ], tick, { title: 'FACILITY HISTORY · HEAT BARS' });
+
+        document.querySelector('#metric-table tbody').innerHTML = ['harvester-01','harvester-02','harvester-03'].map((name, i) => {
+          const s = sim.sample('tbl', i);
+          const temp = Math.round(32 + s.cpu * 0.18);
+          const pwr = Math.round(180 + s.cpu * 4.2);
+          const hot = s.cpu > 60 || s.event;
+          return `<tr class="${hot?'hot':''}"><td>${name}</td><td><b>${temp}°C</b></td><td><b>${pwr}W</b></td><td><b>${fmtMb(s.net)}</b></td><td><b>${fmtK(s.disk)}</b></td><td><b>${fmtPct(s.cpu)}</b></td><td>${s.event?'ACT':temp>42?'WARM':'OK'}</td></tr>`;
+        }).join('');
+
+        if (tick % 60 === 0) {
+          const nodeIdx = Math.floor(Math.random() * 3);
+          const s = sim.sample('ev', nodeIdx);
+          const ts = new Date().toTimeString().slice(0, 5);
+          events.unshift({ ts, msg: s.event || 'Facility update', detail: `${['harvester-01','harvester-02','harvester-03'][nodeIdx]} · ${Math.round(32+s.cpu*0.18)}°C · ${fmtMb(s.net)}` });
+          if (events.length > 5) events.pop();
+          document.getElementById('event-rail').innerHTML = events.map(e => `<li><span>${e.ts}</span><strong>${e.msg}</strong><p style="color:#8b9bb8;font-size:0.6rem;margin-top:0.1rem">${e.detail}</p></li>`).join('');
+        }
+      },
+    });
+  </script>
+</body>
+</html>
