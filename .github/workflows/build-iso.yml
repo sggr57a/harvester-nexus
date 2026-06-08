@@ -112,16 +112,24 @@ jobs:
           fi
 
       - name: Prepare release assets
+        id: assets
         run: |
           mkdir -p release-assets
           cp dist/BUILD-MANIFEST.txt release-assets/
           cp dist/*.iso.sha256 release-assets/
           ISO=$(ls dist/harvester-nexus-*.iso | head -1)
+          ISO_BASENAME=$(basename "$ISO")
+          echo "iso_basename=${ISO_BASENAME}" >> "$GITHUB_OUTPUT"
           if [ "${{ steps.compress.outputs.needs_compress }}" = "true" ]; then
-            cp "${ISO}.zst" release-assets/
-            cp "${ISO}.zst.sha256" release-assets/
+            ZST_BASENAME="${ISO_BASENAME}.zst"
+            cp "${ISO}.zst" "release-assets/${ZST_BASENAME}"
+            cp "${ISO}.zst.sha256" "release-assets/${ZST_BASENAME}.sha256"
+            echo "download_name=${ZST_BASENAME}" >> "$GITHUB_OUTPUT"
+            echo "download_kind=zst" >> "$GITHUB_OUTPUT"
           else
             cp "$ISO" release-assets/
+            echo "download_name=${ISO_BASENAME}" >> "$GITHUB_OUTPUT"
+            echo "download_kind=iso" >> "$GITHUB_OUTPUT"
           fi
           ls -lh release-assets/
 
@@ -145,7 +153,42 @@ jobs:
 
             **Version:** `${{ steps.version.outputs.nexus_version }}`
 
-            Download the `.iso` (or `.iso.zst` if compressed for GitHub size limits) and matching `.sha256` file below.
+            ## Download
 
-            Decompress zstd builds: `zstd -d harvester-nexus-*.iso.zst`
+            File: **`${{ steps.assets.outputs.download_name }}`** (+ matching `.sha256`).
+
+            If the download is `.iso.zst`, decompress before booting: `zstd -d ${{ steps.assets.outputs.download_name }}`
+
+            ## Test in a KVM VM (Ubuntu host)
+
+            ```bash
+            qemu-img create -f qcow2 harvester-nexus.qcow2 200G
+
+            qemu-system-x86_64 \
+              -enable-kvm -m 16384 -smp 8 -cpu host \
+              -drive file=harvester-nexus.qcow2,if=virtio \
+              -cdrom harvester-nexus-*.iso \
+              -boot d \
+              -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::443-:443 \
+              -device virtio-net,netdev=net0
+            ```
+
+            After install: **https://127.0.0.1:8443** (`admin` / `admin`).
+
+            Full guide: [docs/TESTING-ISO-VM.md](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/TESTING-ISO-VM.md)
+          files: release-assets/*
+
+      - name: Point iso-latest at this build
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: iso-latest
+          name: Latest main ISO (build #${{ github.run_number }})
+          prerelease: true
+          body: |
+            Rolling pointer to the most recent successful ISO build from `main`.
+
+            **Version:** `${{ steps.version.outputs.nexus_version }}`
+            **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+
+            For the numbered release with full VM instructions, see **`iso-main-${{ github.run_number }}`**.
           files: release-assets/*
