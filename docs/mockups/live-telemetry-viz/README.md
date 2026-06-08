@@ -18,20 +18,25 @@ Open:
 
 ## Artifacts (captured)
 
+Videos and screenshots are committed under `previews/` so they play from the index page and GitHub.
+
 | Asset | Path |
 |-------|------|
-| Resource Monitor screenshot | `/opt/cursor/artifacts/screenshots/resource-monitor-live-mockup.png` |
-| Environment Intel screenshot | `/opt/cursor/artifacts/screenshots/environment-intel-live-mockup.png` |
-| Index screenshot | `/opt/cursor/artifacts/screenshots/mockup-index.png` |
-| Resource Monitor video | `/opt/cursor/artifacts/videos/resource-monitor-live-mockup.webm` |
-| Environment Intel video | `/opt/cursor/artifacts/videos/environment-intel-live-mockup.webm` |
-| Combined walkthrough | `/opt/cursor/artifacts/live-telemetry-mockup-walkthrough.mp4` |
+| **Index (videos + links)** | http://127.0.0.1:8765/index.html |
+| Resource Monitor screenshot | `previews/resource-monitor-live-mockup.png` |
+| Environment Intel screenshot | `previews/environment-intel-live-mockup.png` |
+| Resource Monitor video | `previews/resource-monitor-live-mockup.webm` |
+| Environment Intel video | `previews/environment-intel-live-mockup.webm` |
+| Combined walkthrough (MP4) | `previews/live-telemetry-mockup-walkthrough.mp4` |
 
-Re-capture after editing mockups:
+Re-capture after editing mockups (requires Playwright + server on port 8765):
 
 ```bash
+python3 -m http.server 8765 &
 node capture-artifacts.cjs
 ```
+
+Outputs land in `previews/` and are copied to `/opt/cursor/artifacts/` when that path exists.
 
 ## Design intent
 

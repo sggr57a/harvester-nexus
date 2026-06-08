@@ -5,17 +5,128 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Nexus Live Telemetry — Mockup Index</title>
   <link rel="stylesheet" href="shared.css" />
+  <style>
+    .mock-index .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 1.25rem;
+      padding: 1.25rem 2rem 2rem;
+      max-width: 1500px;
+    }
+    .preview-card {
+      background: rgba(14, 20, 32, 0.82);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .preview-card header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.12);
+    }
+    .preview-card header h2 {
+      font-size: 0.95rem;
+      margin: 0 0 0.35rem;
+    }
+    .preview-card header p {
+      margin: 0;
+      font-size: 0.72rem;
+      color: #8b9bb8;
+    }
+    .preview-card video {
+      width: 100%;
+      display: block;
+      background: #040608;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+    }
+    .preview-card footer {
+      padding: 0.65rem 1rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.72rem;
+    }
+    .preview-card footer a {
+      color: #38bdf8;
+      text-decoration: none;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 0.35rem 0.65rem;
+      border-radius: 4px;
+    }
+    .preview-card footer a:hover { background: rgba(56, 189, 248, 0.1); }
+    .preview-missing {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: #8b9bb8;
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    .preview-missing code {
+      display: block;
+      margin-top: 0.5rem;
+      color: #38bdf8;
+    }
+    .walkthrough-card { grid-column: 1 / -1; }
+    .walkthrough-card video { max-height: 720px; object-fit: contain; }
+  </style>
 </head>
 <body class="mock-index">
   <header class="mock-header">
     <span class="kicker">DESIGN PREVIEW // NOT SHIPPED</span>
     <h1>Live telemetry visual mockups</h1>
-    <p>Netdata-inspired density + Nexus HUD depth. Review these before implementation.</p>
-    <p style="margin-top:0.5rem;font-size:0.82rem;color:#8b9bb8">v6 — hologram HUD with virtual wireframe landscape centerpiece (original canvas, no stock assets)</p>
+    <p>Hologram HUD with virtual wireframe landscape — original canvas, no stock assets.</p>
+    <p style="margin-top:0.5rem;font-size:0.82rem;color:#8b9bb8">v6 — review videos below, then open interactive pages</p>
   </header>
   <nav class="mock-nav">
-    <a href="resource-monitor-live.html">Resource Monitor (live)</a>
-    <a href="environment-intel-live.html">Environment Intel (live)</a>
+    <a href="resource-monitor-live.html">Resource Monitor (interactive)</a>
+    <a href="environment-intel-live.html">Environment Intel (interactive)</a>
   </nav>
+
+  <section class="preview-grid" aria-label="Captured mockup videos">
+    <article class="preview-card walkthrough-card">
+      <header>
+        <h2>Combined walkthrough</h2>
+        <p>Resource Monitor + Environment Intel · ~20s · MP4</p>
+      </header>
+      <video controls playsinline preload="metadata" poster="previews/resource-monitor-live-mockup.png">
+        <source src="previews/live-telemetry-mockup-walkthrough.mp4" type="video/mp4" />
+      </video>
+      <footer>
+        <a href="previews/live-telemetry-mockup-walkthrough.mp4" download>Download MP4</a>
+      </footer>
+    </article>
+
+    <article class="preview-card">
+      <header>
+        <h2>Resource Monitor</h2>
+        <p>Hologram landscape · wave strips · heat histogram</p>
+      </header>
+      <video controls playsinline preload="metadata" poster="previews/resource-monitor-live-mockup.png">
+        <source src="previews/resource-monitor-live-mockup.webm" type="video/webm" />
+      </video>
+      <footer>
+        <a href="resource-monitor-live.html">Open interactive</a>
+        <a href="previews/resource-monitor-live-mockup.webm" download>Download WebM</a>
+      </footer>
+    </article>
+
+    <article class="preview-card">
+      <header>
+        <h2>Environment Intel</h2>
+        <p>Facility terrain · thermal radar · event rail</p>
+      </header>
+      <video controls playsinline preload="metadata" poster="previews/environment-intel-live-mockup.png">
+        <source src="previews/environment-intel-live-mockup.webm" type="video/webm" />
+      </video>
+      <footer>
+        <a href="environment-intel-live.html">Open interactive</a>
+        <a href="previews/environment-intel-live-mockup.webm" download>Download WebM</a>
+      </footer>
+    </article>
+  </section>
+
+  <p class="disclaimer" style="margin:0 2rem 2rem">
+    If videos do not play, run <code>node capture-artifacts.cjs</code> from this folder (requires Playwright + local server on port 8765).
+  </p>
 </body>
 </html>
