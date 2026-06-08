@@ -156,7 +156,6 @@ function drawScope(canvas, channels, tick, opts = {}) {
         const hi = Math.max(...slice);
         const x = points[i].x;
         const yLo = padT + plotH - (lo / maxV) * plotH;
-        const yHi = padT + plotH - (hi / maxV) * plotH;
         if (i === 0) ctx.moveTo(x, yHi);
         else ctx.lineTo(x, yHi);
         if (i === points.length - 1) {
