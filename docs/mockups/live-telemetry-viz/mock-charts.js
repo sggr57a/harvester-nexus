@@ -241,7 +241,7 @@ function drawMiniStrip(canvas, series, color, tick, maxV = 100) {
   drawScope(canvas, [{ series, color, max: maxV, envelope: true }], tick, { compact: true, showCrosshair: false });
 }
 
-function initMockCharts(config) {
+export function initMockCharts(config) {
   const sim = createClusterSim(config.nodeCount ?? 3);
   let tick = 0;
   const ribbons = config.ribbons || [];
