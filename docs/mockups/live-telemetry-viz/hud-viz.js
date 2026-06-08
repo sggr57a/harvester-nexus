@@ -241,7 +241,6 @@ function drawHexTopology(canvas, nodes, sim, tick) {
   drawHudBrackets(ctx, w, h, 10);
 
   const size = 36;
-  const hexH = size * Math.sqrt(3);
 
   function hexPath(x, y, s) {
     ctx.beginPath();
