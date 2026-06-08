@@ -13,7 +13,9 @@ import {
 } from '../../lib/dashboards';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 import type { LiveOperationsSlice } from '../../lib/telemetry/dashboardTypes';
+import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters';
 import type { MachinesDashboard, StorageDashboard } from '../../lib/dashboards';
+import { DemoCatalogPlaceholder, LiveEmptyPanel } from './LiveEmptyPanel';
 import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
 import {
   ChordDiagram,
@@ -47,6 +49,7 @@ const activity = buildActivityDashboard();
 
 interface DashboardViewProps {
   telemetry?: EnvironmentSnapshot;
+  dataSource?: TelemetryDataSource;
   storageDashboard?: StorageDashboard;
   machinesDashboard?: MachinesDashboard;
   operationsLinks?: LiveOperationsSlice;
@@ -156,7 +159,10 @@ const VLAN_CHORD_LINKS: ChordTrafficLink[] = [
   { source: 5, target: 0, value: 11, rate: '212 Mb/s', label: 'edge-dmz → mgmt' },
 ];
 
-export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function NetworkingDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Networking & Service Mesh" dataSource={dataSource} />;
+  }
   const { topology, vlans, ingressRoutes, policyMatrix, nicBonds, vip } = networking;
   const liveBonds = useMemo(() => {
     if (!telemetry) return nicBonds;
@@ -447,11 +453,12 @@ const STORAGE_SCATTER = [
   { id: 's-8', x: 74, y: 58, label: 'longhorn-1', status: 'warn' as const, size: 1.4 },
 ];
 
-export function StorageDashboardView({ telemetry, storageDashboard }: DashboardViewProps = {}) {
+export function StorageDashboardView({ telemetry, dataSource, storageDashboard }: DashboardViewProps = {}) {
   const storageData = storageDashboard ?? storage;
   const { backends, pvcs, snapshots, replicationLinks } = storageData;
+  const isLive = dataSource === 'live';
   const liveBackends = useMemo(() => {
-    if (!telemetry) return backends;
+    if (isLive || !telemetry) return backends;
     const iopsFactor = telemetry.totalIops / 1_120_000;
     return backends.map((backend) => ({
       ...backend,
@@ -465,14 +472,16 @@ export function StorageDashboardView({ telemetry, storageDashboard }: DashboardV
         <div>
           <span className="dash-kicker">FABRIC // STORAGE</span>
           <h2>{storageData.title}</h2>
-          <p>Per-backend radial gauges, IOPS sparklines, PVC lanes, snapshot shelves, replication links.</p>
+          <p>{isLive ? 'User PVCs and storage classes with bound volumes from your cluster.' : 'Per-backend radial gauges, IOPS sparklines, PVC lanes, snapshot shelves, replication links.'}</p>
         </div>
         <div className="dash-totals">
-          <div><span>Capacity</span><strong>{backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB</strong></div>
-          <div><span>IOPS</span><strong><LiveValue value={`${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
+          <div><span>Capacity</span><strong>{isLive ? '—' : `${backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB`}</strong></div>
+          <div><span>IOPS</span><strong><LiveValue value={isLive ? (telemetry?.totalIops?.toLocaleString() ?? '0') : `${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
         </div>
       </header>
 
+      {!isLive && (
+      <>
       <article className="dash-panel">
         <div className="panel-title">
           <span>Storage flow · workloads → CSI class → backend</span>
@@ -530,7 +539,17 @@ export function StorageDashboardView({ telemetry, storageDashboard }: DashboardV
           })()}
         />
       </article>
+      </>
+      )}
 
+      {isLive && liveBackends.length === 0 && pvcs.length === 0 && (
+        <LiveEmptyPanel
+          title="No user storage volumes detected"
+          detail="Create a PVC or VM disk in a tenant namespace to see storage classes and claims here. Platform volumes in kube-system and cattle-* are excluded."
+        />
+      )}
+
+      {liveBackends.length > 0 && (
       <div className="storage-backend-grid">
         {liveBackends.map((backend) => {
           const rad = 38;
@@ -561,10 +580,14 @@ export function StorageDashboardView({ telemetry, storageDashboard }: DashboardV
           );
         })}
       </div>
+      )}
 
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
-          <div className="panel-title"><span>PVC lanes</span><strong>{pvcs.length} bound</strong></div>
+          <div className="panel-title"><span>PVC lanes</span><strong>{pvcs.length} claims</strong></div>
+          {pvcs.length === 0 ? (
+            <p className="live-empty-inline">No user PVCs in tenant namespaces.</p>
+          ) : (
           <table className="dash-table">
             <thead><tr><th>name</th><th>ns</th><th>class</th><th>size</th><th>mode</th><th>status</th></tr></thead>
             <tbody>
@@ -580,8 +603,10 @@ export function StorageDashboardView({ telemetry, storageDashboard }: DashboardV
               ))}
             </tbody>
           </table>
+          )}
         </article>
 
+        {!isLive && (
         <article className="dash-panel">
           <div className="panel-title"><span>Snapshot + replication shelves</span><strong>{snapshots.length} snapshots · {replicationLinks.length} links</strong></div>
           <ul className="snapshot-shelf">
@@ -605,30 +630,32 @@ export function StorageDashboardView({ telemetry, storageDashboard }: DashboardV
             ))}
           </ul>
         </article>
+        )}
       </div>
     </section>
   );
 }
 
-export function MachinesDashboardView({ telemetry, machinesDashboard }: DashboardViewProps = {}) {
+export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard }: DashboardViewProps = {}) {
   const machinesData = machinesDashboard ?? machines;
   const { fleet, migrations, affinityRules, ha, consoleChips } = machinesData;
+  const isLive = dataSource === 'live';
   const liveMigrations = useMemo(() => {
-    if (!telemetry) return migrations;
+    if (isLive || !telemetry) return migrations;
     const progressShift = (telemetry.tick * 7) % 32;
     return migrations.map((mig, index) => ({
       ...mig,
       progress: Math.min(98, (mig.progress + progressShift + index * 4) % 99),
     }));
-  }, [telemetry]);
+  }, [isLive, migrations, telemetry]);
   const liveFleet = useMemo(() => {
-    if (!telemetry) return fleet;
+    if (isLive || !telemetry) return fleet;
     const cpuFactor = telemetry.cpuPercent / 58;
     return fleet.map((row) => ({
       ...row,
       cpuPercent: Math.max(4, Math.min(99, Math.round(row.cpuPercent * cpuFactor))),
     }));
-  }, [telemetry]);
+  }, [isLive, fleet, telemetry]);
   return (
     <section className="dash dash-machines" aria-label="Machines and containers dashboard">
       <RouteDecoration />
@@ -636,14 +663,22 @@ export function MachinesDashboardView({ telemetry, machinesDashboard }: Dashboar
         <div>
           <span className="dash-kicker">FLEET // COMPUTE</span>
           <h2>{machinesData.title}</h2>
-          <p>VM / LXC / Docker / Pod fleet with live migration, HA, affinity, console launch.</p>
+          <p>{isLive ? 'User VMs and pods in tenant namespaces (platform pods excluded).' : 'VM / LXC / Docker / Pod fleet with live migration, HA, affinity, console launch.'}</p>
         </div>
         <div className="dash-totals">
-          <div><span>Workloads</span><strong>{fleet.length}</strong></div>
+          <div><span>Workloads</span><strong>{liveFleet.length}</strong></div>
           <div><span>Migrations</span><strong><LiveValue value={liveMigrations.length} /></strong></div>
         </div>
       </header>
 
+      {isLive && liveFleet.length === 0 && (
+        <LiveEmptyPanel
+          title="No user VMs or pods running"
+          detail="KubeVirt VMs and pods in tenant namespaces appear here. Harvester platform pods in kube-system, longhorn-system, and cattle-* are not counted as workloads."
+        />
+      )}
+
+      {liveMigrations.length > 0 && (
       <article className="dash-panel migration-panel">
         <div className="panel-title"><span>Live migration arcs</span><strong>vMotion-style · memory state preserved</strong></div>
         <svg viewBox="0 0 100 30" className="migration-svg" preserveAspectRatio="none" aria-hidden="true">
@@ -666,10 +701,12 @@ export function MachinesDashboardView({ telemetry, machinesDashboard }: Dashboar
           })}
         </svg>
       </article>
+      )}
 
+      {liveFleet.length > 0 && (
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
-          <div className="panel-title"><span>Fleet</span><strong>{fleet.length} workloads</strong></div>
+          <div className="panel-title"><span>Fleet</span><strong>{liveFleet.length} workloads</strong></div>
           <table className="dash-table">
             <thead><tr><th>name</th><th>kind</th><th>host</th><th>cpu</th><th>ram</th><th>aff</th><th>ha</th><th>status</th></tr></thead>
             <tbody>
@@ -689,6 +726,7 @@ export function MachinesDashboardView({ telemetry, machinesDashboard }: Dashboar
           </table>
         </article>
 
+        {!isLive && (
         <div className="machine-side-stack">
           <article className="dash-panel">
             <div className="panel-title"><span>Affinity rules</span><strong>{affinityRules.length}</strong></div>
@@ -725,7 +763,9 @@ export function MachinesDashboardView({ telemetry, machinesDashboard }: Dashboar
             </div>
           </article>
         </div>
+        )}
       </div>
+      )}
     </section>
   );
 }
@@ -740,7 +780,10 @@ function CoreHeatCell({ core }: { core: CpuCore }) {
   );
 }
 
-export function ProcessorMemoryDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function ProcessorMemoryDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Processor & Memory" dataSource={dataSource} />;
+  }
   const { numaZones, memoryTiers, pressureWaterfall, swapDevices, hugepages } = procmem;
   const liveZones = useMemo(() => {
     if (!telemetry) return numaZones;
@@ -863,7 +906,8 @@ export function ProcessorMemoryDashboardView({ telemetry }: DashboardViewProps =
   );
 }
 
-export function OperationsDashboardView({ telemetry, operationsLinks }: DashboardViewProps = {}) {
+export function OperationsDashboardView({ telemetry, dataSource, operationsLinks }: DashboardViewProps = {}) {
+  const isLive = dataSource === 'live';
   const { cost, power, rightSizing, compliance, cve, audit, gitops, backupSla, drPlans } = ops;
   const livePower = useMemo(() => {
     if (!telemetry) return power;
@@ -886,12 +930,22 @@ export function OperationsDashboardView({ telemetry, operationsLinks }: Dashboar
         <div>
           <span className="dash-kicker">OPS // COMPLIANCE</span>
           <h2>{ops.title}</h2>
-          <p>Cost · sustainability · CVE · CIS · audit · GitOps · backups · DR.</p>
+          <p>{isLive ? 'Harvester observability links and cluster-level power estimate from live nodes.' : 'Cost · sustainability · CVE · CIS · audit · GitOps · backups · DR.'}</p>
         </div>
         <div className="dash-totals">
-          <div><span>€/month</span><strong>€{costTotal.toFixed(0)}</strong></div>
-          <div><span>kWh/mo</span><strong><LiveValue value={powerTotal.toFixed(0)} /></strong></div>
-          <div><span>CO₂ kg/mo</span><strong><LiveValue value={co2Total.toFixed(0)} /></strong></div>
+          {isLive ? (
+            <>
+              <div><span>CPU</span><strong><LiveValue value={`${telemetry?.cpuPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
+              <div><span>RAM</span><strong><LiveValue value={`${telemetry?.ramPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
+              <div><span>Est. watts</span><strong><LiveValue value={telemetry?.watts ?? 0} /></strong></div>
+            </>
+          ) : (
+            <>
+              <div><span>€/month</span><strong>€{costTotal.toFixed(0)}</strong></div>
+              <div><span>kWh/mo</span><strong><LiveValue value={powerTotal.toFixed(0)} /></strong></div>
+              <div><span>CO₂ kg/mo</span><strong><LiveValue value={co2Total.toFixed(0)} /></strong></div>
+            </>
+          )}
         </div>
       </header>
 
@@ -915,6 +969,13 @@ export function OperationsDashboardView({ telemetry, operationsLinks }: Dashboar
         </article>
       )}
 
+      {isLive ? (
+        <LiveEmptyPanel
+          title="Compliance and chargeback panels are demo-only"
+          detail="Live mode shows cluster CPU/RAM/watts and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
+        />
+      ) : (
+      <>
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
           <div className="panel-title"><span>Cost · chargeback</span><strong>top 5 workloads</strong></div>
@@ -1100,11 +1161,16 @@ export function OperationsDashboardView({ telemetry, operationsLinks }: Dashboar
           height={210}
         />
       </article>
+      </>
+      )}
     </section>
   );
 }
 
-export function PolyComputeDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function PolyComputeDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Poly-Compute Engine" dataSource={dataSource} />;
+  }
   const { runtimes, nodeBlend, topologyAwareScheduling, unifiedScheduler } = poly;
   const liveRuntimes = useMemo(() => {
     if (!telemetry) return runtimes;
@@ -1213,7 +1279,10 @@ export function PolyComputeDashboardView({ telemetry }: DashboardViewProps = {})
   );
 }
 
-export function AccelerationDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function AccelerationDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Acceleration & Hardware Pass-Through" dataSource={dataSource} />;
+  }
   const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = accel;
   const liveFeatures = useMemo(() => {
     if (!telemetry) return features;
@@ -1406,7 +1475,10 @@ export function AccelerationDashboardView({ telemetry }: DashboardViewProps = {}
   );
 }
 
-export function EnvironmentDashboardView() {
+export function EnvironmentDashboardView({ dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Environment Intel" dataSource={dataSource} />;
+  }
   const { totals, zones, activity, backdropVectors } = environment;
   const vectorPoints = backdropVectors.map((value, index) => `${(index / (backdropVectors.length - 1)) * 100},${100 - value}`).join(' ');
 
@@ -1484,7 +1556,10 @@ export function EnvironmentDashboardView() {
   );
 }
 
-export function ActivityDashboardView() {
+export function ActivityDashboardView({ dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Activity Command" dataSource={dataSource} />;
+  }
   const { signals, lanes, bursts, timeline } = activity;
 
   return (

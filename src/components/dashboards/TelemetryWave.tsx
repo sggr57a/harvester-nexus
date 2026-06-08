@@ -17,10 +17,14 @@ import {
   useRollingSeries,
 } from './Widgets';
 
+import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters';
+import { DemoCatalogPlaceholder } from './LiveEmptyPanel';
+
 const accel = buildAccelerationDashboard();
 
 interface TelemetryWaveProps {
   telemetry?: EnvironmentSnapshot;
+  dataSource?: TelemetryDataSource;
 }
 
 function buildWave(seed: number, length: number, base: number, amp: number, jitter = 4): number[] {
@@ -30,7 +34,11 @@ function buildWave(seed: number, length: number, base: number, amp: number, jitt
   });
 }
 
-export function TelemetryWaveView({ telemetry }: TelemetryWaveProps = {}) {
+export function TelemetryWaveView({ telemetry, dataSource }: TelemetryWaveProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Telemetry Wave" dataSource={dataSource} />;
+  }
+
   const seed = telemetry?.tick ?? 0;
 
   const dpdkChannels = useMemo(

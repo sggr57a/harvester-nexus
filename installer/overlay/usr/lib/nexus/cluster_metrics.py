@@ -11,6 +11,8 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from cluster_filters import is_user_namespace
+
 STATE_FILE = os.environ.get(
     "NEXUS_TELEMETRY_STATE",
     "/var/lib/nexus/telemetry-state.json",
@@ -85,8 +87,14 @@ def _count_running_pods(kubeconfig: str) -> int:
     data = _kubectl_json(kubeconfig, "get", "pods", "-A")
     if not isinstance(data, dict):
         return 0
-    items = data.get("items") or []
-    return sum(1 for pod in items if (pod.get("status") or {}).get("phase") == "Running")
+    count = 0
+    for pod in data.get("items") or []:
+        meta = pod.get("metadata") or {}
+        if not is_user_namespace(meta.get("namespace", "")):
+            continue
+        if (pod.get("status") or {}).get("phase") == "Running":
+            count += 1
+    return count
 
 
 def _count_kubevirt_vms(kubeconfig: str) -> int:
@@ -98,7 +106,12 @@ def _count_kubevirt_vms(kubeconfig: str) -> int:
     )
     if not isinstance(data, dict):
         return 0
-    return len(data.get("items") or [])
+    count = 0
+    for item in data.get("items") or []:
+        meta = item.get("metadata") or {}
+        if is_user_namespace(meta.get("namespace", "")):
+            count += 1
+    return count
 
 
 def _count_active_migrations(kubeconfig: str) -> int:

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { buildClusterDashboardBundle } from './dashboardAdapters';
+import { buildClusterDashboardBundle, type TelemetryDataSource } from './dashboardAdapters';
 import type { DashboardTelemetryPayload } from './dashboardTypes';
 import { fetchDashboardTelemetry } from './harvesterClient';
 import type { TelemetryState } from './mode';
@@ -8,7 +8,8 @@ const DEFAULT_INTERVAL_MS = 1600;
 
 export function useClusterDashboards(telemetry: TelemetryState, intervalMs: number = DEFAULT_INTERVAL_MS) {
   const [payload, setPayload] = useState<DashboardTelemetryPayload | null>(null);
-  const useLive = telemetry.mode === 'live';
+  const dataSource: TelemetryDataSource = telemetry.mode === 'live' ? 'live' : 'demo';
+  const useLive = dataSource === 'live';
 
   const refresh = useCallback(async () => {
     if (!useLive) {
@@ -27,5 +28,5 @@ export function useClusterDashboards(telemetry: TelemetryState, intervalMs: numb
     return () => window.clearInterval(id);
   }, [intervalMs, refresh, useLive]);
 
-  return buildClusterDashboardBundle(useLive ? payload : null);
+  return buildClusterDashboardBundle(useLive ? payload : null, dataSource);
 }
