@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { XdrEngine, sampleEndpointInventory } from './engine';
 import { startLiveSimulation } from './simulator';
-import type { XdrSnapshot } from './types';
+import type { SensorEvent, XdrSnapshot } from './types';
 
 export interface LiveXdrOptions {
   intervalMs?: number;
@@ -19,9 +19,11 @@ export interface LiveXdrOptions {
   simulate?: boolean;
   /** Whether to loop the simulator forever (default) or run it once. */
   loop?: boolean;
+  /** External events to ingest (e.g. from cluster BFF). Re-ingested when reference changes. */
+  ingestEvents?: SensorEvent[];
 }
 
-export function useLiveXdrEngine({ intervalMs = 1600, simulate = true, loop = true }: LiveXdrOptions = {}): XdrSnapshot {
+export function useLiveXdrEngine({ intervalMs = 1600, simulate = true, loop = true, ingestEvents }: LiveXdrOptions = {}): XdrSnapshot {
   const engineRef = useRef<XdrEngine | null>(null);
   const [snapshot, setSnapshot] = useState<XdrSnapshot>(() => {
     const engine = new XdrEngine();
@@ -44,6 +46,12 @@ export function useLiveXdrEngine({ intervalMs = 1600, simulate = true, loop = tr
       window.clearInterval(refreshHandle);
     };
   }, [intervalMs, simulate, loop]);
+
+  useEffect(() => {
+    if (!engineRef.current || !ingestEvents?.length) return;
+    engineRef.current.ingestMany(ingestEvents);
+    setSnapshot(engineRef.current.snapshot());
+  }, [ingestEvents]);
 
   return snapshot;
 }

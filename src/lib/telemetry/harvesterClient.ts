@@ -1,3 +1,4 @@
+import type { DashboardTelemetryPayload } from './dashboardTypes';
 import type { EnvironmentTelemetryPayload, LiveHealthPayload } from './types';
 
 const API_BASE = '/api/v1';
@@ -21,4 +22,8 @@ export async function fetchLiveHealth(): Promise<LiveHealthPayload | null> {
 
 export async function fetchEnvironmentTelemetry(): Promise<EnvironmentTelemetryPayload | null> {
   return fetchJson<EnvironmentTelemetryPayload>('/telemetry/environment');
+}
+
+export async function fetchDashboardTelemetry(): Promise<DashboardTelemetryPayload | null> {
+  return fetchJson<DashboardTelemetryPayload>('/telemetry/dashboards');
 }

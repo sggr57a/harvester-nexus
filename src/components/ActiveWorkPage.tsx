@@ -1,12 +1,19 @@
+import type { ResourceMonitoring } from '../lib/activeOperations';
 import { buildResourceMonitoring } from '../lib/activeOperations';
 
-const operations = buildResourceMonitoring();
+const defaultOperations = buildResourceMonitoring();
 
 function points(samples: number[]): string {
   return samples.map((value, index) => `${(index / (samples.length - 1)) * 100},${100 - value}`).join(' ');
 }
 
-export function ResourceMonitoringPage() {
+interface ResourceMonitoringPageProps {
+  resourceMonitoring?: ResourceMonitoring;
+}
+
+export function ResourceMonitoringPage({ resourceMonitoring }: ResourceMonitoringPageProps = {}) {
+  const operations = resourceMonitoring ?? defaultOperations;
+
   return (
     <section className="active-work-page hud-panel" aria-label="Resource monitoring and live security audit cockpit">
       <div className="active-work-bg-grid" />

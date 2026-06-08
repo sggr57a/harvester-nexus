@@ -191,20 +191,20 @@ For deep time-series Harvester already ships dashboards in `cattle-dashboards`. 
 - Mission Control + Environment Ticker show live KPIs when cluster API reachable
 - Demo banner + mode selector in ticker header
 
-### Phase 2 — Storage & machines
+### Phase 2 — Storage & machines ✅ implemented
 - `storageAdapter`, `machinesAdapter` from Steve CRs
 - Storage + Machines dashboard views use live lists; keep static layout metadata
 
-### Phase 3 — Prometheus time-series
+### Phase 3 — Prometheus time-series ✅ implemented
 - `prometheusClient` + history buffers for oscilloscope/FFT widgets (replace `Math.random()`)
 - Gate on `harvesterhci.io.addon/rancher-monitoring` status
 
-### Phase 4 — XDR live
+### Phase 4 — XDR live ✅ implemented
 - Wire `useLiveXdrEngine({ simulate: false })` when sensors healthy
 - Connect ThreatIntelMap to real `XdrSnapshot`
 - Feed `openCves` / `trustScore` from Trivy/Polaris
 
-### Phase 5 — Operations & Grafana
+### Phase 5 — Operations & Grafana ✅ implemented
 - Alertmanager deep links, support bundle trigger via Steve
 - Optional Grafana embed for VM/storage detail drawers
 

@@ -12,6 +12,8 @@ import {
   type CpuCore,
 } from '../../lib/dashboards';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
+import type { LiveOperationsSlice } from '../../lib/telemetry/dashboardTypes';
+import type { MachinesDashboard, StorageDashboard } from '../../lib/dashboards';
 import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
 import {
   ChordDiagram,
@@ -45,6 +47,9 @@ const activity = buildActivityDashboard();
 
 interface DashboardViewProps {
   telemetry?: EnvironmentSnapshot;
+  storageDashboard?: StorageDashboard;
+  machinesDashboard?: MachinesDashboard;
+  operationsLinks?: LiveOperationsSlice;
 }
 
 /**
@@ -442,8 +447,9 @@ const STORAGE_SCATTER = [
   { id: 's-8', x: 74, y: 58, label: 'longhorn-1', status: 'warn' as const, size: 1.4 },
 ];
 
-export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
-  const { backends, pvcs, snapshots, replicationLinks } = storage;
+export function StorageDashboardView({ telemetry, storageDashboard }: DashboardViewProps = {}) {
+  const storageData = storageDashboard ?? storage;
+  const { backends, pvcs, snapshots, replicationLinks } = storageData;
   const liveBackends = useMemo(() => {
     if (!telemetry) return backends;
     const iopsFactor = telemetry.totalIops / 1_120_000;
@@ -458,7 +464,7 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FABRIC // STORAGE</span>
-          <h2>{storage.title}</h2>
+          <h2>{storageData.title}</h2>
           <p>Per-backend radial gauges, IOPS sparklines, PVC lanes, snapshot shelves, replication links.</p>
         </div>
         <div className="dash-totals">
@@ -604,8 +610,9 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
   );
 }
 
-export function MachinesDashboardView({ telemetry }: DashboardViewProps = {}) {
-  const { fleet, migrations, affinityRules, ha, consoleChips } = machines;
+export function MachinesDashboardView({ telemetry, machinesDashboard }: DashboardViewProps = {}) {
+  const machinesData = machinesDashboard ?? machines;
+  const { fleet, migrations, affinityRules, ha, consoleChips } = machinesData;
   const liveMigrations = useMemo(() => {
     if (!telemetry) return migrations;
     const progressShift = (telemetry.tick * 7) % 32;
@@ -628,7 +635,7 @@ export function MachinesDashboardView({ telemetry }: DashboardViewProps = {}) {
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FLEET // COMPUTE</span>
-          <h2>{machines.title}</h2>
+          <h2>{machinesData.title}</h2>
           <p>VM / LXC / Docker / Pod fleet with live migration, HA, affinity, console launch.</p>
         </div>
         <div className="dash-totals">
@@ -856,7 +863,7 @@ export function ProcessorMemoryDashboardView({ telemetry }: DashboardViewProps =
   );
 }
 
-export function OperationsDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function OperationsDashboardView({ telemetry, operationsLinks }: DashboardViewProps = {}) {
   const { cost, power, rightSizing, compliance, cve, audit, gitops, backupSla, drPlans } = ops;
   const livePower = useMemo(() => {
     if (!telemetry) return power;
@@ -887,6 +894,26 @@ export function OperationsDashboardView({ telemetry }: DashboardViewProps = {}) 
           <div><span>CO₂ kg/mo</span><strong><LiveValue value={co2Total.toFixed(0)} /></strong></div>
         </div>
       </header>
+
+      {operationsLinks?.monitoringEnabled && (
+        <article className="dash-panel ops-links-panel">
+          <div className="panel-title">
+            <span>Harvester observability</span>
+            <strong>rancher-monitoring addon</strong>
+          </div>
+          <div className="ops-external-links">
+            <a href={operationsLinks.grafanaUrl} target="_blank" rel="noreferrer">
+              Grafana dashboards
+            </a>
+            <a href={operationsLinks.alertmanagerUrl} target="_blank" rel="noreferrer">
+              Alertmanager
+            </a>
+            <a href={operationsLinks.harvesterReadyZ} target="_blank" rel="noreferrer">
+              Harvester readyz
+            </a>
+          </div>
+        </article>
+      )}
 
       <div className="dash-row dash-row-2">
         <article className="dash-panel">

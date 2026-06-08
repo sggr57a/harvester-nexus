@@ -20,20 +20,30 @@ HTTPS_PORT = int(os.environ.get("NEXUS_COCKPIT_HTTPS_PORT", "8443"))
 TLS_CRT = os.environ.get("NEXUS_COCKPIT_TLS_CRT", "/etc/nexus/tls/cockpit.crt")
 TLS_KEY = os.environ.get("NEXUS_COCKPIT_TLS_KEY", "/etc/nexus/tls/cockpit.key")
 METRICS_MODULE = os.path.join(os.path.dirname(__file__), "cluster_metrics.py")
+DASHBOARDS_MODULE = os.path.join(os.path.dirname(__file__), "dashboard_collectors.py")
 
 
-def _load_metrics():
-    spec = importlib.util.spec_from_file_location("nexus_cluster_metrics", METRICS_MODULE)
+def _load_module(path: str, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise ImportError("cluster_metrics module missing")
+        raise ImportError("%s module missing" % name)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
+def _load_metrics():
+    return _load_module(METRICS_MODULE, "nexus_cluster_metrics")
+
+
+def _load_dashboards():
+    return _load_module(DASHBOARDS_MODULE, "nexus_dashboard_collectors")
+
+
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, metrics=None, **kwargs):
+    def __init__(self, *args, metrics=None, dashboards=None, **kwargs):
         self._metrics = metrics
+        self._dashboards = dashboards
         super().__init__(*args, directory=ROOT, **kwargs)
 
     def do_GET(self):
@@ -50,6 +60,10 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == "/api/v1/telemetry/environment":
             self._json_api(self._handle_environment)
+            return
+
+        if path == "/api/v1/telemetry/dashboards":
+            self._json_api(self._handle_dashboards)
             return
 
         requested = self.translate_path(self.path)
@@ -88,16 +102,21 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             raise RuntimeError("metrics collector unavailable")
         return self._metrics.collect_environment()
 
+    def _handle_dashboards(self) -> dict:
+        if self._dashboards is None:
+            raise RuntimeError("dashboard collector unavailable")
+        return self._dashboards.collect_dashboards_live()
+
     def log_message(self, fmt, *args):
         sys.stderr.write("[nexus-cockpit] %s - %s\n" % (self.address_string(), fmt % args))
 
 
-def bind_server(port: int, metrics) -> socketserver.TCPServer:
+def bind_server(port: int, metrics, dashboards) -> socketserver.TCPServer:
     class ReuseTCPServer(socketserver.TCPServer):
         allow_reuse_address = True
 
     def handler(*args, **kwargs):
-        SPAHandler(*args, metrics=metrics, **kwargs)
+        SPAHandler(*args, metrics=metrics, dashboards=dashboards, **kwargs)
 
     try:
         return ReuseTCPServer(("0.0.0.0", port), handler)
@@ -106,9 +125,9 @@ def bind_server(port: int, metrics) -> socketserver.TCPServer:
         raise
 
 
-def serve_http_background(metrics) -> None:
+def serve_http_background(metrics, dashboards) -> None:
     try:
-        with bind_server(HTTP_PORT, metrics) as httpd:
+        with bind_server(HTTP_PORT, metrics, dashboards) as httpd:
             httpd.serve_forever()
     except OSError:
         sys.stderr.write("nexus-cockpit: HTTP listener on %d unavailable\n" % HTTP_PORT)
@@ -125,12 +144,20 @@ def main() -> int:
         sys.stderr.write("nexus-cockpit: metrics module disabled: %s\n" % exc)
         metrics = None
 
+    try:
+        dashboards = _load_dashboards()
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write("nexus-cockpit: dashboard collector disabled: %s\n" % exc)
+        dashboards = None
+
     if os.path.isfile(TLS_CRT) and os.path.isfile(TLS_KEY):
-        threading.Thread(target=serve_http_background, args=(metrics,), daemon=True).start()
+        threading.Thread(
+            target=serve_http_background, args=(metrics, dashboards), daemon=True
+        ).start()
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(certfile=TLS_CRT, keyfile=TLS_KEY)
         try:
-            with bind_server(HTTPS_PORT, metrics) as httpd:
+            with bind_server(HTTPS_PORT, metrics, dashboards) as httpd:
                 httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
                 sys.stderr.write(
                     "nexus-cockpit listening on https://0.0.0.0:%d (http://0.0.0.0:%d)\n"
@@ -144,7 +171,7 @@ def main() -> int:
             "nexus-cockpit listening on http://0.0.0.0:%d (no TLS certs)\n" % HTTP_PORT
         )
         try:
-            with bind_server(HTTP_PORT, metrics) as httpd:
+            with bind_server(HTTP_PORT, metrics, dashboards) as httpd:
                 httpd.serve_forever()
         except OSError:
             return 1
