@@ -1654,7 +1654,7 @@ function drawMultiRingScope(canvas, channels, tick) {
 }
 
 /** Initialize full HUD dashboard wiring */
-function initHudDashboard(sim, config) {
+export function initHudDashboard(sim, config) {
   let tick = 0;
   const series = {};
   (config.seriesKeys || []).forEach(k => { series[k] = []; });
