@@ -45,6 +45,10 @@ describe('installer · default config (etc/nexus/config.yaml)', () => {
     expect(cfg.admin.forcePasswordChangeOnFirstLogin).toBe(true);
   });
 
+  it('declares telemetryMode for demo vs live cluster metrics', () => {
+    expect(cfg.cockpit.telemetryMode).toBe('auto');
+  });
+
   it('enables the cockpit on port 8443 with a TLS self-signed cert + a default theme', () => {
     expect(cfg.cockpit.enabled).toBe(true);
     expect(cfg.cockpit.port).toBe(8443);
@@ -377,5 +381,13 @@ describe('installer · nexus-cockpit launcher serves HTTPS on 8443', () => {
 describe('installer · overlay avoids Elemental /usr/local persistent mount', () => {
   it('does not install Nexus assets under /usr/local (hidden by COS_PERSISTENT)', () => {
     expect(existsSync(join(INSTALLER, 'overlay', 'usr', 'local'))).toBe(false);
+  });
+
+  it('ships cluster metrics collector for live telemetry BFF', () => {
+    const metrics = join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'cluster_metrics.py');
+    expect(existsSync(metrics)).toBe(true);
+    const serve = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'serve-cockpit.py'), 'utf8');
+    expect(serve).toMatch(/\/api\/v1\/telemetry\/environment/);
+    expect(serve).toMatch(/\/api\/v1\/health\/live/);
   });
 });

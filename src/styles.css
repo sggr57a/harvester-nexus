@@ -6258,13 +6258,38 @@ select {
   align-items: center;
   gap: 0.35rem;
   font-size: 0.6rem;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--theme-good);
-  text-shadow: 0 0 6px var(--theme-good);
+  color: var(--theme-accent);
+  font-weight: 700;
   white-space: nowrap;
 }
-.env-ticker-live::before {
+
+.env-ticker-live--live {
+  color: var(--theme-good);
+  text-shadow: 0 0 6px var(--theme-good);
+}
+
+.env-ticker-live--demo {
+  color: var(--theme-warn, var(--theme-accent-2));
+}
+
+.env-ticker-mode-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.env-ticker-mode-select {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  font-size: 0.62rem;
+  padding: 0.15rem 0.35rem;
+}
+
+.env-ticker-live--live::before {
   content: '';
   width: 8px;
   height: 8px;

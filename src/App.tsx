@@ -4,7 +4,7 @@ import { generateManifest } from './lib/manifestGenerator';
 import { buildApplyTestRun, buildCsiTemplatePreview, buildLivePreview, buildNexusClusterOperationBundle, buildVClusterPlan, validateKubernetesManifest } from './lib/clusterWorkflow';
 import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './lib/harvesterMachineWizard';
 import { isDemoLogin } from './lib/auth';
-import { useLiveTelemetry } from './lib/liveTelemetry';
+import { useEnvironmentTelemetry } from './lib/telemetry/useEnvironmentTelemetry';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from './lib/themes';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
 import { ResourceMonitoringPage } from './components/ActiveWorkPage';
@@ -84,7 +84,7 @@ function App() {
   const [editedYaml, setEditedYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
   const [includeManifestSetup, setIncludeManifestSetup] = useState(false);
-  const telemetry = useLiveTelemetry(1600);
+  const { snapshot: telemetry, telemetry: telemetryState, setRequestedMode } = useEnvironmentTelemetry(1600);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -200,7 +200,11 @@ function App() {
         </div>
       </aside>
       <main className="main-view">
-        <EnvironmentTicker snapshot={telemetry} />
+        <EnvironmentTicker
+          snapshot={telemetry}
+          telemetry={telemetryState}
+          onTelemetryModeChange={setRequestedMode}
+        />
         {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} />}
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} />}
         {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} />}

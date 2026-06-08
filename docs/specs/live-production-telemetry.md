@@ -184,12 +184,12 @@ For deep time-series Harvester already ships dashboards in `cattle-dashboards`. 
 
 ## 7. Implementation phases
 
-### Phase 1 — Foundation (MVP live)
-- `telemetryMode` + `useEnvironmentTelemetry` hook
-- `nexus-api` BFF skeleton (Python alongside `serve-cockpit.py` or separate systemd unit)
-- `harvesterClient` + `environmentAdapter` → live `EnvironmentSnapshot`
-- Mission Control + Environment Ticker show real CPU/RAM/workloads when `rancher-monitoring` enabled
-- Demo banner when in demo mode
+### Phase 1 — Foundation (MVP live) ✅ implemented
+- `telemetryMode` + `useEnvironmentTelemetry` hook (`auto` / `demo` / `live`)
+- BFF routes on cockpit server: `/api/v1/health/live`, `/api/v1/telemetry/environment`
+- `cluster_metrics.py` collects pod/VM/node CPU/RAM via kubectl + metrics-server
+- Mission Control + Environment Ticker show live KPIs when cluster API reachable
+- Demo banner + mode selector in ticker header
 
 ### Phase 2 — Storage & machines
 - `storageAdapter`, `machinesAdapter` from Steve CRs

@@ -178,6 +178,7 @@ verify_overlay_merge() {
     usr/bin/nexus-bootstrap \
     usr/bin/nexus-postinstall \
     usr/lib/nexus/serve-cockpit.py \
+    usr/lib/nexus/cluster_metrics.py \
     etc/systemd/system/nexus-cockpit.service \
     system/oem/92_nexus.yaml \
     etc/nexus/config.yaml \
