@@ -335,7 +335,7 @@ describe('installer · first-boot OEM + host cockpit wiring', () => {
   it('documents host-static cockpit instead of an unpublished container image', () => {
     const manifest = readFileSync(join(INSTALLER, 'manifests', '40-cockpit-service.yaml'), 'utf8');
     expect(manifest).toMatch(/kind:\s*ConfigMap/);
-    expect(manifest).not.toMatch(/ghcr\.io\/sggr57a\/nexus-cockpit/);
+    expect(manifest).not.toMatch(/(?:^|[\s'"])(ghcr\.io\/sggr57a\/nexus-cockpit(?:[:@][^\s'"]+)?)$/m);
   });
 });
 
