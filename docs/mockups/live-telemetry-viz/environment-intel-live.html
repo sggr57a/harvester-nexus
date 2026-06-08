@@ -3,151 +3,166 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mockup — Environment Intel (Live)</title>
+  <title>Mockup — Environment Intel (Live HUD)</title>
   <link rel="stylesheet" href="shared.css" />
 </head>
-<body>
+<body class="hud-mode">
   <header class="mock-header">
-    <span class="kicker">MOCKUP // ENVIRONMENT INTEL · LIVE CLUSTER</span>
+    <span class="kicker">MOCKUP // ENVIRONMENT INTEL · HUD VISUALIZATION</span>
     <h1>Environment Intel <span class="badge-live"><i></i> LIVE CLUSTER</span></h1>
-    <p>Thermal heat blooms · inter-node traffic pulses · dense metric oscillators · live event correlation</p>
+    <p>Wireframe globe · radar thermal · hex facility map · radial KPI rings · HUD bar infographics</p>
   </header>
 
-  <p class="disclaimer">Node-derived proxies animated from simulated live telemetry — thermal = CPU, airflow = network throughput. Design preview only.</p>
+  <p class="disclaimer">Node-derived facility proxies (thermal = CPU, power = load index). HUD design preview — not connected to Harvester APIs.</p>
+  <p class="ref-note">Visual reference: <a href="https://www.shutterstock.com/shutterstock/photos/403657408/display_1500/stock-vector-hud-ui-for-business-app-futuristic-user-interface-hud-and-infographic-elements-abstract-virtual-403657408.jpg" target="_blank" rel="noopener">futuristic HUD UI concept</a> · elements recreated in canvas/SVG.</p>
 
   <div class="layout">
-    <div class="kpi-grid panel" style="animation-delay:0.05s">
-      <div class="kpi"><span>CLUSTER CPU</span><strong id="kpi-cpu">—<small>%</small></strong></div>
-      <div class="kpi"><span>EST. POWER</span><strong id="kpi-power">—<small>W</small></strong></div>
-      <div class="kpi"><span>NET INGRESS</span><strong id="kpi-net">—<small>Mb/s</small></strong></div>
-      <div class="kpi"><span>DISK IOPS</span><strong id="kpi-disk">—<small>ops/s</small></strong></div>
-    </div>
-
-    <div class="activity-banner" id="env-activity"><strong>CLUSTER EVENT</strong> <span id="env-activity-text">—</span></div>
-
-    <div class="row-2">
-      <div class="panel" style="animation-delay:0.1s">
-        <div class="panel-title"><span>Spatial node map</span><strong>thermal blooms · network flows · live pins</strong></div>
-        <div class="spatial-map" id="spatial"></div>
-        <div class="terrain-3d" id="terrain-env" style="height:200px;margin-top:1rem"></div>
-      </div>
-
-      <div class="panel" style="animation-delay:0.15s">
-        <div class="panel-title"><span>Multi-metric streams</span><strong>Netdata-style · scrolling strips</strong></div>
-        <div class="stream-stack">
-          <div>
-            <div class="stream-label"><span>CPU % · cluster</span><b id="s-cpu-val">—</b></div>
-            <div class="mini-scope"><canvas id="s-cpu"></canvas></div>
-          </div>
-          <div>
-            <div class="stream-label"><span>RAM % · cluster</span><b id="s-ram-val">—</b></div>
-            <div class="mini-scope"><canvas id="s-ram"></canvas></div>
-          </div>
-          <div>
-            <div class="stream-label"><span>Disk IOPS · aggregate</span><b id="s-disk-val">—</b></div>
-            <div class="mini-scope"><canvas id="s-disk"></canvas></div>
-          </div>
-          <div>
-            <div class="stream-label"><span>Network Mb/s · aggregate</span><b id="s-net-val">—</b></div>
-            <div class="mini-scope"><canvas id="s-net"></canvas></div>
-          </div>
-        </div>
+    <div class="panel hud-panel" style="animation-delay:0.05s">
+      <div class="panel-title"><span>Facility KPI rings</span><strong>power · thermal · airflow · capacity</strong></div>
+      <div class="activity-banner"><strong>CLUSTER EVENT</strong> <span id="env-activity-text">—</span></div>
+      <div class="hud-gauge-row" style="grid-template-columns: repeat(4, 1fr)">
+        <div class="hud-gauge"><canvas id="g-cpu"></canvas></div>
+        <div class="hud-gauge"><canvas id="g-pwr"></canvas></div>
+        <div class="hud-gauge"><canvas id="g-net"></canvas></div>
+        <div class="hud-gauge"><canvas id="g-disk"></canvas></div>
       </div>
     </div>
 
-    <div class="row-2">
-      <div class="panel" style="animation-delay:0.2s">
-        <div class="panel-title"><span>Cluster event rail</span><strong>kubernetes · correlated to metrics</strong></div>
+    <div class="row-hud-main">
+      <div class="panel hud-panel" style="animation-delay:0.1s">
+        <div class="panel-title"><span>Wireframe node globe</span><strong>spatial topology · thermal pins · rotation</strong></div>
+        <canvas class="hud-viz globe" id="globe"></canvas>
+      </div>
+      <div class="panel hud-panel" style="animation-delay:0.12s">
+        <div class="panel-title"><span>Thermal radar</span><strong>CPU proxy · sweep · blip trails</strong></div>
+        <canvas class="hud-viz radar" id="radar"></canvas>
+      </div>
+    </div>
+
+    <div class="row-hud-3">
+      <div class="panel hud-panel" style="animation-delay:0.15s">
+        <div class="panel-title"><span>Hex facility grid</span><strong>node cells · link throughput</strong></div>
+        <canvas class="hud-viz hex" id="hex"></canvas>
+      </div>
+      <div class="panel hud-panel" style="animation-delay:0.17s">
+        <div class="panel-title"><span>Power ring scope</span><strong>ingress · egress · power index</strong></div>
+        <canvas class="hud-viz rings" id="rings"></canvas>
+      </div>
+      <div class="panel hud-panel" style="animation-delay:0.19s">
+        <div class="panel-title"><span>Airflow circular wave</span><strong>network Mb/s · ring oscillator</strong></div>
+        <canvas class="hud-viz rings" id="net-ring"></canvas>
+      </div>
+    </div>
+
+    <div class="row-hud-main">
+      <div class="panel hud-panel" style="animation-delay:0.2s">
+        <div class="panel-title"><span>Metric bar infographic</span><strong>per-node thermal · power · airflow</strong></div>
+        <canvas class="hud-viz bars" id="bars" style="height:240px"></canvas>
+      </div>
+      <div class="panel hud-panel" style="animation-delay:0.22s">
+        <div class="panel-title"><span>Event rail + readouts</span><strong>kubernetes · correlated</strong></div>
         <ul class="event-rail" id="event-rail">
           <li><span>—</span><strong>Waiting for activity…</strong></li>
         </ul>
-      </div>
-
-      <div class="panel" style="animation-delay:0.25s">
-        <div class="panel-title"><span>Full-width environment scope</span><strong>ingress · egress · power index</strong></div>
-        <div class="scope-wrap tall"><canvas id="scope-env"></canvas></div>
-        <div class="legend-row">
-          <div class="legend-item"><i style="background:#fbbf24"></i>Ingress <b id="leg-in">—</b></div>
-          <div class="legend-item"><i style="background:#f87171"></i>Egress <b id="leg-out">—</b></div>
-          <div class="legend-item"><i style="background:#34d399"></i>Power <b id="leg-pwr">—</b></div>
-        </div>
+        <div class="hud-readout-grid" id="readouts" style="margin-top:1rem"></div>
       </div>
     </div>
   </div>
 
   <script src="mock-charts.js"></script>
+  <script src="hud-viz.js"></script>
   <script>
+    const NODE_NAMES = ['harvester-01', 'harvester-02', 'harvester-03'];
+    const GLOBE_NODES = NODE_NAMES.map((name, i) => ({
+      name,
+      lon: (i / 3) * Math.PI * 1.6 - 0.8,
+      lat: (i - 1) * 0.35,
+    }));
+    const RADAR_NODES = NODE_NAMES.map((name, i) => ({ name, angle: (i / 3) * Math.PI * 2 }));
+    const HEX_NODES = NODE_NAMES.map((name, i) => ({
+      name, hx: [0.25, 0.5, 0.75][i], hy: [0.5, 0.35, 0.65][i],
+    }));
+
     const events = [];
-    const sim = initMockCharts({
-      nodeCount: 3,
-      scopes: [
+    const barHist = NODE_NAMES.map(() => []);
+
+    const sim = createClusterSim(3);
+
+    initHudDashboard(sim, {
+      gauges: [
+        { el: document.getElementById('g-cpu'), metric: 'cpu', label: 'CPU', unit: '%', color: '#5b8cff', max: 100, opts: { format: fmtPct } },
+        { el: document.getElementById('g-pwr'), metric: 'power', label: 'POWER', unit: 'W', color: '#34d399', max: 900, opts: { format: v => Math.round(v) } },
+        { el: document.getElementById('g-net'), metric: 'net', label: 'AIRFLOW', unit: 'Mb/s', color: '#fbbf24', max: 1200, opts: { format: fmtMb } },
+        { el: document.getElementById('g-disk'), metric: 'disk', label: 'DISK', unit: 'IOPS', color: '#38bdf8', max: 22000, opts: { format: fmtK } },
+      ],
+      globes: [{ el: document.getElementById('globe'), nodes: GLOBE_NODES }],
+      radars: [{ el: document.getElementById('radar'), nodes: RADAR_NODES }],
+      hexMaps: [{ el: document.getElementById('hex'), nodes: HEX_NODES }],
+      ringScopes: [
         {
-          el: document.getElementById('scope-env'),
-          len: 90,
+          el: document.getElementById('rings'),
+          len: 80,
           channels: [
-            { metric: 'net', color: '#fbbf24', max: 1200 },
-            { metric: 'net', color: '#f87171', max: 1200 },
-            { metric: 'power', color: '#34d399', max: 100 },
+            { key: 'e-in', metric: 'net-rx', color: '#fbbf24', label: 'IN', max: 1200, format: fmtMb },
+            { key: 'e-out', metric: 'net-tx', color: '#f87171', label: 'OUT', max: 1200, format: fmtMb },
+            { key: 'e-pwr', metric: 'power', color: '#34d399', label: 'PWR', max: 900, format: v => Math.round(v) + 'W' },
           ],
         },
-        { el: document.getElementById('s-cpu'), compact: true, len: 64, channels: [{ metric: 'cpu', color: '#5b8cff' }] },
-        { el: document.getElementById('s-ram'), compact: true, len: 64, channels: [{ metric: 'ram', color: '#38bdf8' }] },
-        { el: document.getElementById('s-disk'), compact: true, len: 64, channels: [{ metric: 'disk', color: '#34d399', max: 22000 }] },
-        { el: document.getElementById('s-net'), compact: true, len: 64, channels: [{ metric: 'net', color: '#fbbf24', max: 1200 }] },
+        {
+          el: document.getElementById('net-ring'),
+          len: 64,
+          channels: [
+            { key: 'n1', metric: 'net', node: 0, color: '#5b8cff', label: 'h-01', max: 1200, format: fmtMb },
+            { key: 'n2', metric: 'net', node: 1, color: '#fbbf24', label: 'h-02', max: 1200, format: fmtMb },
+            { key: 'n3', metric: 'net', node: 2, color: '#34d399', label: 'h-03', max: 1200, format: fmtMb },
+          ],
+        },
       ],
       onTick(tick, agg, sim) {
-        document.getElementById('kpi-cpu').innerHTML = fmtPct(agg.cpu).replace('%', '') + '<small>%</small>';
-        document.getElementById('kpi-power').innerHTML = Math.round(agg.power) + '<small>W</small>';
-        document.getElementById('kpi-net').innerHTML = Math.round(agg.net) + '<small>Mb/s</small>';
-        document.getElementById('kpi-disk').innerHTML = fmtK(agg.disk) + '<small>ops/s</small>';
-        document.getElementById('s-cpu-val').textContent = fmtPct(agg.cpu);
-        document.getElementById('s-ram-val').textContent = fmtPct(agg.ram);
-        document.getElementById('s-disk-val').textContent = fmtK(agg.disk) + ' IOPS';
-        document.getElementById('s-net-val').textContent = fmtMb(agg.net);
         document.getElementById('env-activity-text').textContent = agg.event;
-        document.getElementById('leg-in').textContent = fmtMb(agg.net * 0.55);
-        document.getElementById('leg-out').textContent = fmtMb(agg.net * 0.45);
-        document.getElementById('leg-pwr').textContent = Math.round(agg.power) + 'W';
+
+        NODE_NAMES.forEach((_, i) => {
+          pushSeries(barHist[i], sim.sample('bh', i).cpu, 20);
+        });
+
+        drawBarMatrix(document.getElementById('bars'), [
+          { label: 'Thermal proxy (CPU %)', color: '#f87171', max: 100, readout: fmtPct(agg.cpu), values: NODE_NAMES.map((_, i) => sim.sample('b1', i).cpu) },
+          { label: 'Power index', color: '#34d399', max: 900, readout: Math.round(agg.power) + 'W', values: NODE_NAMES.map((_, i) => 180 + sim.sample('b2', i).cpu * 4.2) },
+          { label: 'Airflow (net Mb/s)', color: '#fbbf24', max: 1200, readout: fmtMb(agg.net), values: NODE_NAMES.map((_, i) => sim.sample('b3', i).net) },
+          { label: 'CPU history · h-02', color: '#5b8cff', max: 100, readout: fmtPct(sim.sample('b4', 1).cpu), values: barHist[1].length ? barHist[1] : [30] },
+        ], tick);
+
+        document.getElementById('readouts').innerHTML = NODE_NAMES.map((name, i) => {
+          const s = sim.sample('env', i);
+          const temp = Math.round(32 + s.cpu * 0.18);
+          return `
+            <div class="hud-readout"><span>${name} · thermal</span><b>${temp}°C</b></div>
+            <div class="hud-readout"><span>${name} · power est.</span><b>${Math.round(180 + s.cpu * 4.2)}W</b></div>`;
+        }).join('');
 
         if (tick % 90 === 0) {
           const nodeIdx = Math.floor(Math.random() * 3);
           const s = sim.sample('ev', nodeIdx);
-          const now = new Date();
-          const ts = now.toTimeString().slice(0, 5);
+          const ts = new Date().toTimeString().slice(0, 5);
           let msg, detail;
           if (s.event) {
             msg = s.event;
-            detail = `harvester-0${nodeIdx + 1} · CPU ${fmtPct(s.cpu)} · disk ${fmtK(s.disk)} IOPS`;
+            detail = `${NODE_NAMES[nodeIdx]} · ${Math.round(32 + s.cpu * 0.18)}°C · ${fmtMb(s.net)} airflow`;
           } else if (s.cpu > 60) {
-            msg = 'Elevated CPU on node';
-            detail = `harvester-0${nodeIdx + 1} at ${fmtPct(s.cpu)} for 2m`;
-          } else if (s.net > 700) {
-            msg = 'Network throughput spike';
-            detail = `harvester-0${nodeIdx + 1} · ${fmtMb(s.net)} ingress`;
+            msg = 'Thermal elevation';
+            detail = `${NODE_NAMES[nodeIdx]} CPU ${fmtPct(s.cpu)} → ${Math.round(32 + s.cpu * 0.18)}°C proxy`;
           } else {
-            msg = 'Metrics scrape healthy';
-            detail = 'rancher-monitoring · 1s resolution';
+            msg = 'Facility metrics nominal';
+            detail = `power ${Math.round(agg.power)}W · ingress ${fmtMb(agg.net)}`;
           }
           events.unshift({ ts, msg, detail });
-          if (events.length > 5) events.pop();
+          if (events.length > 6) events.pop();
           document.getElementById('event-rail').innerHTML = events.map((e, i) =>
-            `<li style="animation-delay:${i * 0.08}s"><span>${e.ts}</span><strong>${e.msg}</strong><p style="color:#8b9bb8;font-size:0.78rem;margin-top:0.25rem">${e.detail}</p></li>`
+            `<li style="animation-delay:${i * 0.06}s"><span>${e.ts}</span><strong>${e.msg}</strong><p style="color:#8b9bb8;font-size:0.78rem;margin-top:0.25rem">${e.detail}</p></li>`
           ).join('');
         }
       },
     });
-
-    initSpatialMap(document.getElementById('spatial'), [
-      { name: 'harvester-01', x: '22%', y: '58%' },
-      { name: 'harvester-02', x: '52%', y: '40%' },
-      { name: 'harvester-03', x: '78%', y: '62%' },
-    ], sim);
-
-    setupDynamicPillars(document.getElementById('terrain-env'), [
-      { name: 'harvester-01', x: 55, y: 85, colorTop: '#5b8cff', colorBase: '#1e3a8a', glow: 'rgba(91,140,255,0.5)' },
-      { name: 'harvester-02', x: 155, y: 65, colorTop: '#fbbf24', colorBase: '#92400e', glow: 'rgba(251,191,36,0.5)' },
-      { name: 'harvester-03', x: 255, y: 105, colorTop: '#34d399', colorBase: '#065f46', glow: 'rgba(52,211,153,0.4)' },
-    ], sim);
   </script>
 </body>
 </html>

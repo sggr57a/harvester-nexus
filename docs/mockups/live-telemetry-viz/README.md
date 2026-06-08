@@ -35,14 +35,21 @@ node capture-artifacts.cjs
 
 ## Design intent
 
-Inspired by [Netdata](https://www.netdata.cloud/) patterns:
+Visual language inspired by [HUD dashboard references](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJF24b9NiLlbqQHzZzCN98ZrpKkrp9T61sEsAW_oAg&s) and [futuristic HUD UI concepts](https://www.shutterstock.com/shutterstock/photos/403657408/display_1500/stock-vector-hud-ui-for-business-app-futuristic-user-interface-hud-and-infographic-elements-abstract-virtual-403657408.jpg) — **recreated in canvas/SVG** (no stock assets embedded).
 
-- **Live activity simulator** — correlated bursts (VM migration, Longhorn sync, ingress spikes) drive all widgets together
-- Per-second scrolling oscilloscope scopes with min/max envelopes and sweep cursor
-- Dense sparkline strips for CPU/RAM/disk/network with live readouts
-- **Spatial map** — thermal heat blooms, animated inter-node traffic particles, live pin metrics
-- **3D terrain** — pillars grow/shrink with CPU; event HUD shows active cluster operation
-- **Rolling heatmap** — new column every ~8 frames; hot cells pulse on burst nodes
+### HUD visualization kit (`hud-viz.js`)
+
+- **Radial ring gauges** — tick marks, arc fill, sweep needle, center readout
+- **Radar scope** — polar blips, rotating sweep wedge, event tags, range rings
+- **Hex topology** — inter-node links, micro-bars, load-colored cells
+- **Multi-ring oscilloscope** — concentric circular waveforms per metric
+- **Wireframe globe** — rotating lat/long grid, depth-sorted node pins
+- **Bar matrix** — dense HUD infographic strips with rolling history
+- **Angular HUD panels** — bracket corners, clipped polygon frames
+
+### Activity simulation (`mock-charts.js`)
+
+Correlated cluster bursts (VM migration, Longhorn sync, ingress spikes) drive all widgets together.
 
 **Live data mapping (when built):**
 
