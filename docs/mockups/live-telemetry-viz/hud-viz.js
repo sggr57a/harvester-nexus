@@ -415,7 +415,6 @@ function drawMultiLineChart(canvas, channels, tick, opts = {}) {
     if (len < 2) return;
     const maxV = ch.max ?? 100;
     const min = Math.min(...ch.series);
-    const max = Math.max(...ch.series);
     const avg = ch.series.reduce((a, b) => a + b, 0) / len;
 
     // faint area under line
