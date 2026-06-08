@@ -1,9 +1,18 @@
 name: "Enable Harvester-Nexus cockpit + bootstrap"
 stages:
   after-install-chroot:
+    - name: "install python3 for cockpit static server"
+      commands:
+        - zypper --non-interactive install python3 || true
     - name: "enable Nexus units when harvester install completes"
       commands:
-        - mkdir -p /var/lib/nexus /var/log/nexus /etc/nexus/tls
+        - mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls
+        - |
+          if [ -f /usr/local/share/nexus-cockpit/dist.tar.gz ] \
+             && [ ! -f /usr/local/share/nexus-cockpit/dist/index.html ] \
+             && [ ! -f /var/lib/nexus/cockpit-dist/index.html ]; then
+            tar -xzf /usr/local/share/nexus-cockpit/dist.tar.gz -C /var/lib/nexus/cockpit-dist
+          fi
         - /usr/local/bin/nexus-postinstall || true
       systemctl:
         enable:
@@ -15,7 +24,13 @@ stages:
     - name: "ensure Nexus cockpit starts on installed system boot"
       if: 'grep -q root=LABEL=COS_STATE /proc/cmdline && [ -n "$(blkid -L COS_STATE)" ]'
       commands:
-        - mkdir -p /var/lib/nexus /var/log/nexus /etc/nexus/tls
+        - mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls
+        - |
+          if [ -f /usr/local/share/nexus-cockpit/dist.tar.gz ] \
+             && [ ! -f /usr/local/share/nexus-cockpit/dist/index.html ] \
+             && [ ! -f /var/lib/nexus/cockpit-dist/index.html ]; then
+            tar -xzf /usr/local/share/nexus-cockpit/dist.tar.gz -C /var/lib/nexus/cockpit-dist
+          fi
       systemctl:
         enable:
           - nexus-bootstrap.service

@@ -310,6 +310,8 @@ describe('installer · first-boot OEM + host cockpit wiring', () => {
     expect(existsSync(oem), `${oem} missing`).toBe(true);
     const text = readFileSync(oem, 'utf8');
     expect(text).toMatch(/after-install-chroot/);
+    expect(text).toMatch(/python3/);
+    expect(text).toMatch(/var\/lib\/nexus\/cockpit-dist/);
     expect(text).toMatch(/nexus-bootstrap\.service/);
     expect(text).toMatch(/nexus-cockpit\.service/);
     expect(text).toMatch(/start:/);
@@ -346,6 +348,8 @@ describe('installer · systemd units have correct After / Wants ordering', () =>
     expect(text).toContain('After=network-online.target');
     expect(text).toContain('Type=simple');
     expect(text).toMatch(/ExecStartPre=-\/usr\/local\/bin\/nexus-cockpit --ensure-tls/);
+    expect(text).toMatch(/ExecStart=\/usr\/local\/bin\/nexus-cockpit --serve$/m);
+    expect(text).toContain('/var/lib/nexus/cockpit-dist');
     expect(text).not.toContain('ProtectSystem=strict');
   });
 });
@@ -362,6 +366,7 @@ describe('installer · nexus-cockpit launcher serves HTTPS on 8443', () => {
     expect(text).toMatch(/healthz/);
     expect(launcher).toMatch(/serve-cockpit\.py/);
     expect(launcher).toMatch(/--status/);
-    expect(launcher).toMatch(/ensure_bundle/);
+    expect(launcher).toMatch(/var\/lib\/nexus\/cockpit-dist/);
+    expect(launcher).toMatch(/resolve_serve_root/);
   });
 });

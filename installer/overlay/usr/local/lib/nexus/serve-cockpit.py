@@ -41,12 +41,19 @@ def bind_server(port: int) -> socketserver.TCPServer:
     class ReuseTCPServer(socketserver.TCPServer):
         allow_reuse_address = True
 
-    return ReuseTCPServer(("0.0.0.0", port), SPAHandler)
+    try:
+        return ReuseTCPServer(("0.0.0.0", port), SPAHandler)
+    except OSError as exc:
+        sys.stderr.write("nexus-cockpit: bind 0.0.0.0:%d failed: %s\n" % (port, exc))
+        raise
 
 
-def serve_http():
-    with bind_server(HTTP_PORT) as httpd:
-        httpd.serve_forever()
+def serve_http_background() -> None:
+    try:
+        with bind_server(HTTP_PORT) as httpd:
+            httpd.serve_forever()
+    except OSError:
+        sys.stderr.write("nexus-cockpit: HTTP listener on %d unavailable\n" % HTTP_PORT)
 
 
 def main() -> int:
@@ -54,23 +61,29 @@ def main() -> int:
         sys.stderr.write("missing cockpit bundle: %s/index.html\n" % ROOT)
         return 1
 
-    threading.Thread(target=serve_http, daemon=True).start()
-
     if os.path.isfile(TLS_CRT) and os.path.isfile(TLS_KEY):
+        threading.Thread(target=serve_http_background, daemon=True).start()
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(certfile=TLS_CRT, keyfile=TLS_KEY)
-        with bind_server(HTTPS_PORT) as httpd:
-            httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
-            sys.stderr.write(
-                "nexus-cockpit listening on https://0.0.0.0:%d and http://0.0.0.0:%d\n"
-                % (HTTPS_PORT, HTTP_PORT)
-            )
-            httpd.serve_forever()
+        try:
+            with bind_server(HTTPS_PORT) as httpd:
+                httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+                sys.stderr.write(
+                    "nexus-cockpit listening on https://0.0.0.0:%d (http://0.0.0.0:%d)\n"
+                    % (HTTPS_PORT, HTTP_PORT)
+                )
+                httpd.serve_forever()
+        except OSError:
+            return 1
     else:
         sys.stderr.write(
             "nexus-cockpit listening on http://0.0.0.0:%d (no TLS certs)\n" % HTTP_PORT
         )
-        serve_http()
+        try:
+            with bind_server(HTTP_PORT) as httpd:
+                httpd.serve_forever()
+        except OSError:
+            return 1
     return 0
 
 

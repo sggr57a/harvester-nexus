@@ -23,7 +23,14 @@ check 'cockpit systemd unit' /etc/systemd/system/nexus-cockpit.service
 check 'Nexus config' /etc/nexus/config.yaml
 check 'Nexus version stamp' /etc/nexus/version
 check 'cockpit bundle tarball' /usr/local/share/nexus-cockpit/dist.tar.gz
-check 'cockpit index.html' /usr/local/share/nexus-cockpit/dist/index.html
+if [[ -f /usr/local/share/nexus-cockpit/dist/index.html ]]; then
+  printf 'OK   cockpit index.html (squashfs) (/usr/local/share/nexus-cockpit/dist/index.html)\n'
+elif [[ -f /var/lib/nexus/cockpit-dist/index.html ]]; then
+  printf 'OK   cockpit index.html (runtime) (/var/lib/nexus/cockpit-dist/index.html)\n'
+else
+  printf 'MISS cockpit index.html (need dist/ in squashfs or extract to /var/lib/nexus/cockpit-dist)\n'
+  fail=$((fail + 1))
+fi
 check 'OEM enable stage' /system/oem/92_nexus.yaml
 
 printf '\n'

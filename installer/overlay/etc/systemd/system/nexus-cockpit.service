@@ -6,9 +6,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+ExecStartPre=/bin/mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls
 ExecStartPre=-/usr/local/bin/nexus-cockpit --ensure-tls
 ExecStartPre=/usr/local/bin/nexus-cockpit --check-config /etc/nexus/config.yaml
-ExecStart=/usr/local/bin/nexus-cockpit --serve --config /etc/nexus/config.yaml
+ExecStart=/usr/local/bin/nexus-cockpit --serve
+StandardOutput=journal
+StandardError=journal
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
