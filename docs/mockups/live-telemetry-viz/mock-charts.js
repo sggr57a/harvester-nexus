@@ -389,7 +389,7 @@ function setupDynamicPillars(container, nodeConfigs, sim) {
   frame();
 }
 
-function initSpatialMap(container, nodes, sim) {
+export function initSpatialMap(container, nodes, sim) {
   container.innerHTML = `
     <canvas class="spatial-canvas" id="spatial-canvas"></canvas>
     <div class="spatial-overlay" id="spatial-pins"></div>
