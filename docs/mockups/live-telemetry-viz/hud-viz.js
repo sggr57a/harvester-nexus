@@ -45,7 +45,8 @@ function drawRadialGauge(canvas, value, max, label, unit, color, tick, opts = {}
 
   const cx = w / 2;
   const cy = h / 2 + (opts.offsetY ?? 0);
-  const R = Math.min(w, h) * 0.38;
+  const compact = opts.compact ?? h < 220;
+  const R = Math.min(w, h) * (compact ? 0.44 : 0.38);
   const pct = clamp(value / max, 0, 1);
 
   drawHudGrid(ctx, w, h, 24, 0.04);
@@ -115,18 +116,18 @@ function drawRadialGauge(canvas, value, max, label, unit, color, tick, opts = {}
 
   // center readout
   ctx.fillStyle = '#e8eef8';
-  ctx.font = `600 ${Math.round(R * 0.28)}px Inter, sans-serif`;
+  ctx.font = `600 ${Math.round(R * (compact ? 0.32 : 0.28))}px Inter, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const display = opts.format ? opts.format(value) : (value >= 1000 ? fmtK(value) : value.toFixed(1));
-  ctx.fillText(display, cx, cy - 4);
-  ctx.font = `400 ${Math.round(R * 0.14)}px Inter, sans-serif`;
+  ctx.fillText(display, cx, cy - (compact ? 2 : 4));
+  ctx.font = `400 ${Math.round(R * (compact ? 0.12 : 0.14))}px Inter, sans-serif`;
   ctx.fillStyle = '#8b9bb8';
-  ctx.fillText(unit || '', cx, cy + R * 0.18);
+  ctx.fillText(unit || '', cx, cy + R * (compact ? 0.14 : 0.18));
 
-  ctx.font = `500 ${Math.round(R * 0.12)}px Inter, sans-serif`;
+  ctx.font = `500 ${Math.round(R * (compact ? 0.1 : 0.12))}px Inter, sans-serif`;
   ctx.fillStyle = color;
-  ctx.fillText(label, cx, h - 16);
+  ctx.fillText(label, cx, h - (compact ? 8 : 16));
 }
 
 /** Polar radar with node blips and rotating sweep */
@@ -414,6 +415,25 @@ function drawMultiLineChart(canvas, channels, tick, opts = {}) {
     const len = ch.series.length;
     if (len < 2) return;
     const maxV = ch.max ?? 100;
+    const min = Math.min(...ch.series);
+    const max = Math.max(...ch.series);
+    const avg = ch.series.reduce((a, b) => a + b, 0) / len;
+
+    // faint area under line
+    ctx.beginPath();
+    ch.series.forEach((v, i) => {
+      const x = pad.l + (i / (len - 1)) * plotW;
+      const y = pad.t + plotH - (v / maxV) * plotH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.lineTo(pad.l + plotW, pad.t + plotH);
+    ctx.lineTo(pad.l, pad.t + plotH);
+    ctx.closePath();
+    const { r, g, b } = hexToRgb(ch.color);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.12)`;
+    ctx.fill();
+
     ctx.beginPath();
     ch.series.forEach((v, i) => {
       const x = pad.l + (i / (len - 1)) * plotW;
@@ -422,17 +442,17 @@ function drawMultiLineChart(canvas, channels, tick, opts = {}) {
       else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = ch.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.shadowColor = ch.color;
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
     const last = ch.series[len - 1];
-    ctx.font = '14px Inter, sans-serif';
+    ctx.font = '13px Inter, sans-serif';
     ctx.fillStyle = ch.color;
     ctx.textAlign = 'left';
-    ctx.fillText(`${ch.label}  ${ch.format ? ch.format(last) : last.toFixed(0)}`, pad.l + ci * 110, h - 10);
+    ctx.fillText(`${ch.label} ${ch.format ? ch.format(last) : last.toFixed(0)}  (avg ${ch.format ? ch.format(avg) : avg.toFixed(0)})`, pad.l + (ci % 2) * 280, h - 22 - Math.floor(ci / 2) * 14);
   });
 
   const scanX = pad.l + ((tick * 0.02) % 1) * plotW;
@@ -488,10 +508,14 @@ function drawStackedAreaChart(canvas, channels, tick, opts = {}) {
   }
 
   channels.forEach((ch, ci) => {
-    ctx.font = '14px Inter, sans-serif';
+    ctx.font = '13px Inter, sans-serif';
     ctx.fillStyle = ch.color;
     ctx.fillRect(pad.l + ci * 90, h - 18, 10, 10);
-    ctx.fillText(ch.label, pad.l + ci * 90 + 14, h - 8);
+    const last = ch.series[ch.series.length - 1];
+    const avg = ch.series.reduce((a, b) => a + b, 0) / ch.series.length;
+    const fmt = (v) => ch.format ? ch.format(v) : v.toFixed(0);
+    ctx.fillStyle = '#8b9bb8';
+    ctx.fillText(`${ch.label} ${fmt(last)} · avg ${fmt(avg)}`, pad.l + ci * 90 + 14, h - 8);
   });
 }
 
@@ -647,7 +671,7 @@ function drawSparklineGrid(canvas, cells, tick) {
   const h = canvas.height = canvas.offsetHeight * 2;
   ctx.clearRect(0, 0, w, h);
 
-  drawHudGrid(ctx, w, h, 20, 0.03);
+  drawHudGrid(ctx, w, h, 16, 0.04);
   drawHudBrackets(ctx, w, h, 8);
 
   const cols = 4;
@@ -658,31 +682,55 @@ function drawSparklineGrid(canvas, cells, tick) {
   cells.forEach((cell, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x0 = col * cellW + 8;
-    const y0 = row * cellH + 8;
-    const cw = cellW - 16;
-    const ch = cellH - 16;
+    const x0 = col * cellW + 4;
+    const y0 = row * cellH + 4;
+    const cw = cellW - 8;
+    const ch = cellH - 8;
+    const series = cell.series;
+    if (series.length < 2) return;
 
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    const min = Math.min(...series);
+    const max = Math.max(...series);
+    const maxV = cell.max ?? 100;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(x0, y0, cw, ch);
-    ctx.strokeStyle = 'rgba(56,189,248,0.15)';
+    ctx.strokeStyle = 'rgba(56,189,248,0.18)';
     ctx.strokeRect(x0, y0, cw, ch);
 
-    ctx.font = '12px Inter, sans-serif';
+    ctx.font = '11px Inter, sans-serif';
     ctx.fillStyle = '#8b9bb8';
     ctx.textAlign = 'left';
     ctx.fillText(cell.label, x0 + 6, y0 + 14);
 
-    ctx.font = 'bold 14px Inter, sans-serif';
+    ctx.font = 'bold 15px Inter, sans-serif';
     ctx.fillStyle = cell.color;
     ctx.textAlign = 'right';
     ctx.fillText(cell.readout, x0 + cw - 6, y0 + 14);
 
-    const series = cell.series;
-    if (series.length < 2) return;
-    const maxV = cell.max ?? 100;
-    const sparkH = ch - 28;
-    const sparkY = y0 + 22;
+    ctx.font = '9px Inter, sans-serif';
+    ctx.fillStyle = '#6b7280';
+    ctx.textAlign = 'left';
+    ctx.fillText(`↓${cell.format ? cell.format(min) : min.toFixed(0)} ↑${cell.format ? cell.format(max) : max.toFixed(0)}`, x0 + 6, y0 + 26);
+
+    const sparkH = ch - 32;
+    const sparkY = y0 + 30;
+    const { r, g, b } = hexToRgb(cell.color);
+
+    // filled area
+    ctx.beginPath();
+    series.forEach((v, si) => {
+      const sx = x0 + 4 + (si / (series.length - 1)) * (cw - 8);
+      const sy = sparkY + sparkH - (v / maxV) * sparkH;
+      if (si === 0) ctx.moveTo(sx, sy);
+      else ctx.lineTo(sx, sy);
+    });
+    ctx.lineTo(x0 + cw - 4, sparkY + sparkH);
+    ctx.lineTo(x0 + 4, sparkY + sparkH);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${r},${g},${b},0.2)`;
+    ctx.fill();
+
     ctx.beginPath();
     series.forEach((v, si) => {
       const sx = x0 + 4 + (si / (series.length - 1)) * (cw - 8);
@@ -691,18 +739,28 @@ function drawSparklineGrid(canvas, cells, tick) {
       else ctx.lineTo(sx, sy);
     });
     ctx.strokeStyle = cell.color;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.8;
     ctx.shadowColor = cell.color;
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 8;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // mini area fill
-    ctx.lineTo(x0 + cw - 4, sparkY + sparkH);
-    ctx.lineTo(x0 + 4, sparkY + sparkH);
-    ctx.closePath();
-    const { r, g, b } = hexToRgb(cell.color);
-    ctx.fillStyle = `rgba(${r},${g},${b},0.12)`;
+    // heat bars underneath line
+    const barCount = Math.min(series.length, 24);
+    const slice = series.slice(-barCount);
+    const bw = (cw - 8) / barCount;
+    slice.forEach((v, bi) => {
+      const bh = (v / maxV) * 8;
+      ctx.fillStyle = heatColor(v, maxV, cell.color);
+      ctx.fillRect(x0 + 4 + bi * bw, sparkY + sparkH - bh, Math.max(1, bw - 1), bh);
+    });
+
+    const last = series[series.length - 1];
+    const lx = x0 + cw - 8;
+    const ly = sparkY + sparkH - (last / maxV) * sparkH;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
     ctx.fill();
   });
 }
@@ -715,26 +773,37 @@ function drawLinearGauge(canvas, value, max, label, color, tick) {
   ctx.clearRect(0, 0, w, h);
 
   const pct = clamp(value / max, 0, 1);
-  ctx.font = '12px Inter, sans-serif';
+  const compact = h < 100;
+
+  ctx.font = `${compact ? 9 : 12}px Inter, sans-serif`;
   ctx.fillStyle = '#8b9bb8';
   ctx.textAlign = 'left';
-  ctx.fillText(label, 8, 18);
+  ctx.fillText(label, 6, compact ? 12 : 18);
 
-  ctx.font = 'bold 20px Inter, sans-serif';
-  ctx.fillStyle = color;
-  ctx.textAlign = 'right';
-  ctx.fillText(max >= 1000 ? fmtK(value) : (value >= 100 ? value.toFixed(0) : value.toFixed(1)), w - 8, 20);
+  if (!compact) {
+    ctx.font = 'bold 20px Inter, sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'right';
+    ctx.fillText(max >= 1000 ? fmtK(value) : (value >= 100 ? value.toFixed(0) : value.toFixed(1)), w - 8, 20);
+  }
 
-  const by = 28;
+  const by = compact ? 16 : 28;
+  const bh = compact ? 6 : 8;
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.fillRect(8, by, w - 16, 8);
-  const { r, g, b } = hexToRgb(color);
-  const fw = (w - 16) * pct;
+  ctx.fillRect(6, by, w - 12, bh);
+  const fw = (w - 12) * pct;
   ctx.fillStyle = color;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 8;
-  ctx.fillRect(8, by, fw, 8);
+  ctx.shadowBlur = compact ? 4 : 8;
+  ctx.fillRect(6, by, fw, bh);
   ctx.shadowBlur = 0;
+
+  if (compact) {
+    ctx.font = 'bold 9px Inter, sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'right';
+    ctx.fillText(max >= 1000 ? fmtK(value) : value.toFixed(0), w - 4, 12);
+  }
 }
 
 /** Circular oscilloscope — waveform on a ring (deprecated, kept for reference) */
@@ -800,43 +869,146 @@ function drawCircularWaveform(canvas, series, color, tick, maxV = 100, label = '
   ctx.fillText(label, cx, cy);
 }
 
-/** Dense vertical bar matrix (HUD infographic style) */
-function drawBarMatrix(canvas, rows, tick) {
+/** Heat hue from value intensity (cool → hot) */
+function heatColor(value, max, baseHex) {
+  const t = clamp(value / max, 0, 1);
+  if (t > 0.72) return `hsl(${25 - t * 15}, 92%, ${48 + t * 12}%)`;
+  if (t > 0.45) return `hsl(${45 + t * 30}, 85%, ${45 + t * 10}%)`;
+  const { r, g, b } = hexToRgb(baseHex || '#5b8cff');
+  return `rgba(${r},${g},${b},${0.35 + t * 0.55})`;
+}
+
+/** Dense historical histogram — heat bars, min/max/avg, time axis, peak glow */
+function drawBarMatrix(canvas, rows, tick, opts = {}) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width = canvas.offsetWidth * 2;
   const h = canvas.height = canvas.offsetHeight * 2;
   ctx.clearRect(0, 0, w, h);
 
-  drawHudGrid(ctx, w, h, 20, 0.04);
+  const padTop = opts.title ? 44 : 28;
+  drawHudGrid(ctx, w, h, 16, 0.06);
   drawHudBrackets(ctx, w, h, 8);
 
-  const rowH = h / rows.length;
-  rows.forEach((row, ri) => {
-    const y0 = ri * rowH + 8;
-    const barArea = rowH - 16;
-
-    ctx.font = '16px Inter, sans-serif';
+  if (opts.title) {
+    ctx.font = '600 22px Inter, sans-serif';
     ctx.fillStyle = '#8b9bb8';
     ctx.textAlign = 'left';
-    ctx.fillText(row.label, 12, y0 + 14);
+    ctx.fillText(opts.title, 14, 28);
+  }
 
-    const cols = row.values.length;
-    const barW = (w - 120) / cols;
-    row.values.forEach((v, ci) => {
-      const bh = (v / row.max) * barArea * 0.85;
-      const x = 110 + ci * barW;
-      const pulse = 1 + Math.sin(tick / 8 + ci + ri) * 0.05;
-      const { r, g, b } = hexToRgb(row.color);
-      ctx.fillStyle = `rgba(${r},${g},${b},0.25)`;
-      ctx.fillRect(x, y0 + barArea - bh * pulse, barW - 3, bh * pulse);
-      ctx.fillStyle = row.color;
-      ctx.fillRect(x, y0 + barArea - bh * pulse, barW - 3, 3);
+  const labelW = 128;
+  const statsW = 200;
+  const chartL = labelW + 8;
+  const chartR = w - statsW - 8;
+  const chartW = chartR - chartL;
+  const rowH = (h - padTop - 24) / rows.length;
+
+  // shared time axis (bottom)
+  const maxCols = Math.max(...rows.map(r => r.values.length), 1);
+  ctx.font = '11px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(139,155,184,0.45)';
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= 4; t++) {
+    const x = chartL + (t / 4) * chartW;
+    const mins = Math.round((maxCols - 1) * (1 - t / 4));
+    ctx.fillText(t === 4 ? 'now' : `-${mins}m`, x, h - 6);
+  }
+
+  rows.forEach((row, ri) => {
+    const y0 = padTop + ri * rowH;
+    const barArea = rowH - 14;
+    const vals = row.values;
+    const cols = vals.length;
+    if (!cols) return;
+
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const avg = vals.reduce((a, b) => a + b, 0) / cols;
+    const now = vals[cols - 1];
+    const peakIdx = vals.indexOf(max);
+
+    // row band
+    if (ri % 2 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.015)';
+      ctx.fillRect(0, y0, w, rowH);
+    }
+    ctx.strokeStyle = 'rgba(56,189,248,0.08)';
+    ctx.beginPath(); ctx.moveTo(0, y0 + rowH); ctx.lineTo(w, y0 + rowH); ctx.stroke();
+
+    // label + unit
+    ctx.font = 'bold 15px Inter, sans-serif';
+    ctx.fillStyle = row.color;
+    ctx.textAlign = 'left';
+    ctx.fillText(row.label, 10, y0 + 16);
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText(row.unit || '', 10, y0 + 30);
+
+    // horizontal grid in chart area
+    for (let g = 0; g <= 3; g++) {
+      const gy = y0 + 8 + (g / 3) * (barArea - 8);
+      ctx.strokeStyle = 'rgba(56,189,248,0.06)';
+      ctx.beginPath(); ctx.moveTo(chartL, gy); ctx.lineTo(chartR, gy); ctx.stroke();
+    }
+
+    const barW = Math.max(2, chartW / cols - 1);
+
+    vals.forEach((v, ci) => {
+      const pct = v / row.max;
+      const bh = pct * (barArea - 10);
+      const x = chartL + ci * (chartW / cols);
+      const y = y0 + barArea - bh;
+      const pulse = ci === cols - 1 ? 1 + Math.sin(tick / 6) * 0.04 : 1;
+      const isPeak = ci === peakIdx && pct > 0.5;
+      const isRecent = ci >= cols - 3;
+
+      // heat fill + gradient
+      const heat = heatColor(v, row.max, row.color);
+      const grad = ctx.createLinearGradient(x, y, x, y0 + barArea);
+      grad.addColorStop(0, heat);
+      grad.addColorStop(1, 'rgba(0,0,0,0.15)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y, barW, bh * pulse);
+
+      // cap highlight
+      ctx.fillStyle = isPeak ? '#fff' : row.color;
+      ctx.fillRect(x, y, barW, isPeak ? 4 : 2);
+
+      // glow on peaks and live edge
+      if (isPeak || (isRecent && pct > 0.55)) {
+        ctx.shadowColor = row.color;
+        ctx.shadowBlur = isPeak ? 14 : 6;
+        ctx.fillStyle = heat;
+        ctx.fillRect(x, y, barW, Math.min(8, bh));
+        ctx.shadowBlur = 0;
+      }
+
+      // anomaly tick marks above bar
+      if (pct > 0.75 && ci % 2 === 0) {
+        ctx.fillStyle = 'rgba(248,113,113,0.7)';
+        ctx.fillRect(x + barW / 2 - 1, y - 5, 2, 4);
+      }
     });
 
-    ctx.font = 'bold 18px Inter, sans-serif';
-    ctx.fillStyle = row.color;
+    // scan line across history
+    const scanCol = Math.floor(((tick * 0.04) % 1) * cols);
+    const scanX = chartL + scanCol * (chartW / cols);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(scanX, y0 + 6, barW + 2, barArea - 6);
+
+    // stats block
+    const fmt = row.format || (v => v.toFixed(1));
     ctx.textAlign = 'right';
-    ctx.fillText(row.readout, w - 12, y0 + 14);
+    ctx.font = 'bold 17px Inter, sans-serif';
+    ctx.fillStyle = row.color;
+    ctx.fillText(typeof row.readout === 'string' ? row.readout : fmt(now), w - 10, y0 + 16);
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = '#8b9bb8';
+    const delta = now - avg;
+    const deltaSign = delta >= 0 ? '▲' : '▼';
+    ctx.fillText(`now ${fmt(now)}  ${deltaSign}${Math.abs(delta).toFixed(1)} vs avg`, w - 10, y0 + 30);
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText(`min ${fmt(min)} · max ${fmt(max)} · avg ${fmt(avg)}`, w - 10, y0 + 44);
   });
 }
 

@@ -10,9 +10,9 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.mkdirSync(VIDEO_DIR, { recursive: true });
 
 const pages = [
-  { url: `${BASE}/index.html`, name: 'mockup-index', dwell: 2000 },
-  { url: `${BASE}/resource-monitor-live.html`, name: 'resource-monitor-live-mockup', dwell: 8000 },
-  { url: `${BASE}/environment-intel-live.html`, name: 'environment-intel-live-mockup', dwell: 8000 },
+  { url: `${BASE}/index.html`, name: 'mockup-index', dwell: 1500, fullPage: true },
+  { url: `${BASE}/resource-monitor-live.html`, name: 'resource-monitor-live-mockup', dwell: 6000, fullPage: false },
+  { url: `${BASE}/environment-intel-live.html`, name: 'environment-intel-live-mockup', dwell: 6000, fullPage: false },
 ];
 
 (async () => {
@@ -26,11 +26,11 @@ const pages = [
     });
     const page = await context.newPage();
     await page.goto(spec.url, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
 
     await page.screenshot({
       path: path.join(OUT_DIR, `${spec.name}.png`),
-      fullPage: true,
+      fullPage: spec.fullPage !== false,
     });
     console.log('screenshot', spec.name);
 

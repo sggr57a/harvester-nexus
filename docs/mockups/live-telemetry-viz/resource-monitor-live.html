@@ -3,97 +3,54 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mockup — Resource Monitor (Live HUD)</title>
+  <title>Mockup — Resource Monitor (Condensed HUD)</title>
   <link rel="stylesheet" href="shared.css" />
+  <link rel="stylesheet" href="condensed.css" />
 </head>
-<body class="hud-mode">
+<body class="hud-mode condensed">
   <header class="mock-header">
-    <span class="kicker">MOCKUP // RESOURCE MONITOR · INFOGRAPHIC HUD</span>
-    <h1>Resource Monitor <span class="badge-live"><i></i> LIVE CLUSTER</span></h1>
-    <p>Animated area charts · column bars · sparkline grid · meter bank · dense metric table</p>
+    <span class="kicker">MOCKUP · RESOURCE MONITOR · CONDENSED HUD</span>
+    <h1>Resource Monitor <span class="badge-live"><i></i> LIVE</span></h1>
   </header>
 
-  <p class="disclaimer">Design preview — dynamic data infographic style. Simulated live bursts; not connected to Harvester APIs.</p>
-  <p class="ref-note">Visual reference: <a href="https://www.shutterstock.com/shutterstock/videos/3793037467/preview/stock-footage-dynamic-data-visuals-for-business-info-graphics-animated-charts-and-data-driven-insights-for-a.mp4" target="_blank" rel="noopener">animated business infographics</a> · <a href="https://www.shutterstock.com/shutterstock/videos/26128421/preview/stock-footage-futuristic-digital-interface-screen.mp4" target="_blank" rel="noopener">futuristic digital interface</a></p>
+  <div class="condensed-grid">
+    <div class="tile gauge"><span class="tile-label">CPU</span><canvas id="g-cpu"></canvas></div>
+    <div class="tile gauge"><span class="tile-label">RAM</span><canvas id="g-ram"></canvas></div>
+    <div class="tile gauge"><span class="tile-label">DISK</span><canvas id="g-disk"></canvas></div>
+    <div class="tile gauge"><span class="tile-label">NET RX</span><canvas id="g-rx"></canvas></div>
+    <div class="tile gauge"><span class="tile-label">NET TX</span><canvas id="g-tx"></canvas></div>
+    <div class="tile event-strip"><strong>CLUSTER EVENT</strong><span id="activity-text">—</span></div>
 
-  <div class="layout">
-    <div class="panel hud-panel">
-      <div class="panel-title"><span>Cluster status</span><strong>live event · radial KPIs · linear gauges</strong></div>
-      <div class="activity-banner"><strong>EVENT</strong> <span id="activity-text">—</span></div>
-      <div class="hud-gauge-row">
-        <div class="hud-gauge"><canvas id="g-cpu"></canvas></div>
-        <div class="hud-gauge"><canvas id="g-ram"></canvas></div>
-        <div class="hud-gauge"><canvas id="g-disk"></canvas></div>
-        <div class="hud-gauge"><canvas id="g-rx"></canvas></div>
-        <div class="hud-gauge"><canvas id="g-tx"></canvas></div>
-      </div>
-      <div class="linear-gauge-row" style="margin-top:0.65rem">
-        <div class="linear-gauge"><canvas id="lg-pods"></canvas></div>
-        <div class="linear-gauge"><canvas id="lg-vms"></canvas></div>
-        <div class="linear-gauge"><canvas id="lg-pvc"></canvas></div>
-        <div class="linear-gauge"><canvas id="lg-lat"></canvas></div>
-      </div>
+    <div class="tile linear-row">
+      <div class="mini-bar"><canvas id="lg-pods"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-vms"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-pvc"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-lat"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-io"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-q"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-pwr"></canvas></div>
+      <div class="mini-bar"><canvas id="lg-tmp"></canvas></div>
     </div>
 
-    <div class="panel hud-panel">
-      <div class="panel-title"><span>Cluster throughput</span><strong>stacked area · multi-metric timeline</strong></div>
-      <div class="chart-tile tall full"><canvas id="stack-main"></canvas></div>
-    </div>
+    <div class="tile stack"><span class="tile-label">Cluster stack · CPU RAM disk net</span><canvas id="stack-main"></canvas></div>
 
-    <div class="chart-grid">
-      <div class="panel hud-panel chart-tile wide">
-        <div class="chart-tile-label">Multi-line scope · CPU RAM disk net</div>
-        <canvas id="lines-main"></canvas>
-      </div>
-      <div class="panel hud-panel chart-tile">
-        <div class="chart-tile-label">Resource mix · donut</div>
-        <canvas id="donut"></canvas>
-      </div>
-      <div class="panel hud-panel chart-tile">
-        <div class="chart-tile-label">Per-node CPU · columns</div>
-        <canvas id="cols-cpu"></canvas>
-      </div>
-      <div class="panel hud-panel chart-tile">
-        <div class="chart-tile-label">Per-node disk IOPS</div>
-        <canvas id="cols-disk"></canvas>
-      </div>
-      <div class="panel hud-panel chart-tile">
-        <div class="chart-tile-label">Network Mb/s · columns</div>
-        <canvas id="cols-net"></canvas>
-      </div>
-    </div>
+    <div class="tile lines"><span class="tile-label">Multi-line telemetry</span><canvas id="lines-main"></canvas></div>
+    <div class="tile donut"><span class="tile-label">Mix</span><canvas id="donut"></canvas></div>
+    <div class="tile col-chart"><span class="tile-label">CPU</span><canvas id="cols-cpu"></canvas></div>
+    <div class="tile col-chart"><span class="tile-label">Disk</span><canvas id="cols-disk"></canvas></div>
+    <div class="tile col-chart"><span class="tile-label">Net</span><canvas id="cols-net"></canvas></div>
 
-    <div class="row-hud-main">
-      <div class="panel hud-panel">
-        <div class="panel-title"><span>Cluster radar</span><strong>polar blips · sweep</strong></div>
-        <canvas class="hud-viz radar" id="radar"></canvas>
-      </div>
-      <div class="panel hud-panel">
-        <div class="panel-title"><span>Hex topology</span><strong>inter-node links</strong></div>
-        <canvas class="hud-viz hex" id="hex"></canvas>
-      </div>
-    </div>
+    <div class="tile radar"><span class="tile-label">Radar</span><canvas id="radar"></canvas></div>
+    <div class="tile hex"><span class="tile-label">Hex topo</span><canvas id="hex"></canvas></div>
+    <div class="tile spark"><span class="tile-label">Sparkline matrix · 12ch</span><canvas id="spark-grid"></canvas></div>
 
-    <div class="row-hud-main">
-      <div class="panel hud-panel">
-        <div class="panel-title"><span>Sparkline matrix</span><strong>12 live channels · 3 nodes × 4 metrics</strong></div>
-        <canvas class="hud-viz" id="spark-grid" style="height:280px"></canvas>
-      </div>
-      <div class="panel hud-panel">
-        <div class="panel-title"><span>Meter bank</span><strong>all nodes · all channels</strong></div>
-        <canvas class="hud-viz" id="meters" style="height:280px"></canvas>
-      </div>
-    </div>
+    <div class="tile history"><span class="tile-label">Historical histogram · 48 samples · heat color · min/max/avg</span><canvas id="bars"></canvas></div>
 
-    <div class="panel hud-panel">
-      <div class="panel-title"><span>Rolling bar history</span><strong>24-sample timeline per metric</strong></div>
-      <canvas class="hud-viz bars" id="bars" style="height:220px"></canvas>
-    </div>
-
-    <div class="panel hud-panel">
-      <div class="panel-title"><span>Live metric table</span><strong>harvester nodes · full channel readout</strong></div>
+    <div class="tile meters"><span class="tile-label">Meter bank</span><canvas id="meters"></canvas></div>
+    <div class="tile table-wrap">
+      <span class="tile-label">Live nodes</span>
       <table class="metric-table" id="metric-table">
-        <thead><tr><th>Node</th><th>CPU</th><th>RAM</th><th>Disk IOPS</th><th>Net Mb/s</th><th>Event</th><th>Status</th></tr></thead>
+        <thead><tr><th>Node</th><th>CPU</th><th>RAM</th><th>Disk</th><th>Net</th><th>Δ vs avg</th><th>Event</th><th>Status</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -103,28 +60,33 @@
   <script src="hud-viz.js"></script>
   <script>
     const NODE_NAMES = ['harvester-01', 'harvester-02', 'harvester-03'];
+    const HIST = 48;
     const barHistory = NODE_NAMES.map(() => ({ cpu: [], ram: [], disk: [], net: [] }));
+    const clusterHist = { cpu: [], ram: [], disk: [], net: [] };
 
     const sim = createClusterSim(3);
 
     initHudDashboard(sim, {
       gauges: [
-        { el: document.getElementById('g-cpu'), metric: 'cpu', label: 'CPU', unit: '%', color: '#5b8cff', max: 100, opts: { format: fmtPct } },
-        { el: document.getElementById('g-ram'), metric: 'ram', label: 'RAM', unit: '%', color: '#38bdf8', max: 100, opts: { format: fmtPct } },
-        { el: document.getElementById('g-disk'), metric: 'disk', label: 'DISK', unit: 'IOPS', color: '#34d399', max: 22000, opts: { format: fmtK } },
-        { el: document.getElementById('g-rx'), metric: 'net-rx', label: 'NET RX', unit: 'Mb/s', color: '#fbbf24', max: 1200, opts: { format: fmtMb } },
-        { el: document.getElementById('g-tx'), metric: 'net-tx', label: 'NET TX', unit: 'Mb/s', color: '#f87171', max: 1200, opts: { format: fmtMb } },
+        { el: document.getElementById('g-cpu'), metric: 'cpu', label: 'CPU', unit: '%', color: '#5b8cff', max: 100, opts: { format: fmtPct, ticks: 24, compact: true } },
+        { el: document.getElementById('g-ram'), metric: 'ram', label: 'RAM', unit: '%', color: '#38bdf8', max: 100, opts: { format: fmtPct, ticks: 24 } },
+        { el: document.getElementById('g-disk'), metric: 'disk', label: 'DSK', unit: 'IOPS', color: '#34d399', max: 22000, opts: { format: fmtK, ticks: 24 } },
+        { el: document.getElementById('g-rx'), metric: 'net-rx', label: 'RX', unit: 'Mb/s', color: '#fbbf24', max: 1200, opts: { format: fmtMb, ticks: 24 } },
+        { el: document.getElementById('g-tx'), metric: 'net-tx', label: 'TX', unit: 'Mb/s', color: '#f87171', max: 1200, opts: { format: fmtMb, ticks: 24 } },
       ],
       linearGauges: [
-        { el: document.getElementById('lg-pods'), metric: 'cpu', label: 'WORKLOAD IDX', color: '#5b8cff', max: 100 },
-        { el: document.getElementById('lg-vms'), metric: 'ram', label: 'MEM PRESSURE', color: '#38bdf8', max: 100 },
-        { el: document.getElementById('lg-pvc'), metric: 'disk', label: 'IO LOAD', color: '#34d399', max: 22000 },
-        { el: document.getElementById('lg-lat'), metric: 'net', label: 'NET LOAD', color: '#fbbf24', max: 1200 },
+        { el: document.getElementById('lg-pods'), metric: 'cpu', label: 'WL', color: '#5b8cff', max: 100 },
+        { el: document.getElementById('lg-vms'), metric: 'ram', label: 'MEM', color: '#38bdf8', max: 100 },
+        { el: document.getElementById('lg-pvc'), metric: 'disk', label: 'IO', color: '#34d399', max: 22000 },
+        { el: document.getElementById('lg-lat'), metric: 'net', label: 'NET', color: '#fbbf24', max: 1200 },
+        { el: document.getElementById('lg-io'), metric: 'disk', label: 'IOPS', color: '#34d399', max: 22000 },
+        { el: document.getElementById('lg-q'), metric: 'cpu', label: 'Q', color: '#5b8cff', max: 100 },
+        { el: document.getElementById('lg-pwr'), metric: 'power', label: 'PWR', color: '#f87171', max: 900 },
+        { el: document.getElementById('lg-tmp'), metric: 'ram', label: 'TMP', color: '#38bdf8', max: 100 },
       ],
       stackedAreas: [{
-        el: document.getElementById('stack-main'),
-        len: 80,
-        opts: { title: 'CLUSTER STACK · CPU + RAM + DISK + NET' },
+        el: document.getElementById('stack-main'), len: 72,
+        opts: { title: '' },
         channels: [
           { key: 'st-cpu', metric: 'cpu', color: '#5b8cff', label: 'CPU' },
           { key: 'st-ram', metric: 'ram', color: '#38bdf8', label: 'RAM' },
@@ -133,9 +95,7 @@
         ],
       }],
       lineCharts: [{
-        el: document.getElementById('lines-main'),
-        len: 72,
-        opts: { title: 'MULTI-LINE TELEMETRY' },
+        el: document.getElementById('lines-main'), len: 64, opts: { title: '' },
         channels: [
           { key: 'ln-cpu', metric: 'cpu', color: '#5b8cff', label: 'CPU', format: fmtPct },
           { key: 'ln-ram', metric: 'ram', color: '#38bdf8', label: 'RAM', format: fmtPct },
@@ -144,82 +104,72 @@
         ],
       }],
       donuts: [{
-        el: document.getElementById('donut'),
-        opts: { center: 'LOAD', sub: 'cluster mix' },
+        el: document.getElementById('donut'), opts: { center: 'LOAD', sub: '' },
         segments: [
           { metric: 'cpu', label: 'CPU', color: '#5b8cff', format: fmtPct },
           { metric: 'ram', label: 'RAM', color: '#38bdf8', format: fmtPct },
-          { metric: 'disk', label: 'Disk', color: '#34d399', format: fmtK },
-          { metric: 'net', label: 'Net', color: '#fbbf24', format: fmtMb },
+          { metric: 'disk', label: 'DSK', color: '#34d399', format: fmtK },
+          { metric: 'net', label: 'NET', color: '#fbbf24', format: fmtMb },
         ],
       }],
       columnCharts: [
-        {
-          el: document.getElementById('cols-cpu'),
-          opts: { title: 'CPU %' },
-          bars: NODE_NAMES.map((n, i) => ({ label: n.replace('harvester-', 'h-'), node: i, metric: 'cpu', max: 100, color: ['#5b8cff', '#fbbf24', '#34d399'][i], format: fmtPct })),
-        },
-        {
-          el: document.getElementById('cols-disk'),
-          opts: { title: 'DISK IOPS' },
-          bars: NODE_NAMES.map((n, i) => ({ label: n.replace('harvester-', 'h-'), node: i, metric: 'disk', max: 22000, color: '#34d399', format: fmtK })),
-        },
-        {
-          el: document.getElementById('cols-net'),
-          opts: { title: 'NET Mb/s' },
-          bars: NODE_NAMES.map((n, i) => ({ label: n.replace('harvester-', 'h-'), node: i, metric: 'net', max: 1200, color: '#fbbf24', format: fmtMb })),
-        },
+        { el: document.getElementById('cols-cpu'), opts: { title: '' }, bars: NODE_NAMES.map((n, i) => ({ label: 'h-0' + (i+1), node: i, metric: 'cpu', max: 100, color: ['#5b8cff','#fbbf24','#34d399'][i], format: fmtPct })) },
+        { el: document.getElementById('cols-disk'), opts: { title: '' }, bars: NODE_NAMES.map((n, i) => ({ label: 'h-0' + (i+1), node: i, metric: 'disk', max: 22000, color: '#34d399', format: fmtK })) },
+        { el: document.getElementById('cols-net'), opts: { title: '' }, bars: NODE_NAMES.map((n, i) => ({ label: 'h-0' + (i+1), node: i, metric: 'net', max: 1200, color: '#fbbf24', format: fmtMb })) },
       ],
-      radars: [{ el: document.getElementById('radar'), nodes: NODE_NAMES.map((name, i) => ({ name, angle: (i / 3) * Math.PI * 2 + 0.4 })) }],
-      hexMaps: [{ el: document.getElementById('hex'), nodes: NODE_NAMES.map((name, i) => ({ name, hx: [0.22, 0.52, 0.78][i], hy: [0.55, 0.38, 0.62][i] })) }],
+      radars: [{ el: document.getElementById('radar'), nodes: NODE_NAMES.map((name, i) => ({ name: 'h-0'+(i+1), angle: (i/3)*Math.PI*2+0.4 })) }],
+      hexMaps: [{ el: document.getElementById('hex'), nodes: NODE_NAMES.map((name, i) => ({ name, hx: [0.22,0.52,0.78][i], hy: [0.55,0.38,0.62][i] })) }],
       sparklineGrids: [{
         el: document.getElementById('spark-grid'),
         cells: NODE_NAMES.flatMap((name, ni) => [
-          { key: `sg-${ni}-c`, node: ni, metric: 'cpu', label: `${name.slice(-2)} CPU`, color: '#5b8cff', max: 100, format: fmtPct, len: 36 },
-          { key: `sg-${ni}-r`, node: ni, metric: 'ram', label: `${name.slice(-2)} RAM`, color: '#38bdf8', max: 100, format: fmtPct, len: 36 },
-          { key: `sg-${ni}-d`, node: ni, metric: 'disk', label: `${name.slice(-2)} DSK`, color: '#34d399', max: 22000, format: fmtK, len: 36 },
-          { key: `sg-${ni}-n`, node: ni, metric: 'net', label: `${name.slice(-2)} NET`, color: '#fbbf24', max: 1200, format: fmtMb, len: 36 },
+          { key: `sg-${ni}-c`, node: ni, metric: 'cpu', label: `0${ni+1} CPU`, color: '#5b8cff', max: 100, format: fmtPct, len: 40 },
+          { key: `sg-${ni}-r`, node: ni, metric: 'ram', label: `0${ni+1} RAM`, color: '#38bdf8', max: 100, format: fmtPct, len: 40 },
+          { key: `sg-${ni}-d`, node: ni, metric: 'disk', label: `0${ni+1} DSK`, color: '#34d399', max: 22000, format: fmtK, len: 40 },
+          { key: `sg-${ni}-n`, node: ni, metric: 'net', label: `0${ni+1} NET`, color: '#fbbf24', max: 1200, format: fmtMb, len: 40 },
         ]),
       }],
       meterBanks: [{
         el: document.getElementById('meters'),
         meters: NODE_NAMES.flatMap((name, i) => [
-          { label: `${name} · CPU`, node: i, metric: 'cpu', max: 100, color: '#5b8cff', format: fmtPct },
-          { label: `${name} · RAM`, node: i, metric: 'ram', max: 100, color: '#38bdf8', format: fmtPct },
-          { label: `${name} · DISK`, node: i, metric: 'disk', max: 22000, color: '#34d399', format: fmtK },
-          { label: `${name} · NET`, node: i, metric: 'net', max: 1200, color: '#fbbf24', format: fmtMb },
+          { label: `${name} CPU`, node: i, metric: 'cpu', max: 100, color: '#5b8cff', format: fmtPct },
+          { label: `${name} RAM`, node: i, metric: 'ram', max: 100, color: '#38bdf8', format: fmtPct },
+          { label: `${name} DSK`, node: i, metric: 'disk', max: 22000, color: '#34d399', format: fmtK },
+          { label: `${name} NET`, node: i, metric: 'net', max: 1200, color: '#fbbf24', format: fmtMb },
         ]),
       }],
       onTick(tick, agg, sim) {
         document.getElementById('activity-text').textContent = agg.event;
+        pushSeries(clusterHist.cpu, agg.cpu, HIST);
+        pushSeries(clusterHist.ram, agg.ram, HIST);
+        pushSeries(clusterHist.disk, agg.disk, HIST);
+        pushSeries(clusterHist.net, agg.net, HIST);
 
         NODE_NAMES.forEach((_, i) => {
           const s = sim.sample('bar', i);
-          ['cpu', 'ram', 'disk', 'net'].forEach(f => pushSeries(barHistory[i][f], s[f], 24));
+          ['cpu','ram','disk','net'].forEach(f => pushSeries(barHistory[i][f], s[f], HIST));
         });
 
+        const fmtN = v => v.toFixed(1);
         drawBarMatrix(document.getElementById('bars'), [
-          { label: 'CPU h-01', color: '#5b8cff', max: 100, readout: fmtPct(sim.sample('x', 0).cpu), values: barHistory[0].cpu.length ? barHistory[0].cpu : [20] },
-          { label: 'CPU h-02', color: '#fbbf24', max: 100, readout: fmtPct(sim.sample('x', 1).cpu), values: barHistory[1].cpu.length ? barHistory[1].cpu : [20] },
-          { label: 'CPU h-03', color: '#34d399', max: 100, readout: fmtPct(sim.sample('x', 2).cpu), values: barHistory[2].cpu.length ? barHistory[2].cpu : [20] },
-          { label: 'RAM h-01', color: '#38bdf8', max: 100, readout: fmtPct(sim.sample('x', 0).ram), values: barHistory[0].ram.length ? barHistory[0].ram : [50] },
-          { label: 'RAM h-02', color: '#38bdf8', max: 100, readout: fmtPct(sim.sample('x', 1).ram), values: barHistory[1].ram.length ? barHistory[1].ram : [50] },
-          { label: 'DISK cluster', color: '#34d399', max: 22000, readout: fmtK(agg.disk), values: barHistory.map(h => h.disk[h.disk.length - 1] || 0).concat(barHistory[0].disk).slice(-24) },
-          { label: 'NET cluster', color: '#f87171', max: 1200, readout: fmtMb(agg.net), values: NODE_NAMES.map((_, i) => sim.sample('x', i).net) },
-        ], tick);
+          { label: 'CPU h-01', unit: '%', color: '#5b8cff', max: 100, format: fmtN, readout: fmtPct(sim.sample('x',0).cpu), values: [...barHistory[0].cpu] },
+          { label: 'CPU h-02', unit: '%', color: '#fbbf24', max: 100, format: fmtN, readout: fmtPct(sim.sample('x',1).cpu), values: [...barHistory[1].cpu] },
+          { label: 'CPU h-03', unit: '%', color: '#34d399', max: 100, format: fmtN, readout: fmtPct(sim.sample('x',2).cpu), values: [...barHistory[2].cpu] },
+          { label: 'RAM h-01', unit: '%', color: '#38bdf8', max: 100, format: fmtN, readout: fmtPct(sim.sample('x',0).ram), values: [...barHistory[0].ram] },
+          { label: 'RAM h-02', unit: '%', color: '#38bdf8', max: 100, format: fmtN, readout: fmtPct(sim.sample('x',1).ram), values: [...barHistory[1].ram] },
+          { label: 'RAM h-03', unit: '%', color: '#38bdf8', max: 100, format: fmtN, readout: fmtPct(sim.sample('x',2).ram), values: [...barHistory[2].ram] },
+          { label: 'DSK h-01', unit: 'IOPS', color: '#34d399', max: 22000, format: fmtK, readout: fmtK(sim.sample('x',0).disk), values: [...barHistory[0].disk] },
+          { label: 'DSK h-02', unit: 'IOPS', color: '#34d399', max: 22000, format: fmtK, readout: fmtK(sim.sample('x',1).disk), values: [...barHistory[1].disk] },
+          { label: 'NET h-01', unit: 'Mb/s', color: '#f87171', max: 1200, format: v => Math.round(v)+'', readout: fmtMb(sim.sample('x',0).net), values: [...barHistory[0].net] },
+          { label: 'NET h-02', unit: 'Mb/s', color: '#f87171', max: 1200, format: v => Math.round(v)+'', readout: fmtMb(sim.sample('x',1).net), values: [...barHistory[1].net] },
+          { label: 'NET cluster', unit: 'Mb/s', color: '#fbbf24', max: 1200, format: v => Math.round(v)+'', readout: fmtMb(agg.net), values: [...clusterHist.net] },
+        ], tick, { title: 'ROLLING HISTORY · 48 SAMPLES · HEAT BARS' });
 
         document.querySelector('#metric-table tbody').innerHTML = NODE_NAMES.map((name, i) => {
           const s = sim.sample('tbl', i);
+          const avg = barHistory[i].cpu.length ? barHistory[i].cpu.reduce((a,b)=>a+b,0)/barHistory[i].cpu.length : s.cpu;
+          const delta = s.cpu - avg;
           const hot = s.cpu > 60 || s.event;
-          return `<tr class="${hot ? 'hot' : ''}">
-            <td>${name}</td>
-            <td><b>${fmtPct(s.cpu)}</b></td>
-            <td><b>${fmtPct(s.ram)}</b></td>
-            <td><b>${fmtK(s.disk)}</b></td>
-            <td><b>${fmtMb(s.net)}</b></td>
-            <td>${s.event || '—'}</td>
-            <td>${s.cpu > 65 ? '▲ HOT' : s.event ? '◆ ACTIVE' : '● OK'}</td>
-          </tr>`;
+          return `<tr class="${hot?'hot':''}"><td>${name}</td><td><b>${fmtPct(s.cpu)}</b></td><td><b>${fmtPct(s.ram)}</b></td><td><b>${fmtK(s.disk)}</b></td><td><b>${fmtMb(s.net)}</b></td><td>${delta>=0?'▲':'▼'}${Math.abs(delta).toFixed(1)}</td><td>${s.event||'—'}</td><td>${s.cpu>65?'HOT':s.event?'ACT':'OK'}</td></tr>`;
         }).join('');
       },
     });
