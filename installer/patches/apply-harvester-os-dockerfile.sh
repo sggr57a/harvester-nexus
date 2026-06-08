@@ -14,8 +14,8 @@ awk -v mark="${mark}" '
     print ""
     print "# " mark
     print "RUN if [ -f /usr/local/share/nexus-cockpit/dist.tar.gz ]; then \\"
-    print "      mkdir -p /usr/local/share/nexus-cockpit/dist \\&\\& \\"
-    print "      tar -xzf /usr/local/share/nexus-cockpit/dist.tar.gz -C /usr/local/share/nexus-cockpit/dist \\&\\& \\"
+    print "      mkdir -p /usr/local/share/nexus-cockpit/dist && \\"
+    print "      tar -xzf /usr/local/share/nexus-cockpit/dist.tar.gz -C /usr/local/share/nexus-cockpit/dist && \\"
     print "      rm -f /usr/local/share/nexus-cockpit/dist.tar.gz; \\"
     print "    fi"
     next
