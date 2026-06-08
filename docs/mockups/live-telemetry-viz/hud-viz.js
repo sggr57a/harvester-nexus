@@ -1012,6 +1012,327 @@ function drawBarMatrix(canvas, rows, tick, opts = {}) {
   });
 }
 
+/** Perspective wireframe hologram terrain — stock HUD kit style (original canvas) */
+function drawHologramLandscape(canvas, nodes, sim, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const cx = w * 0.5;
+  const horizon = h * 0.38;
+  const gridCols = opts.cols ?? 28;
+  const gridRows = opts.rows ?? 22;
+  const accent = opts.accent ?? '#38bdf8';
+  const accent2 = opts.accent2 ?? '#5b8cff';
+  const { r: ar, g: ag, b: ab } = hexToRgb(accent);
+  const activity = opts.activity ?? 0.35;
+  const samples = nodes.map((_, i) => sim.sample('holo', i));
+
+  // projection: world (x,z) → screen; y = height
+  function project(x, z, y) {
+    const depth = z / gridRows;
+    const persp = 0.55 + depth * 0.85;
+    const sx = cx + (x - gridCols / 2) * (w / gridCols) * 0.92 * persp;
+    const sy = horizon + z * (h * 0.52 / gridRows) * persp - y * persp * 1.8;
+    return { x: sx, y: sy, depth, persp };
+  }
+
+  function heightAt(x, z) {
+    const nx = x / gridCols;
+    const nz = z / gridRows;
+    let y =
+      Math.sin(nx * 4.2 + tick * 0.025) * 8 +
+      Math.cos(nz * 3.8 - tick * 0.018) * 7 +
+      Math.sin((nx + nz) * 5 + tick * 0.012) * 5;
+
+    nodes.forEach((n, i) => {
+      const dx = x - n.gx;
+      const dz = z - n.gz;
+      const dist2 = dx * dx + dz * dz;
+      const s = samples[i];
+      const peak = (s.cpu / 100) * 42 + (s.eventStrength ?? 0) * 28;
+      y += Math.exp(-dist2 / (opts.spread ?? 18)) * peak;
+    });
+    return y * (0.85 + activity * 0.35);
+  }
+
+  // sky glow + horizon line
+  const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, `rgba(${ar},${ag},${ab},0.08)`);
+  sky.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, horizon);
+  ctx.strokeStyle = `rgba(${ar},${ag},${ab},0.35)`;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = accent;
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(0, horizon);
+  ctx.lineTo(w, horizon);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  drawHudBrackets(ctx, w, h, 10, `rgba(${ar},${ag},${ab},0.5)`);
+
+  // build mesh points
+  const mesh = [];
+  for (let z = 0; z <= gridRows; z++) {
+    mesh[z] = [];
+    for (let x = 0; x <= gridCols; x++) {
+      const y = heightAt(x, z);
+      mesh[z][x] = project(x, z, y);
+    }
+  }
+
+  // floor grid lines (longitudinal)
+  for (let x = 0; x <= gridCols; x += 2) {
+    ctx.beginPath();
+    for (let z = 0; z <= gridRows; z++) {
+      const p = mesh[z][x];
+      if (z === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    const edge = mesh[gridRows][x];
+    ctx.strokeStyle = `rgba(${ar},${ag},${ab},${0.06 + edge.depth * 0.14})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // latitudinal lines
+  for (let z = 0; z <= gridRows; z++) {
+    ctx.beginPath();
+    for (let x = 0; x <= gridCols; x++) {
+      const p = mesh[z][x];
+      if (x === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    const alpha = 0.08 + (z / gridRows) * 0.22;
+    ctx.strokeStyle = `rgba(${ar},${ag},${ab},${alpha})`;
+    ctx.lineWidth = z % 4 === 0 ? 1.5 : 1;
+    ctx.stroke();
+  }
+
+  // filled terrain glow under peaks
+  for (let z = 1; z < gridRows; z++) {
+    for (let x = 1; x < gridCols; x++) {
+      const y = heightAt(x, z);
+      if (y > 14) {
+        const p = mesh[z][x];
+        const hot = y > 28;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3 + y * 0.08, 0, Math.PI * 2);
+        ctx.fillStyle = hot
+          ? `rgba(251,191,36,${0.08 + y / 120})`
+          : `rgba(${ar},${ag},${ab},${0.04 + y / 100})`;
+        ctx.fill();
+      }
+    }
+  }
+
+  // node beacon pillars + labels
+  nodes.forEach((n, i) => {
+    const s = samples[i];
+    const base = mesh[n.gz][n.gx];
+    const top = project(n.gx, n.gz, heightAt(n.gx, n.gz) + 8);
+    const hot = s.cpu > 55 || s.event;
+
+    // vertical beam
+    ctx.beginPath();
+    ctx.moveTo(base.x, base.y);
+    ctx.lineTo(top.x, top.y - 20);
+    ctx.strokeStyle = hot ? 'rgba(251,191,36,0.75)' : `rgba(${ar},${ag},${ab},0.65)`;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = hot ? '#fbbf24' : accent;
+    ctx.shadowBlur = hot ? 18 : 10;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // rings at peak
+    for (let ri = 1; ri <= 3; ri++) {
+      ctx.beginPath();
+      ctx.ellipse(top.x, top.y - 18 - ri * 6, 8 + ri * 5, 3 + ri, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${ar},${ag},${ab},${0.35 - ri * 0.08})`;
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(top.x, top.y - 22, 6 + s.cpu * 0.06, 0, Math.PI * 2);
+    ctx.fillStyle = hot ? 'rgba(251,191,36,0.95)' : `rgba(${ar},${ag},${ab},0.9)`;
+    ctx.shadowColor = hot ? '#fbbf24' : accent;
+    ctx.shadowBlur = 16;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.font = 'bold 18px Inter, sans-serif';
+    ctx.fillStyle = '#e8eef8';
+    ctx.textAlign = 'center';
+    ctx.fillText(n.name, top.x, top.y - 36);
+    ctx.font = '14px Inter, sans-serif';
+    ctx.fillStyle = accent;
+    ctx.fillText(`${fmtPct(s.cpu)} · ${fmtMb(s.net)}`, top.x, top.y - 18);
+    if (s.event) {
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('▲ ' + s.event.slice(0, 20), top.x, top.y - 2);
+    }
+
+    // connector to side HUD (decorative)
+    const side = i % 2 === 0 ? 24 : w - 24;
+    ctx.setLineDash([4, 8]);
+    ctx.lineDashOffset = -tick * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y - 28);
+    ctx.lineTo(side, top.y - 40 - i * 12);
+    ctx.strokeStyle = `rgba(${ar},${ag},${ab},0.2)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // horizontal scan sweep across terrain
+  const scanZ = Math.floor(((tick * 0.045) % 1) * gridRows);
+  ctx.beginPath();
+  for (let x = 0; x <= gridCols; x++) {
+    const p = mesh[scanZ][x];
+    if (x === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.strokeStyle = `rgba(255,255,255,${0.35 + activity * 0.25})`;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#fff';
+  ctx.shadowBlur = 14;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // title readout
+  ctx.font = '600 20px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(139,155,184,0.65)';
+  ctx.textAlign = 'left';
+  ctx.fillText(opts.title || 'VIRTUAL HOLOGRAM · CLUSTER TOPOLOGY', 16, 28);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = accent;
+  ctx.fillText(`ACTIVITY ${Math.round(activity * 100)}%`, w - 16, 28);
+}
+
+/** Wave / vibration oscilloscope strip — HUD kit element */
+function drawWaveVibration(canvas, series, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const color = opts.color ?? '#38bdf8';
+  const { r, g, b } = hexToRgb(color);
+  const pad = { l: 8, r: 8, t: 22, b: 8 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = h - pad.t - pad.b;
+  const midY = pad.t + plotH / 2;
+
+  drawHudBrackets(ctx, w, h, 6, `rgba(${r},${g},${b},0.35)`);
+
+  ctx.font = '600 16px Inter, sans-serif';
+  ctx.fillStyle = '#8b9bb8';
+  ctx.textAlign = 'left';
+  ctx.fillText(opts.title || 'VIBRATION', pad.l, 16);
+
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.15)`;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, midY);
+  ctx.lineTo(w - pad.r, midY);
+  ctx.stroke();
+
+  const len = series.length;
+  if (len < 2) return;
+  const maxV = opts.max ?? 100;
+
+  // mirrored waveform fill
+  ctx.beginPath();
+  series.forEach((v, i) => {
+    const x = pad.l + (i / (len - 1)) * plotW;
+    const amp = (v / maxV) * plotH * 0.42;
+    if (i === 0) ctx.moveTo(x, midY);
+    else ctx.lineTo(x, midY - amp);
+  });
+  for (let i = len - 1; i >= 0; i--) {
+    const x = pad.l + (i / (len - 1)) * plotW;
+    const amp = (series[i] / maxV) * plotH * 0.42;
+    ctx.lineTo(x, midY + amp * 0.65);
+  }
+  ctx.closePath();
+  ctx.fillStyle = `rgba(${r},${g},${b},0.18)`;
+  ctx.fill();
+
+  ctx.beginPath();
+  series.forEach((v, i) => {
+    const x = pad.l + (i / (len - 1)) * plotW;
+    const amp = (v / maxV) * plotH * 0.42;
+    if (i === 0) ctx.moveTo(x, midY - amp);
+    else ctx.lineTo(x, midY - amp);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // amplitude bars along bottom
+  const bars = Math.min(len, 32);
+  const slice = series.slice(-bars);
+  const bw = plotW / bars;
+  slice.forEach((v, i) => {
+    const bh = (v / maxV) * 10;
+    ctx.fillStyle = heatColor(v, maxV, color);
+    ctx.fillRect(pad.l + i * bw, h - pad.b - bh, Math.max(1, bw - 1), bh);
+  });
+
+  const scanX = pad.l + ((tick * 0.05) % 1) * plotW;
+  ctx.fillStyle = `rgba(${r},${g},${b},0.15)`;
+  ctx.fillRect(scanX - 12, pad.t, 24, plotH);
+}
+
+/** Vertical level indicator column — HUD kit element */
+function drawLevelIndicator(canvas, value, max, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const color = opts.color ?? '#38bdf8';
+  const { r, g, b } = hexToRgb(color);
+  const pct = clamp(value / max, 0, 1);
+  const segments = opts.segments ?? 24;
+  const segH = (h - 40) / segments;
+  const bx = w / 2 - 14;
+  const by = 28;
+
+  drawHudBrackets(ctx, w, h, 6, `rgba(${r},${g},${b},0.35)`);
+
+  ctx.font = '600 14px Inter, sans-serif';
+  ctx.fillStyle = '#8b9bb8';
+  ctx.textAlign = 'center';
+  ctx.fillText(opts.label || 'LEVEL', w / 2, 18);
+
+  for (let i = 0; i < segments; i++) {
+    const filled = i / segments < pct;
+    const pulse = filled && i >= segments - 3 ? 1 + Math.sin(tick / 5 + i) * 0.15 : 1;
+    const y = by + (segments - 1 - i) * segH;
+    ctx.fillStyle = filled
+      ? `rgba(${r},${g},${b},${0.45 + (i / segments) * 0.5})`
+      : 'rgba(255,255,255,0.05)';
+    ctx.fillRect(bx, y, 28, segH - 2);
+    if (filled) {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(bx, y, 28 * pulse, 2);
+    }
+  }
+
+  ctx.font = 'bold 18px Inter, sans-serif';
+  ctx.fillStyle = color;
+  ctx.fillText(opts.format ? opts.format(value) : value.toFixed(0), w / 2, h - 8);
+}
+
 /** Wireframe globe with node pins for environment spatial */
 function drawWireframeGlobe(canvas, nodes, sim, tick) {
   const ctx = canvas.getContext('2d');
@@ -1179,8 +1500,9 @@ function initHudDashboard(sim, config) {
 
   function frame() {
     tick += 1;
-    sim.advance();
+    sim.advance(2);
     const agg = sim.clusterAggregate();
+    const activity = Math.min(1, (agg.cpu / 80 + agg.net / 900 + agg.disk / 15000) / 2);
 
     (config.gauges || []).forEach(g => {
       const v = getVal(g.metric, g.node);
@@ -1274,10 +1596,31 @@ function initHudDashboard(sim, config) {
         readout: row.readout(sim),
         values: row.nodes.map(i => sim.sample('bar', i)[row.field]),
       }));
-      drawBarMatrix(bm.el, rows, tick);
+      drawBarMatrix(bm.el, rows, tick, bm.opts || {});
     });
 
-    if (config.onTick) config.onTick(tick, agg, sim);
+    (config.hologramLandscapes || []).forEach(hl => {
+      drawHologramLandscape(hl.el, hl.nodes, sim, tick, { ...hl.opts, activity });
+    });
+
+    (config.waveVibrations || []).forEach(wv => {
+      const key = wv.key;
+      if (!series[key]) series[key] = [];
+      const v = getVal(wv.metric, wv.node);
+      pushSeries(series[key], v, wv.len ?? 64);
+      drawWaveVibration(wv.el, series[key], tick, { ...wv.opts, max: wv.max ?? 100 });
+    });
+
+    (config.levelIndicators || []).forEach(li => {
+      drawLevelIndicator(li.el, getVal(li.metric, li.node), li.max ?? 100, tick, {
+        label: li.label,
+        color: li.color,
+        format: li.format,
+        segments: li.segments,
+      });
+    });
+
+    if (config.onTick) config.onTick(tick, agg, sim, activity);
     requestAnimationFrame(frame);
   }
   frame();

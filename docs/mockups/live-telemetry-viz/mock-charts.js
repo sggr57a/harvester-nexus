@@ -9,11 +9,12 @@ function fmtMb(v) { return Math.round(v) + ' Mb/s'; }
 function createClusterSim(nodes) {
   let t = 0;
   const events = [
-    { name: 'vm-db-01 migration', node: 1, cpu: 0.9, ram: 0.7, disk: 0.85, net: 0.75, duration: 180 },
-    { name: 'Longhorn replica sync', node: 0, cpu: 0.35, ram: 0.4, disk: 0.95, net: 0.55, duration: 120 },
-    { name: 'Ingress burst · api-gw', node: 2, cpu: 0.55, ram: 0.3, disk: 0.2, net: 0.92, duration: 90 },
-    { name: 'Kubelet image pull', node: 0, cpu: 0.45, ram: 0.25, disk: 0.6, net: 0.8, duration: 70 },
-    { name: 'VM snapshot · vm-web', node: 2, cpu: 0.5, ram: 0.55, disk: 0.88, net: 0.15, duration: 100 },
+    { name: 'vm-db-01 migration', node: 1, cpu: 0.95, ram: 0.85, disk: 0.92, net: 0.88, duration: 90 },
+    { name: 'Longhorn replica sync', node: 0, cpu: 0.55, ram: 0.5, disk: 0.98, net: 0.72, duration: 70 },
+    { name: 'Ingress burst · api-gw', node: 2, cpu: 0.75, ram: 0.45, disk: 0.35, net: 0.96, duration: 55 },
+    { name: 'Kubelet image pull', node: 0, cpu: 0.6, ram: 0.4, disk: 0.78, net: 0.9, duration: 45 },
+    { name: 'VM snapshot · vm-web', node: 2, cpu: 0.65, ram: 0.7, disk: 0.92, net: 0.25, duration: 60 },
+    { name: 'PVC resize · data-vol', node: 1, cpu: 0.4, ram: 0.35, disk: 0.88, net: 0.4, duration: 50 },
   ];
   let eventIdx = 0;
   let current = null;
@@ -26,11 +27,12 @@ function createClusterSim(nodes) {
   pickEvent();
 
   function nodeSample(nodeIdx) {
+    const micro = Math.sin(t / 2.1 + nodeIdx * 1.7) * 4 + Math.sin(t / 0.9 + nodeIdx) * 2;
     const idle = {
-      cpu: 18 + Math.sin(t / 11 + nodeIdx) * 6 + Math.sin(t / 3.7 + nodeIdx * 2) * 3,
-      ram: 52 + Math.sin(t / 17 + nodeIdx * 1.3) * 8,
-      disk: 800 + Math.sin(t / 5.2 + nodeIdx) * 400 + Math.random() * 200,
-      net: 120 + Math.sin(t / 4.1 + nodeIdx) * 60 + Math.random() * 40,
+      cpu: 22 + Math.sin(t / 5 + nodeIdx) * 12 + Math.sin(t / 1.8 + nodeIdx * 2) * 8 + micro,
+      ram: 54 + Math.sin(t / 8 + nodeIdx * 1.3) * 14 + Math.random() * 3,
+      disk: 1200 + Math.sin(t / 3.2 + nodeIdx) * 900 + Math.sin(t / 1.4) * 600 + Math.random() * 400,
+      net: 180 + Math.sin(t / 2.8 + nodeIdx) * 120 + Math.sin(t / 1.1 + nodeIdx * 3) * 80 + Math.random() * 60,
     };
 
     if (!current) return { ...idle, event: null, eventStrength: 0 };
@@ -41,20 +43,22 @@ function createClusterSim(nodes) {
     const burst = ramp * spill;
 
     return {
-      cpu: clamp(idle.cpu + burst * current.cpu * 55 + (Math.random() - 0.5) * 4, 4, 98),
-      ram: clamp(idle.ram + burst * current.ram * 28 + (Math.random() - 0.5) * 3, 20, 96),
-      disk: clamp(idle.disk + burst * current.disk * 14000 + Math.random() * 800, 200, 22000),
-      net: clamp(idle.net + burst * current.net * 900 + Math.random() * 80, 20, 1200),
-      event: onNode && burst > 0.35 ? current.name : null,
-      eventStrength: onNode ? burst : 0,
+      cpu: clamp(idle.cpu + burst * current.cpu * 62 + (Math.random() - 0.5) * 10, 4, 99),
+      ram: clamp(idle.ram + burst * current.ram * 32 + (Math.random() - 0.5) * 6, 20, 98),
+      disk: clamp(idle.disk + burst * current.disk * 16000 + Math.random() * 1200, 200, 24000),
+      net: clamp(idle.net + burst * current.net * 1000 + Math.random() * 120, 20, 1400),
+      event: onNode && burst > 0.28 ? current.name : null,
+      eventStrength: onNode ? burst : spill * 0.35,
     };
   }
 
-  function advance() {
-    t += 1;
-    if (current) {
-      current.tick += 1;
-      if (current.tick > current.duration) pickEvent();
+  function advance(steps = 1) {
+    for (let s = 0; s < steps; s++) {
+      t += 1;
+      if (current) {
+        current.tick += 1;
+        if (current.tick > current.duration) pickEvent();
+      }
     }
     cache.nodes = Array.from({ length: nodes }, (_, i) => nodeSample(i));
     let cpu = 0, ram = 0, disk = 0, net = 0;

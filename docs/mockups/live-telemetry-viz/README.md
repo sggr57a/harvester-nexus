@@ -35,16 +35,17 @@ node capture-artifacts.cjs
 
 ## Design intent
 
-Visual language inspired by [animated business infographics](https://www.shutterstock.com/shutterstock/videos/3793037467/preview/stock-footage-dynamic-data-visuals-for-business-info-graphics-animated-charts-and-data-driven-insights-for-a.mp4) and [futuristic digital interface](https://www.shutterstock.com/shutterstock/videos/26128421/preview/stock-footage-futuristic-digital-interface-screen.mp4) — **recreated in canvas** (no stock assets embedded).
+Visual language inspired by [futuristic HUD infographic kits](https://www.shutterstock.com/shutterstock/photos/737087332/display_1500/stock-vector-vector-futuristic-interface-hud-design-set-infographic-elements-virtual-hologram-landscape-737087332.jpg) — **recreated in original canvas** (no stock assets, no watermarks).
 
 ### HUD visualization kit (`hud-viz.js`)
 
-**Gauges:** radial ring KPIs + linear horizontal bars
+**Hero:** virtual hologram wireframe landscape (perspective terrain mesh, node beacons, scan sweep)
 
-**Animated infographic charts** (no ring oscilloscopes):
+**Gauges:** radial ring KPIs · linear bars · vertical level indicators · wave/vibration strips
+
+**Animated infographic charts:**
 - Stacked area · multi-line · column · donut · bar matrix
-- Sparkline grid (12+ cells) · meter bank (12+ rows)
-- Live metric table with per-node status
+- Sparkline grid (12+ cells) · meter bank · live metric table
 
 **Spatial:** radar scope, hex topology, wireframe globe
 
