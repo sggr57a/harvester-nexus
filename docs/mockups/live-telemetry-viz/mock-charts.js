@@ -2,7 +2,6 @@
 function lerp(a, b, t) { return a + (b - a) * t; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function fmtPct(v) { return v.toFixed(1) + '%'; }
-function fmtK(v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : Math.round(v).toString(); }
 function fmtMb(v) { return Math.round(v) + ' Mb/s'; }
 
 /** Simulates correlated cluster bursts (migration, backup, scrape storm, idle). */
