@@ -37,10 +37,12 @@ node capture-artifacts.cjs
 
 Inspired by [Netdata](https://www.netdata.cloud/) patterns:
 
-- Per-second feel with sweep cursor and anomaly ribbon
-- Multi-dimension legend (min/avg/max/now) on stacked scopes
-- Dense sparkline strips for CPU/RAM/disk/network
-- Nexus HUD: isometric 3D node pillars, dark glass panels, grid drift
+- **Live activity simulator** — correlated bursts (VM migration, Longhorn sync, ingress spikes) drive all widgets together
+- Per-second scrolling oscilloscope scopes with min/max envelopes and sweep cursor
+- Dense sparkline strips for CPU/RAM/disk/network with live readouts
+- **Spatial map** — thermal heat blooms, animated inter-node traffic particles, live pin metrics
+- **3D terrain** — pillars grow/shrink with CPU; event HUD shows active cluster operation
+- **Rolling heatmap** — new column every ~8 frames; hot cells pulse on burst nodes
 
 **Live data mapping (when built):**
 
