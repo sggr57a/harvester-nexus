@@ -23,7 +23,6 @@ export function useEnvironmentTelemetry(intervalMs: number = DEFAULT_INTERVAL_MS
   const [requestedMode, setRequestedModeState] = useState<TelemetryMode>(() => readStoredTelemetryMode());
   const [liveAvailable, setLiveAvailable] = useState(false);
   const [clusterReady, setClusterReady] = useState(false);
-  const [monitoringEnabled, setMonitoringEnabled] = useState(false);
   const [message, setMessage] = useState<string | undefined>();
   const [snapshot, setSnapshot] = useState<EnvironmentSnapshot>(() => nextSnapshot());
   const demoSnapshotRef = useRef<EnvironmentSnapshot>(nextSnapshot());
@@ -40,7 +39,6 @@ export function useEnvironmentTelemetry(intervalMs: number = DEFAULT_INTERVAL_MS
     const available = health?.live === true;
     setLiveAvailable(available);
     setClusterReady(health?.clusterReady === true);
-    setMonitoringEnabled(health?.monitoringEnabled === true);
     setMessage(health?.message);
     return available;
   }, []);
@@ -55,7 +53,6 @@ export function useEnvironmentTelemetry(intervalMs: number = DEFAULT_INTERVAL_MS
     const next = payloadToEnvironmentSnapshot(payload, liveSnapshotRef.current);
     liveSnapshotRef.current = next;
     setClusterReady(payload.clusterReady);
-    setMonitoringEnabled(payload.monitoringEnabled);
     setSnapshot(next);
     setLiveAvailable(true);
     setMessage(undefined);
