@@ -569,7 +569,7 @@ docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
 | Docker build fails with `overlay … invalid argument` | Nested / cloud VM without working overlayfs | Build the ISO on bare-metal Ubuntu 24.10+; use `make simulate` instead |
 | `make iso` runs out of disk | ISO build needs ~25 GB | Free space under `/var/lib/docker` and the repo checkout |
 | QEMU `-enable-kvm` error | KVM not available | Run `kvm-ok`; enable virtualization in firmware; or drop `-enable-kvm` (much slower) |
-| Cockpit unreachable after install | Wrong URL (Harvester `:443` vs Nexus `:8443`) or `nexus-cockpit.service` failed | Open `https://<node-ip>:8443` or `http://<node-ip>:8080`. On the node: `systemctl status nexus-cockpit`, `journalctl -u nexus-cockpit -b`, `ls /usr/local/share/nexus-cockpit/dist/index.html` |
+| Cockpit unreachable after install | Wrong URL (Harvester `:443` vs Nexus `:8443`), service not running, missing bundle, or firewall | Use the **node management IP** (not the cluster VIP). Try `https://<node-ip>:8443` then `http://<node-ip>:8080`. On the node: `sudo nexus-cockpit --status`, `systemctl status nexus-cockpit`, `journalctl -u nexus-cockpit -b`, `curl -sk https://127.0.0.1:8443/healthz`. If `index.html` is missing, rebuild + reinstall from the current branch |
 | Login rejected | Wrong credentials | Production default is `admin` / `admin`; dev server also accepts `admin` / `demo` |
 
 For installer internals, manifest layout, and simulator details, see [`installer/README.md`](./installer/README.md).

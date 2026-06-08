@@ -310,6 +310,16 @@ describe('installer · first-boot OEM + host cockpit wiring', () => {
     expect(text).toMatch(/start:/);
   });
 
+  it('opens cockpit ports 8443 and 8080 through the host firewall on install and boot', () => {
+    const oem = join(INSTALLER, 'overlay', 'system', 'oem', '93_nexus-network.yaml');
+    expect(existsSync(oem), `${oem} missing`).toBe(true);
+    const text = readFileSync(oem, 'utf8');
+    expect(text).toMatch(/8443/);
+    expect(text).toMatch(/8080/);
+    expect(text).toMatch(/after-install-chroot/);
+    expect(text).toMatch(/boot:/);
+  });
+
   it('documents host-static cockpit instead of an unpublished container image', () => {
     const manifest = readFileSync(join(INSTALLER, 'manifests', '40-cockpit-service.yaml'), 'utf8');
     expect(manifest).toMatch(/kind:\s*ConfigMap/);
@@ -332,5 +342,21 @@ describe('installer · systemd units have correct After / Wants ordering', () =>
     expect(text).toContain('Type=simple');
     expect(text).toMatch(/ExecStartPre=-\/usr\/local\/bin\/nexus-cockpit --ensure-tls/);
     expect(text).not.toContain('ProtectSystem=strict');
+  });
+});
+
+describe('installer · nexus-cockpit launcher serves HTTPS on 8443', () => {
+  const launcher = readFileSync(join(INSTALLER, 'overlay', 'usr', 'local', 'bin', 'nexus-cockpit'), 'utf8');
+  const servePy = join(INSTALLER, 'overlay', 'usr', 'local', 'lib', 'nexus', 'serve-cockpit.py');
+
+  it('ships a python fallback that listens on both 8443 and 8080', () => {
+    expect(existsSync(servePy), `${servePy} missing`).toBe(true);
+    const text = readFileSync(servePy, 'utf8');
+    expect(text).toMatch(/HTTPS_PORT/);
+    expect(text).toMatch(/0\.0\.0\.0/);
+    expect(text).toMatch(/healthz/);
+    expect(launcher).toMatch(/serve-cockpit\.py/);
+    expect(launcher).toMatch(/--status/);
+    expect(launcher).toMatch(/ensure_bundle/);
   });
 });

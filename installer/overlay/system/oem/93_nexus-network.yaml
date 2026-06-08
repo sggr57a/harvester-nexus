@@ -1,0 +1,29 @@
+name: "Open Nexus cockpit ports on the management interface"
+stages:
+  after-install-chroot:
+    - name: "allow Nexus cockpit ports through host firewall"
+      commands:
+        - |
+          for port in 8443 8080; do
+            if command -v firewall-cmd >/dev/null 2>&1; then
+              firewall-cmd --permanent --add-port=${port}/tcp || true
+            fi
+            if command -v iptables >/dev/null 2>&1; then
+              iptables -C INPUT -p tcp --dport ${port} -j ACCEPT 2>/dev/null \
+                || iptables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
+            fi
+          done
+          if command -v firewall-cmd >/dev/null 2>&1; then
+            firewall-cmd --reload || true
+          fi
+  boot:
+    - name: "re-apply Nexus cockpit firewall rules on installed boot"
+      if: 'grep -q root=LABEL=COS_STATE /proc/cmdline && [ -n "$(blkid -L COS_STATE)" ]'
+      commands:
+        - |
+          for port in 8443 8080; do
+            if command -v iptables >/dev/null 2>&1; then
+              iptables -C INPUT -p tcp --dport ${port} -j ACCEPT 2>/dev/null \
+                || iptables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
+            fi
+          done

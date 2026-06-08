@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # nexus-cockpit — serves the cockpit production bundle from
-# /usr/local/share/nexus-cockpit/dist on each node (nginx, python3, or busybox).
+# /usr/local/share/nexus-cockpit/dist on each node (nginx or python3).
 
 set -euo pipefail
 
@@ -10,11 +10,24 @@ shift || true
 COCKPIT_ROOT=/usr/local/share/nexus-cockpit
 CONFIG_FILE=/etc/nexus/config.yaml
 LOG_DIR=/var/log/nexus
+SERVE_PY=/usr/local/lib/nexus/serve-cockpit.py
 HTTPS_PORT=8443
 HTTP_PORT=8080
 TLS_DIR=/etc/nexus/tls
 TLS_CRT=${TLS_DIR}/cockpit.crt
 TLS_KEY=${TLS_DIR}/cockpit.key
+
+ensure_bundle() {
+  if [[ -f "${COCKPIT_ROOT}/dist/index.html" ]]; then
+    return 0
+  fi
+  if [[ -f "${COCKPIT_ROOT}/dist.tar.gz" ]]; then
+    mkdir -p "${COCKPIT_ROOT}/dist"
+    tar -xzf "${COCKPIT_ROOT}/dist.tar.gz" -C "${COCKPIT_ROOT}/dist"
+    return 0
+  fi
+  return 1
+}
 
 ensure_tls() {
   mkdir -p "${TLS_DIR}"
@@ -22,7 +35,7 @@ ensure_tls() {
     return 0
   fi
   if ! command -v openssl >/dev/null 2>&1; then
-    printf 'openssl not found; serving HTTP only on port %s\n' "${HTTP_PORT}" >&2
+    printf 'openssl not found; HTTPS on %s unavailable\n' "${HTTPS_PORT}" >&2
     return 1
   fi
   openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
@@ -88,15 +101,38 @@ NGX
 NGX
 }
 
-start_busybox_httpd() {
-  local port=$1
-  if ! command -v busybox >/dev/null 2>&1; then
-    return 1
+start_python_server() {
+  ensure_bundle || return 1
+  [[ -x "${SERVE_PY}" ]] || chmod +x "${SERVE_PY}"
+  export NEXUS_COCKPIT_ROOT="${COCKPIT_ROOT}/dist"
+  export NEXUS_COCKPIT_HTTP_PORT="${HTTP_PORT}"
+  export NEXUS_COCKPIT_HTTPS_PORT="${HTTPS_PORT}"
+  export NEXUS_COCKPIT_TLS_CRT="${TLS_CRT}"
+  export NEXUS_COCKPIT_TLS_KEY="${TLS_KEY}"
+  exec python3 "${SERVE_PY}"
+}
+
+print_status() {
+  printf '=== Nexus cockpit status ===\n'
+  printf 'config:      %s\n' "${CONFIG_FILE}"
+  printf 'bundle:      %s/dist/index.html\n' "${COCKPIT_ROOT}"
+  if ensure_bundle; then
+    printf 'bundle OK:   yes (%d files)\n' "$(find "${COCKPIT_ROOT}/dist" -type f | wc -l)"
+  else
+    printf 'bundle OK:   NO — reinstall ISO built from current branch\n'
   fi
-  if ! busybox httpd -h 2>&1 | grep -q httpd; then
-    return 1
+  if systemctl is-active --quiet nexus-cockpit.service 2>/dev/null; then
+    printf 'service:     active\n'
+  else
+    printf 'service:     inactive (run: systemctl start nexus-cockpit)\n'
   fi
-  exec busybox httpd -f -v -p "${port}" -h "${COCKPIT_ROOT}/dist"
+  if curl -sf "http://127.0.0.1:${HTTP_PORT}/healthz" >/dev/null 2>&1; then
+    printf 'http probe:  http://<node-ip>:%s OK\n' "${HTTP_PORT}"
+  elif curl -sfk "https://127.0.0.1:${HTTPS_PORT}/healthz" >/dev/null 2>&1; then
+    printf 'https probe: https://<node-ip>:%s OK\n' "${HTTPS_PORT}"
+  else
+    printf 'local probe: FAILED — see journalctl -u nexus-cockpit -b\n'
+  fi
 }
 
 case "${ACTION}" in
@@ -104,23 +140,30 @@ case "${ACTION}" in
     if ensure_tls; then
       printf 'TLS material ready under %s\n' "${TLS_DIR}"
     else
-      printf 'TLS not configured; cockpit will serve HTTP on port %s\n' "${HTTP_PORT}" >&2
+      printf 'TLS not configured; use http://<node-ip>:%s\n' "${HTTP_PORT}" >&2
     fi
     exit 0
     ;;
 
   --check-config)
+    ensure_bundle || {
+      printf 'cockpit static bundle missing under %s/dist\n' "${COCKPIT_ROOT}" >&2
+      printf 'rebuild + reinstall ISO from cursor/fix-iso-entrypoint-d930\n' >&2
+      exit 1
+    }
     CFG=${1:-${CONFIG_FILE}}
     if [[ ! -f "${CFG}" ]]; then
       printf 'config file not found: %s\n' "${CFG}" >&2
       exit 1
     fi
-    if [[ ! -f "${COCKPIT_ROOT}/dist/index.html" ]]; then
-      printf 'cockpit static bundle missing: %s/dist/index.html\n' "${COCKPIT_ROOT}" >&2
-      exit 1
-    fi
+    ensure_bundle || fail_check
     printf 'config OK: %s\n' "${CFG}"
     printf 'static bundle OK: %s/dist (%d files)\n' "${COCKPIT_ROOT}" "$(find "${COCKPIT_ROOT}/dist" -type f | wc -l)"
+    exit 0
+    ;;
+
+  --status)
+    print_status
     exit 0
     ;;
 
@@ -128,27 +171,38 @@ case "${ACTION}" in
     mkdir -p "${LOG_DIR}" /run
     log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "${LOG_DIR}/cockpit.log"; }
 
+    ensure_bundle || {
+      printf 'cockpit bundle missing — cannot start server\n' >&2
+      exit 1
+    }
+
     HAS_TLS=false
     if ensure_tls; then HAS_TLS=true; fi
 
-    if [[ "${HAS_TLS}" == true ]]; then
-      log "starting cockpit on https://0.0.0.0:${HTTPS_PORT} and http://0.0.0.0:${HTTP_PORT}"
-    else
-      log "starting cockpit on http://0.0.0.0:${HTTP_PORT} (TLS unavailable)"
-    fi
-
     if command -v nginx >/dev/null 2>&1; then
+      if [[ "${HAS_TLS}" == true ]]; then
+        log "starting nginx on https://0.0.0.0:${HTTPS_PORT} and http://0.0.0.0:${HTTP_PORT}"
+      else
+        log "starting nginx on http://0.0.0.0:${HTTP_PORT} (TLS unavailable)"
+      fi
       TMP_CONF=$(mktemp /tmp/nexus-cockpit.XXXXXX.conf)
       write_nginx_config "${TMP_CONF}" "${HAS_TLS}"
       exec nginx -c "${TMP_CONF}" -g 'daemon off;'
     fi
 
-    if command -v python3 >/dev/null 2>&1; then
-      cd "${COCKPIT_ROOT}/dist"
-      exec python3 -m http.server "${HTTP_PORT}" --bind 0.0.0.0
+    if command -v python3 >/dev/null 2>&1 && [[ -f "${SERVE_PY}" ]]; then
+      if [[ "${HAS_TLS}" == true ]]; then
+        log "starting python server on https://0.0.0.0:${HTTPS_PORT} and http://0.0.0.0:${HTTP_PORT}"
+      else
+        log "starting python server on http://0.0.0.0:${HTTP_PORT} (TLS unavailable)"
+      fi
+      start_python_server
     fi
 
-    start_busybox_httpd "${HTTP_PORT}"
+    if command -v busybox >/dev/null 2>&1 && busybox httpd -h 2>&1 | grep -q httpd; then
+      log "starting busybox httpd on http://0.0.0.0:${HTTP_PORT} only"
+      exec busybox httpd -f -v -p "${HTTP_PORT}" -h "${COCKPIT_ROOT}/dist"
+    fi
 
     printf 'no nginx, python3, or busybox httpd available; cannot serve cockpit\n' >&2
     exit 1
@@ -161,8 +215,13 @@ nexus-cockpit — Harvester-Nexus cockpit launcher
 Usage:
   nexus-cockpit --check-config [<path>]
   nexus-cockpit --ensure-tls
+  nexus-cockpit --status
   nexus-cockpit --serve [--config <path>]
   nexus-cockpit help
+
+URLs after install:
+  https://<node-management-ip>:8443   (preferred)
+  http://<node-management-ip>:8080    (fallback / health)
 USAGE
     ;;
 
@@ -170,4 +229,5 @@ USAGE
     printf 'unknown action: %s (try --help)\n' "${ACTION}" >&2
     exit 2
     ;;
+
 esac
