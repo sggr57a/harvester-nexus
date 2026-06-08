@@ -73,9 +73,10 @@ ARG YQ_SUM_amd64=75d893a0d5940d1019cb7cdc60001d9e876623852c31cfc6267047bc31149fa
 ARG YQ_SUM_arm64=90fa510c50ee8ca75544dbfffed10c88ed59b36834df35916520cddc623d9aaa
 ENV YQ_SUM="YQ_SUM_${ARCH}"
 RUN curl -sfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" \
-      -o /usr/bin/yq && \
-    echo "${!YQ_SUM}  /usr/bin/yq" | sha256sum -c - && \
-    chmod +x /usr/bin/yq
+      -o /usr/local/bin/yq && \
+    echo "${!YQ_SUM}  /usr/local/bin/yq" | sha256sum -c - && \
+    chmod +x /usr/local/bin/yq && \
+    ln -sf /usr/local/bin/yq /usr/bin/yq
 
 # Helm (required by harvester-installer scripts/ci → build-bundle)
 ARG HELM_VERSION=v3.20.0

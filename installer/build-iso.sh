@@ -39,6 +39,26 @@ fail() { printf '[%s] [build-iso] FATAL %s\n' "$(date -Iseconds)" "$*" >&2; exit
 # copied from rancher/harvester-os embeds moby client API 1.42. Docker 29+ daemons
 # require >= 1.44 — force negotiation before any harvester-installer scripts run.
 export DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
+
+YQ_VERSION=${YQ_VERSION:-v4.52.5}
+
+ensure_toolchain() {
+  if ! command -v yq >/dev/null 2>&1; then
+    log "yq not found — installing to /usr/local/bin (rebuild iso-builder to bake this in)"
+    local arch=${ARCH:-amd64}
+    curl -sfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${arch}" \
+      -o /usr/local/bin/yq
+    chmod +x /usr/local/bin/yq
+  fi
+  local tool
+  for tool in yq helm docker go git; do
+    command -v "${tool}" >/dev/null || fail "${tool} missing from iso-builder PATH — run: cd installer && make iso-builder"
+  done
+  log "toolchain OK · $(yq --version 2>&1 | head -1)"
+}
+
+ensure_toolchain
 
 log "harvester-nexus iso builder · version=${VERSION}"
 log "REPO_ROOT=${REPO_ROOT}"

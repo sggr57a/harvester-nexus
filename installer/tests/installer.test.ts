@@ -247,6 +247,7 @@ describe('installer · Dockerfile uses a shell-capable ISO builder base', () => 
     expect(dockerfile).toMatch(/DOCKER_CLI_VERSION=/);
     expect(dockerfile).toMatch(/tar xzf "docker-\$\{DOCKER_CLI_VERSION\}\.tgz" docker\/docker/);
     expect(dockerfile).toMatch(/mv docker\/docker \/usr\/local\/bin\/docker/);
+    expect(dockerfile).toMatch(/\/usr\/local\/bin\/yq/);
   });
 
   it('sets DOCKER_API_VERSION for elemental embedded moby client (API 1.42)', () => {
@@ -290,6 +291,11 @@ describe('installer · build-iso.sh artifact staging', () => {
     expect(text).toMatch(/HARVESTER_NEXUS_COCKPIT_DIST_EXTRACT/);
     expect(text).not.toMatch(/\\&\\&/);
     expect(text).toMatch(/mkdir -p \/usr\/local\/share\/nexus-cockpit\/dist &&/);
+  });
+
+  it('bootstraps yq in build-iso.sh when iso-builder image is stale', () => {
+    expect(script).toMatch(/ensure_toolchain/);
+    expect(script).toMatch(/yq_linux_\$\{arch\}/);
   });
 });
 

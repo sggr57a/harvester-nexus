@@ -34,6 +34,9 @@ simulate: overlay
 iso-builder:
 	@echo ">> building iso-builder image $(ISO_BUILDER_IMG)"
 	@docker build -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
+	@echo ">> verifying iso-builder toolchain"
+	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
+	  'export PATH=/usr/local/bin:/usr/bin:/bin; yq --version && helm version --short && docker --version'
 
 .PHONY: iso
 iso: iso-builder
