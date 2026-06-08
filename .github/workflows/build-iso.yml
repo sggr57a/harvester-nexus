@@ -1,0 +1,194 @@
+name: Build install ISO
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-iso-main
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DOCKER_BUILDKIT: '0'
+  DOCKER_API_VERSION: '1.44'
+
+jobs:
+  validate:
+    name: Validate cockpit + installer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Stage installer overlay
+        run: |
+          cd installer
+          make overlay
+
+      - name: Run install simulator
+        run: |
+          cd installer
+          make simulate
+
+  build-iso:
+    name: Build bootable ISO
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Maximize disk space
+        uses: easimon/maximize-build-space@v10
+        with:
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+          remove-codeql: true
+          overprovision-lvm: true
+
+      - name: Resolve ISO version
+        id: version
+        run: |
+          VERSION=$(bash installer/ci-version.sh)
+          echo "nexus_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "ISO version: ${VERSION}"
+
+      - name: Build iso-builder image
+        run: |
+          cd installer
+          make iso-builder
+
+      - name: Build ISO
+        env:
+          BUILD_VERSION: ${{ steps.version.outputs.nexus_version }}
+        run: |
+          cd installer
+          make iso BUILD_VERSION="${BUILD_VERSION}"
+
+      - name: List artifacts
+        run: |
+          ls -lh dist/
+          sha256sum dist/*.iso | tee dist/BUILD-MANIFEST.txt
+          echo "commit=${{ github.sha }}" >> dist/BUILD-MANIFEST.txt
+          echo "run=${{ github.run_number }}" >> dist/BUILD-MANIFEST.txt
+          echo "version=${{ steps.version.outputs.nexus_version }}" >> dist/BUILD-MANIFEST.txt
+
+      - name: Compress ISO (GitHub release assets are limited to 2 GiB)
+        id: compress
+        run: |
+          ISO=$(ls dist/harvester-nexus-*.iso | head -1)
+          SIZE=$(stat -c%s "$ISO")
+          echo "iso_path=${ISO}" >> "$GITHUB_OUTPUT"
+          echo "iso_size=${SIZE}" >> "$GITHUB_OUTPUT"
+          LIMIT=$((2 * 1024 * 1024 * 1024 - 64 * 1024 * 1024))
+          if [ "$SIZE" -gt "$LIMIT" ]; then
+            echo "needs_compress=true" >> "$GITHUB_OUTPUT"
+            zstd -T0 -19 -f "$ISO" -o "${ISO}.zst"
+            sha256sum "${ISO}.zst" > "${ISO}.zst.sha256"
+          else
+            echo "needs_compress=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare release assets
+        id: assets
+        run: |
+          mkdir -p release-assets
+          cp dist/BUILD-MANIFEST.txt release-assets/
+          cp dist/*.iso.sha256 release-assets/
+          ISO=$(ls dist/harvester-nexus-*.iso | head -1)
+          ISO_BASENAME=$(basename "$ISO")
+          echo "iso_basename=${ISO_BASENAME}" >> "$GITHUB_OUTPUT"
+          if [ "${{ steps.compress.outputs.needs_compress }}" = "true" ]; then
+            ZST_BASENAME="${ISO_BASENAME}.zst"
+            cp "${ISO}.zst" "release-assets/${ZST_BASENAME}"
+            cp "${ISO}.zst.sha256" "release-assets/${ZST_BASENAME}.sha256"
+            echo "download_name=${ZST_BASENAME}" >> "$GITHUB_OUTPUT"
+            echo "download_kind=zst" >> "$GITHUB_OUTPUT"
+          else
+            cp "$ISO" release-assets/
+            echo "download_name=${ISO_BASENAME}" >> "$GITHUB_OUTPUT"
+            echo "download_kind=iso" >> "$GITHUB_OUTPUT"
+          fi
+          ls -lh release-assets/
+
+      - name: Upload ISO workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: harvester-nexus-iso-${{ steps.version.outputs.nexus_version }}
+          path: release-assets/*
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: iso-main-${{ github.run_number }}
+          name: Main ISO build #${{ github.run_number }} (${{ steps.version.outputs.nexus_version }})
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            Automated ISO build from [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on `main`.
+
+            **Version:** `${{ steps.version.outputs.nexus_version }}`
+
+            ## Download
+
+            File: **`${{ steps.assets.outputs.download_name }}`** (+ matching `.sha256`).
+
+            If the download is `.iso.zst`, decompress before booting: `zstd -d ${{ steps.assets.outputs.download_name }}`
+
+            ## Test in a KVM VM (Ubuntu host)
+
+            ```bash
+            qemu-img create -f qcow2 harvester-nexus.qcow2 200G
+
+            qemu-system-x86_64 \
+              -enable-kvm -m 16384 -smp 8 -cpu host \
+              -drive file=harvester-nexus.qcow2,if=virtio \
+              -cdrom harvester-nexus-*.iso \
+              -boot d \
+              -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::443-:443 \
+              -device virtio-net,netdev=net0
+            ```
+
+            After install: **https://127.0.0.1:8443** (`admin` / `admin`).
+
+            Full guide: [docs/TESTING-ISO-VM.md](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/TESTING-ISO-VM.md)
+          files: release-assets/*
+
+      - name: Point iso-latest at this build
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: iso-latest
+          name: Latest main ISO (build #${{ github.run_number }})
+          prerelease: true
+          body: |
+            Rolling pointer to the most recent successful ISO build from `main`.
+
+            **Version:** `${{ steps.version.outputs.nexus_version }}`
+            **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+
+            For the numbered release with full VM instructions, see **`iso-main-${{ github.run_number }}`**.
+          files: release-assets/*

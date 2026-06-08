@@ -10,12 +10,14 @@
 REPO_ROOT       := $(shell cd .. && pwd)
 INSTALLER_DIR   := $(REPO_ROOT)/installer
 VERSION         := $(shell cat $(INSTALLER_DIR)/VERSION)
+# Override at build time: `make iso BUILD_VERSION=1.0.0+nexus.1.main.42.abc1234`
+BUILD_VERSION   ?= $(VERSION)
 # Docker tags cannot contain '+'; keep the human-readable VERSION for ISO filenames.
 DOCKER_TAG      := $(subst +,-,$(VERSION))
 DIST            := $(REPO_ROOT)/dist
 BUILD_DIR       := $(REPO_ROOT)/build
 ISO_BUILDER_IMG := harvester-nexus-iso-builder:$(DOCKER_TAG)
-ISO_FILE        := $(DIST)/harvester-nexus-$(VERSION).iso
+ISO_FILE        := $(DIST)/harvester-nexus-$(BUILD_VERSION).iso
 
 .PHONY: overlay
 overlay:
@@ -51,7 +53,7 @@ iso: iso-builder
 	  -e BUILD_DIR=/build \
 	  -e HARVESTER_NEXUS_DIST=/build/dist \
 	  -e REPO_ROOT=/src \
-	  -e NEXUS_VERSION=$(VERSION) \
+	  -e NEXUS_VERSION=$(BUILD_VERSION) \
 	  -e DOCKER_API_VERSION=1.44 \
 	  -e DOCKER_BUILDKIT=0 \
 	  $(ISO_BUILDER_IMG) \

@@ -99,6 +99,18 @@ The `make iso` target runs `build-iso.sh` inside the `harvester-nexus-iso-builde
 6. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
 7. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
 
+### Automated ISO on every `main` push (GitHub Actions)
+
+Pushes to **`main`** trigger [`.github/workflows/build-iso.yml`](../.github/workflows/build-iso.yml):
+
+1. **Validate** — `npm test`, stage overlay, run install simulator
+2. **Build ISO** — `make iso-builder` + `make iso` with version `$(installer/VERSION).main.<run>.<sha>`
+3. **Publish** — GitHub Release `iso-main-<run>` (pre-release) + workflow artifact (14-day retention)
+
+Download the latest build from the repo **Releases** tab (look for `Main ISO build #…`) or from the **Actions** run artifacts. If the raw ISO exceeds GitHub’s 2 GiB asset limit, the workflow also uploads a `.iso.zst` — decompress with `zstd -d harvester-nexus-*.iso.zst`.
+
+Manual re-run: **Actions → Build install ISO → Run workflow**.
+
 ### Install + verify (real ISO on bare metal or QEMU)
 
 ```bash

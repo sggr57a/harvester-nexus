@@ -24,3 +24,4 @@ Nexus is a React + TypeScript SPA (Vite) that serves as a front-end demo for a h
 - The `platform/harvester/` directory contains Go source from the upstream Harvester project. It is **not built or run** as part of the frontend demo. Ignore it for frontend development.
 - No ESLint/Prettier is configured; the only lint gate is `tsc --noEmit`.
 - Playwright scripts under `scripts/` (smoke-shot, record-mockups) are optional and require `npx playwright install chromium` before first use.
+- **ISO builds on `main`:** every push to `main` runs `.github/workflows/build-iso.yml` and publishes a pre-release ISO under GitHub Releases (`iso-main-<run>`). See `installer/README.md` for download instructions.
