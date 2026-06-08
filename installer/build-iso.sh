@@ -101,8 +101,8 @@ fi
 
 mkdir -p "${COCKPIT_ROOT}"
 copy_tree "${COCKPIT_STAGING}" "${COCKPIT_ROOT}/dist"
-tar -C "${COCKPIT_STAGING}" -cf - . | zstd -T0 -19 -o "${COCKPIT_ROOT}/dist.tar.zst"
-log "cockpit bundle packed · $(du -h "${COCKPIT_ROOT}/dist.tar.zst" | awk '{print $1}') dist.tar.zst"
+tar -C "${COCKPIT_STAGING}" -czf "${COCKPIT_ROOT}/dist.tar.gz" .
+log "cockpit bundle packed · $(du -h "${COCKPIT_ROOT}/dist.tar.gz" | awk '{print $1}') dist.tar.gz"
 
 # Bootstrap manifests.
 copy_tree "${INSTALLER_DIR}/manifests" "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/manifests"

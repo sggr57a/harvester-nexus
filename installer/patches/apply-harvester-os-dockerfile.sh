@@ -13,10 +13,10 @@ awk -v mark="${mark}" '
     print
     print ""
     print "# " mark
-    print "RUN if [ -f /usr/local/share/nexus-cockpit/dist.tar.zst ]; then \\"
+    print "RUN if [ -f /usr/local/share/nexus-cockpit/dist.tar.gz ]; then \\"
     print "      mkdir -p /usr/local/share/nexus-cockpit/dist \\&\\& \\"
-    print "      zstd -d -c /usr/local/share/nexus-cockpit/dist.tar.zst | tar -x -C /usr/local/share/nexus-cockpit \\&\\& \\"
-    print "      rm -f /usr/local/share/nexus-cockpit/dist.tar.zst; \\"
+    print "      tar -xzf /usr/local/share/nexus-cockpit/dist.tar.gz -C /usr/local/share/nexus-cockpit/dist \\&\\& \\"
+    print "      rm -f /usr/local/share/nexus-cockpit/dist.tar.gz; \\"
     print "    fi"
     next
   }

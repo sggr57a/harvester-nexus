@@ -279,7 +279,7 @@ describe('installer · build-iso.sh artifact staging', () => {
     expect(script).toMatch(/INSTALLER_FILES=\$\{INSTALLER_SRC\}\/package\/harvester-os\/files/);
     expect(script).toMatch(/copy_tree "\$\{NEXUS_OVERLAY\}" "\$\{INSTALLER_FILES\}"/);
     expect(script).not.toMatch(/copy_tree.*iso\/rootfs/);
-    expect(script).toMatch(/dist\.tar\.zst/);
+    expect(script).toMatch(/dist\.tar\.gz/);
     expect(script).toMatch(/DOCKER_BUILDKIT="\$\{DOCKER_BUILDKIT:-0\}"/);
   });
 
