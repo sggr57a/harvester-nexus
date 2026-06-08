@@ -3,9 +3,10 @@ import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters'
 interface LiveEmptyPanelProps {
   title: string;
   detail?: string;
+  children?: React.ReactNode;
 }
 
-export function LiveEmptyPanel({ title, detail }: LiveEmptyPanelProps) {
+export function LiveEmptyPanel({ title, detail, children }: LiveEmptyPanelProps) {
   return (
     <article className="dash-panel live-empty-panel" aria-live="polite">
       <div className="panel-title">
@@ -14,6 +15,7 @@ export function LiveEmptyPanel({ title, detail }: LiveEmptyPanelProps) {
       </div>
       <p><strong>{title}</strong></p>
       {detail ? <small>{detail}</small> : null}
+      {children}
     </article>
   );
 }

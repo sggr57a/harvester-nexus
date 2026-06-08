@@ -53,6 +53,7 @@ interface DashboardViewProps {
   storageDashboard?: StorageDashboard;
   machinesDashboard?: MachinesDashboard;
   operationsLinks?: LiveOperationsSlice;
+  onCreateWorkload?: (kind?: 'kubevirt-vm' | 'incus-lxc' | 'k8s-pod') => void;
 }
 
 /**
@@ -636,7 +637,7 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard }
   );
 }
 
-export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard }: DashboardViewProps = {}) {
+export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard, onCreateWorkload }: DashboardViewProps = {}) {
   const machinesData = machinesDashboard ?? machines;
   const { fleet, migrations, affinityRules, ha, consoleChips } = machinesData;
   const isLive = dataSource === 'live';
@@ -669,13 +670,40 @@ export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard
           <div><span>Workloads</span><strong>{liveFleet.length}</strong></div>
           <div><span>Migrations</span><strong><LiveValue value={liveMigrations.length} /></strong></div>
         </div>
+        {onCreateWorkload && (
+          <div className="machines-create-actions">
+            <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('kubevirt-vm')}>
+              Create VM
+            </button>
+            <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('incus-lxc')}>
+              Create container
+            </button>
+            <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('k8s-pod')}>
+              Create pod
+            </button>
+          </div>
+        )}
       </header>
 
       {isLive && liveFleet.length === 0 && (
         <LiveEmptyPanel
           title="No user VMs or pods running"
           detail="KubeVirt VMs and pods in tenant namespaces appear here. Harvester platform pods in kube-system, longhorn-system, and cattle-* are not counted as workloads."
-        />
+        >
+          {onCreateWorkload && (
+            <div className="machines-create-actions">
+              <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('kubevirt-vm')}>
+                Create VM
+              </button>
+              <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('incus-lxc')}>
+                Create container
+              </button>
+              <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('k8s-pod')}>
+                Create pod
+              </button>
+            </div>
+          )}
+        </LiveEmptyPanel>
       )}
 
       {liveMigrations.length > 0 && (
