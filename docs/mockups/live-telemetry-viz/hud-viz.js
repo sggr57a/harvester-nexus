@@ -1616,7 +1616,6 @@ function drawMultiRingScope(canvas, channels, tick) {
     const ringR = maxR * (0.35 + ci * 0.14);
     const len = ch.series.length;
     const maxV = ch.max ?? 100;
-    const { r, g, b } = hexToRgb(ch.color);
 
     ctx.beginPath();
     for (let i = 0; i <= len; i++) {
