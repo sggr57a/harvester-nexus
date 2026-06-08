@@ -8,7 +8,8 @@ import { useEnvironmentTelemetry } from './lib/telemetry/useEnvironmentTelemetry
 import { useClusterDashboards } from './lib/telemetry/useClusterDashboards';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from './lib/themes';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
-import { ResourceMonitoringPage } from './components/ActiveWorkPage';
+import { EnvironmentIntelHudView } from './components/dashboards/EnvironmentIntelHudView';
+import { ResourceMonitorHudView } from './components/dashboards/ResourceMonitorHudView';
 import { EnvironmentTicker, SidebarRouteDecoration } from './components/EnvironmentTicker';
 import { LaunchSequence } from './components/LaunchSequence';
 import { LoginScreen } from './components/LoginScreen';
@@ -20,7 +21,6 @@ import { YamlEditor } from './components/YamlEditor';
 import {
   AccelerationDashboardView,
   ActivityDashboardView,
-  EnvironmentDashboardView,
   MachinesDashboardView,
   NetworkingDashboardView,
   OperationsDashboardView,
@@ -218,7 +218,13 @@ function App() {
           <MachinesDashboardView telemetry={telemetry} dataSource={dataSource} machinesDashboard={clusterDashboards.machines} />
         )}
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'environment' && <EnvironmentDashboardView dataSource={dataSource} />}
+        {cockpitView === 'environment' && (
+          <EnvironmentIntelHudView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            machinesDashboard={clusterDashboards.machines}
+          />
+        )}
         {cockpitView === 'activity' && <ActivityDashboardView dataSource={dataSource} />}
         {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} dataSource={dataSource} />}
         {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} dataSource={dataSource} />}
@@ -226,7 +232,12 @@ function App() {
           <OperationsDashboardView telemetry={telemetry} dataSource={dataSource} operationsLinks={clusterDashboards.operations} />
         )}
         {cockpitView === 'resource-monitoring' && (
-          <ResourceMonitoringPage resourceMonitoring={clusterDashboards.resourceMonitoring} dataSource={dataSource} />
+          <ResourceMonitorHudView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            resourceMonitoring={clusterDashboards.resourceMonitoring}
+            machinesDashboard={clusterDashboards.machines}
+          />
         )}
         {cockpitView === 'xdr-operations' && (
           <XdrOperationsCenter telemetry={telemetryState} xdrLive={clusterDashboards.xdr} />
