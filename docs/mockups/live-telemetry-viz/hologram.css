@@ -134,7 +134,7 @@ body.hud-mode.hologram .kicker { font-size: 0.55rem; }
 
 /* Hero hologram + flanking widgets */
 .hologram-grid .tile.hologram {
-  grid-column: span 6;
+  grid-column: span 5;
   height: 268px;
   background:
     repeating-linear-gradient(
@@ -149,8 +149,15 @@ body.hud-mode.hologram .kicker { font-size: 0.55rem; }
   box-shadow: inset 0 0 80px rgba(0, 212, 255, 0.08), 0 0 20px rgba(0, 212, 255, 0.1);
 }
 
-.hologram-grid .tile.wave { grid-column: span 3; height: 268px; }
+.hologram-grid .tile.wave { grid-column: span 2; height: 268px; }
 .hologram-grid .tile.level { grid-column: span 1; height: 268px; }
+.hologram-grid .tile.level-bank {
+  grid-column: span 3;
+  height: 268px;
+  background:
+    linear-gradient(180deg, rgba(88, 28, 135, 0.06) 0%, rgba(127, 29, 29, 0.04) 100%),
+    rgba(4, 8, 14, 0.92);
+}
 .hologram-grid .tile.side-stack {
   grid-column: span 2;
   height: 268px;
@@ -176,6 +183,7 @@ body.hud-mode.hologram .kicker { font-size: 0.55rem; }
 .hologram-grid .tile.globe { grid-column: span 2; height: 130px; }
 .hologram-grid .tile.donut { grid-column: span 2; height: 130px; }
 .hologram-grid .tile.col-chart { grid-column: span 2; height: 130px; }
+.hologram-grid .tile.col-chart.wide { grid-column: span 3; height: 130px; }
 
 .hologram-grid .tile.stack { grid-column: span 12; height: 100px; }
 .hologram-grid .tile.lines { grid-column: span 6; height: 110px; }
@@ -198,6 +206,7 @@ body.hud-mode.hologram .kicker { font-size: 0.55rem; }
   .hologram-grid .tile.hologram,
   .hologram-grid .tile.wave,
   .hologram-grid .tile.level,
+  .hologram-grid .tile.level-bank,
   .hologram-grid .tile.side-stack,
   .hologram-grid .tile.stack,
   .hologram-grid .tile.history,

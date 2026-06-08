@@ -2453,13 +2453,15 @@ interface VerticalMeterBankProps {
   meters: VerticalMeter[];
   height?: number;
   scale?: number;
+  /** Purple (cool) at bottom → bright red (hot) at top */
+  thermal?: boolean;
 }
 
 /** Audio-style vertical level meter bank — each column shows ticks, a peak indicator,
  * and the live value, with red zone above the threshold. */
-export function VerticalMeterBank({ meters, height = 160, scale = 100 }: VerticalMeterBankProps) {
+export function VerticalMeterBank({ meters, height = 160, scale = 100, thermal = false }: VerticalMeterBankProps) {
   return (
-    <div className="vert-meter-bank" style={{ height }}>
+    <div className={`vert-meter-bank${thermal ? ' is-thermal' : ''}`} style={{ height }}>
       {meters.map((meter) => {
         const fill = Math.max(2, Math.min(100, (meter.value / scale) * 100));
         const thresholdLine = meter.threshold ? (meter.threshold / scale) * 100 : 80;
@@ -2469,7 +2471,7 @@ export function VerticalMeterBank({ meters, height = 160, scale = 100 }: Vertica
               {Array.from({ length: 16 }).map((_, idx) => (
                 <i key={idx} className="vert-meter-tick" style={{ bottom: `${(idx / 15) * 100}%` }} />
               ))}
-              <span className="vert-meter-fill" style={{ height: `${fill}%` }} />
+              <span className={`vert-meter-fill${thermal ? ' is-thermal' : ''}`} style={{ height: `${fill}%` }} />
               <span className="vert-meter-peak" style={{ bottom: `${fill}%` }} />
               <span className="vert-meter-threshold" style={{ bottom: `${thresholdLine}%` }} />
             </div>

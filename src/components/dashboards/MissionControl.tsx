@@ -380,7 +380,7 @@ export function MissionControlView({ telemetry, dataSource }: MissionControlProp
 
         <article key="meters" className="dash-panel mission-meters">
           <WidgetTitle kicker="LEVELS" title="Fleet CPU level meters" trailing={<span className="osc-readout">{machines.fleet.length} workloads</span>} />
-          <VerticalMeterBank meters={verticalMeters} height={170} scale={100} />
+          <VerticalMeterBank meters={verticalMeters} height={170} scale={100} thermal />
         </article>
 
         <article key="ring-cluster" className="dash-panel mission-ring-cluster">

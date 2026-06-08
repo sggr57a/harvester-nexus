@@ -35,18 +35,16 @@
     <div class="tile wave"><span class="tile-label">Wave · CPU</span><canvas id="wave-cpu"></canvas></div>
     <div class="tile wave"><span class="tile-label">Wave · NET</span><canvas id="wave-net"></canvas></div>
     <div class="tile hologram" id="holo-tile"><span class="tile-label">Virtual hologram · cluster topology</span><canvas id="hologram"></canvas></div>
-    <div class="tile level"><span class="tile-label">Level</span><canvas id="level-cpu"></canvas></div>
+    <div class="tile level-bank"><span class="tile-label">Level bank · CPU · disk · net</span><canvas id="level-bank-hero"></canvas></div>
+
     <div class="tile side-stack">
       <div class="sub-tile"><span class="tile-label">Radar</span><canvas id="radar"></canvas></div>
       <div class="sub-tile"><span class="tile-label">Mix</span><canvas id="donut"></canvas></div>
     </div>
-
     <div class="tile hex"><span class="tile-label">Hex topo</span><canvas id="hex"></canvas></div>
-    <div class="tile col-chart"><span class="tile-label">CPU cols</span><canvas id="cols-cpu"></canvas></div>
-    <div class="tile col-chart"><span class="tile-label">Disk cols</span><canvas id="cols-disk"></canvas></div>
+    <div class="tile col-chart wide"><span class="tile-label">CPU cols</span><canvas id="cols-cpu"></canvas></div>
+    <div class="tile col-chart wide"><span class="tile-label">Disk cols</span><canvas id="cols-disk"></canvas></div>
     <div class="tile col-chart"><span class="tile-label">Net cols</span><canvas id="cols-net"></canvas></div>
-    <div class="tile level"><span class="tile-label">Disk lvl</span><canvas id="level-disk"></canvas></div>
-    <div class="tile level"><span class="tile-label">Net lvl</span><canvas id="level-net"></canvas></div>
 
     <div class="tile stack"><span class="tile-label">Stacked · CPU RAM disk net</span><canvas id="stack-main"></canvas></div>
 
@@ -108,11 +106,14 @@
         { el: document.getElementById('wave-cpu'), key: 'wv-cpu', metric: 'cpu', max: 100, len: 72, opts: { title: 'CPU VIBRATION', color: '#38bdf8' } },
         { el: document.getElementById('wave-net'), key: 'wv-net', metric: 'net', max: 1200, len: 72, opts: { title: 'NET VIBRATION', color: '#fbbf24' } },
       ],
-      levelIndicators: [
-        { el: document.getElementById('level-cpu'), metric: 'cpu', max: 100, label: 'CPU', color: '#38bdf8', format: fmtPct },
-        { el: document.getElementById('level-disk'), metric: 'disk', max: 22000, label: 'DSK', color: '#34d399', format: fmtK },
-        { el: document.getElementById('level-net'), metric: 'net', max: 1200, label: 'NET', color: '#fbbf24', format: fmtMb },
-      ],
+      levelBanks: [{
+        el: document.getElementById('level-bank-hero'),
+        cells: [
+          { metric: 'cpu', max: 100, label: 'CPU', color: '#38bdf8', format: fmtPct },
+          { metric: 'disk', max: 22000, label: 'DSK', color: '#34d399', format: fmtK },
+          { metric: 'net', max: 1200, label: 'NET', color: '#fbbf24', format: fmtMb },
+        ],
+      }],
       stackedAreas: [{
         el: document.getElementById('stack-main'), len: 72, opts: { title: '' },
         channels: [

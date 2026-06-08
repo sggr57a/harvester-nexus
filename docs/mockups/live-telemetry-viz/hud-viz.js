@@ -544,24 +544,32 @@ function drawColumnChart(canvas, bars, tick, opts = {}) {
     const pct = clamp(bar.value / bar.max, 0, 1);
     const anim = 0.88 + Math.sin(tick / 10 + i) * 0.06;
     const bh = plotH * pct * anim;
-    const x = pad.l + i * groupW + groupW * 0.15;
-    const bw = groupW * 0.7;
+    const x = pad.l + i * groupW;
+    const bw = Math.max(1, groupW - (i === n - 1 ? 0 : 1));
     const y = pad.t + plotH - bh;
+    const thermal = opts.thermal || bar.thermal;
     const { r, g, b } = hexToRgb(bar.color);
 
     // bar glow
-    ctx.fillStyle = `rgba(${r},${g},${b},0.2)`;
+    ctx.fillStyle = thermal ? 'rgba(168,85,247,0.18)' : `rgba(${r},${g},${b},0.2)`;
     ctx.fillRect(x - 4, y, bw + 8, bh);
-    const bg = ctx.createLinearGradient(x, y, x, pad.t + plotH);
-    bg.addColorStop(0, bar.color);
-    bg.addColorStop(1, `rgba(${r},${g},${b},0.25)`);
+    const bg = ctx.createLinearGradient(x, pad.t + plotH, x, y);
+    if (thermal) {
+      bg.addColorStop(0, thermalSegmentColor(0, 24));
+      bg.addColorStop(0.45, thermalSegmentColor(11, 24));
+      bg.addColorStop(0.78, thermalSegmentColor(18, 24));
+      bg.addColorStop(1, thermalSegmentColor(23, 24));
+    } else {
+      bg.addColorStop(0, `rgba(${r},${g},${b},0.25)`);
+      bg.addColorStop(1, bar.color);
+    }
     ctx.fillStyle = bg;
     ctx.fillRect(x, y, bw, bh);
     ctx.fillStyle = '#fff';
     ctx.fillRect(x, y, bw, 3);
 
     ctx.font = 'bold 18px Inter, sans-serif';
-    ctx.fillStyle = bar.color;
+    ctx.fillStyle = thermal ? thermalHeatColor(bar.value, bar.max) : bar.color;
     ctx.textAlign = 'center';
     ctx.fillText(bar.format ? bar.format(bar.value) : bar.value.toFixed(0), x + bw / 2, y - 8);
 
@@ -775,35 +783,31 @@ function drawLinearGauge(canvas, value, max, label, color, tick) {
   const pct = clamp(value / max, 0, 1);
   const compact = h < 100;
 
-  ctx.font = `${compact ? 9 : 12}px Inter, sans-serif`;
+  ctx.font = `600 ${compact ? 8 : 10}px Inter, sans-serif`;
   ctx.fillStyle = '#8b9bb8';
   ctx.textAlign = 'left';
-  ctx.fillText(label, 6, compact ? 12 : 18);
+  ctx.fillText(label, 4, compact ? 11 : 16);
 
-  if (!compact) {
-    ctx.font = 'bold 20px Inter, sans-serif';
-    ctx.fillStyle = color;
-    ctx.textAlign = 'right';
-    ctx.fillText(max >= 1000 ? fmtK(value) : (value >= 100 ? value.toFixed(0) : value.toFixed(1)), w - 8, 20);
-  }
-
-  const by = compact ? 16 : 28;
-  const bh = compact ? 6 : 8;
+  const by = compact ? 14 : 26;
+  const bh = compact ? 10 : 12;
+  const bx = 4;
+  const bw = w - 8;
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.fillRect(6, by, w - 12, bh);
-  const fw = (w - 12) * pct;
+  ctx.fillRect(bx, by, bw, bh);
+  const fw = bw * pct;
   ctx.fillStyle = color;
   ctx.shadowColor = color;
-  ctx.shadowBlur = compact ? 4 : 8;
-  ctx.fillRect(6, by, fw, bh);
+  ctx.shadowBlur = compact ? 6 : 10;
+  ctx.fillRect(bx, by, fw, bh);
   ctx.shadowBlur = 0;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(bx + Math.max(0, fw - 2), by, 2, bh);
 
-  if (compact) {
-    ctx.font = 'bold 9px Inter, sans-serif';
-    ctx.fillStyle = color;
-    ctx.textAlign = 'right';
-    ctx.fillText(max >= 1000 ? fmtK(value) : value.toFixed(0), w - 4, 12);
-  }
+  ctx.font = `bold ${compact ? 9 : 11}px Inter, sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'right';
+  const display = max >= 1000 ? fmtK(value) : (value >= 100 ? value.toFixed(0) : value.toFixed(1));
+  ctx.fillText(display, w - 4, compact ? 11 : 16);
 }
 
 /** Circular oscilloscope — waveform on a ring (deprecated, kept for reference) */
@@ -876,6 +880,24 @@ function heatColor(value, max, baseHex) {
   if (t > 0.45) return `hsl(${45 + t * 30}, 85%, ${45 + t * 10}%)`;
   const { r, g, b } = hexToRgb(baseHex || '#5b8cff');
   return `rgba(${r},${g},${b},${0.35 + t * 0.55})`;
+}
+
+/** Thermal palette: purple (cool, bottom) → bright red (hot, top) */
+function thermalSegmentColor(segmentIndex, totalSegments, filled = true) {
+  const t = segmentIndex / Math.max(1, totalSegments - 1);
+  const hue = 278 - t * 278;
+  const sat = filled ? 78 + t * 18 : 30;
+  const light = filled ? 38 + t * 22 : 18;
+  const alpha = filled ? 1 : 0.1;
+  return filled
+    ? `hsl(${hue}, ${sat}%, ${light}%)`
+    : `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+}
+
+function thermalHeatColor(value, max) {
+  const t = clamp(value / max, 0, 1);
+  const hue = 278 - t * 278;
+  return `hsl(${hue}, ${85 + t * 12}%, ${42 + t * 24}%)`;
 }
 
 /** Dense historical histogram — heat bars, min/max/avg, time axis, peak glow */
@@ -963,10 +985,16 @@ function drawBarMatrix(canvas, rows, tick, opts = {}) {
       const isRecent = ci >= cols - 3;
 
       // heat fill + gradient
-      const heat = heatColor(v, row.max, row.color);
-      const grad = ctx.createLinearGradient(x, y, x, y0 + barArea);
-      grad.addColorStop(0, heat);
-      grad.addColorStop(1, 'rgba(0,0,0,0.15)');
+      const heat = row.thermal ? thermalHeatColor(v, row.max) : heatColor(v, row.max, row.color);
+      const grad = ctx.createLinearGradient(x, y0 + barArea, x, y);
+      if (row.thermal) {
+        grad.addColorStop(0, thermalSegmentColor(0, 16));
+        grad.addColorStop(0.55, thermalSegmentColor(9, 16));
+        grad.addColorStop(1, heat);
+      } else {
+        grad.addColorStop(0, 'rgba(0,0,0,0.15)');
+        grad.addColorStop(1, heat);
+      }
       ctx.fillStyle = grad;
       ctx.fillRect(x, y, barW, bh * pulse);
 
@@ -1376,35 +1404,115 @@ function drawLevelIndicator(canvas, value, max, tick, opts = {}) {
   const color = opts.color ?? '#38bdf8';
   const { r, g, b } = hexToRgb(color);
   const pct = clamp(value / max, 0, 1);
-  const segments = opts.segments ?? 24;
-  const segH = (h - 40) / segments;
-  const bx = w / 2 - 14;
-  const by = 28;
+  const segments = opts.segments ?? 28;
+  const padT = 24;
+  const padB = 22;
+  const barW = Math.max(36, Math.min(w * 0.78, w - 16));
+  const bx = (w - barW) / 2;
+  const by = padT;
+  const trackH = h - padT - padB;
+  const segH = trackH / segments;
 
   drawHudBrackets(ctx, w, h, 6, `rgba(${r},${g},${b},0.35)`);
 
-  ctx.font = '600 14px Inter, sans-serif';
+  ctx.font = '600 13px Inter, sans-serif';
   ctx.fillStyle = '#8b9bb8';
   ctx.textAlign = 'center';
-  ctx.fillText(opts.label || 'LEVEL', w / 2, 18);
+  ctx.fillText(opts.label || 'LEVEL', w / 2, 16);
 
+  const thermal = opts.thermal;
   for (let i = 0; i < segments; i++) {
     const filled = i / segments < pct;
-    const pulse = filled && i >= segments - 3 ? 1 + Math.sin(tick / 5 + i) * 0.15 : 1;
+    const pulse = filled && i >= segments - 3 ? 1 + Math.sin(tick / 5 + i) * 0.12 : 1;
     const y = by + (segments - 1 - i) * segH;
-    ctx.fillStyle = filled
-      ? `rgba(${r},${g},${b},${0.45 + (i / segments) * 0.5})`
-      : 'rgba(255,255,255,0.05)';
-    ctx.fillRect(bx, y, 28, segH - 2);
+    ctx.fillStyle = thermal
+      ? thermalSegmentColor(i, segments, filled)
+      : filled
+        ? `rgba(${r},${g},${b},${0.5 + (i / segments) * 0.45})`
+        : 'rgba(255,255,255,0.06)';
+    ctx.fillRect(bx, y, barW * pulse, Math.max(1, segH - 1));
     if (filled) {
       ctx.fillStyle = '#fff';
-      ctx.fillRect(bx, y, 28 * pulse, 2);
+      ctx.fillRect(bx, y, barW * pulse, 2);
     }
   }
 
-  ctx.font = 'bold 18px Inter, sans-serif';
-  ctx.fillStyle = color;
-  ctx.fillText(opts.format ? opts.format(value) : value.toFixed(0), w / 2, h - 8);
+  ctx.font = 'bold 16px Inter, sans-serif';
+  ctx.fillStyle = thermal ? thermalHeatColor(value, max) : color;
+  ctx.fillText(opts.format ? opts.format(value) : value.toFixed(0), w / 2, h - 6);
+}
+
+/** Connected multi-column level bank — fills tile width, no gaps between columns */
+function drawLevelBank(canvas, cells, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const n = cells.length;
+  if (!n) return;
+  const padT = opts.title ? 28 : 22;
+  const padB = 20;
+  const colW = w / n;
+  const segments = opts.segments ?? 32;
+  const trackH = h - padT - padB;
+  const segH = trackH / segments;
+
+  drawHudBrackets(ctx, w, h, 8);
+
+  if (opts.title) {
+    ctx.font = '600 14px Inter, sans-serif';
+    ctx.fillStyle = '#8b9bb8';
+    ctx.textAlign = 'left';
+    ctx.fillText(opts.title, 10, 18);
+  }
+
+  cells.forEach((cell, ci) => {
+    const x0 = ci * colW;
+    const pct = clamp(cell.value / cell.max, 0, 1);
+    const thermal = cell.thermal || opts.thermal;
+    const { r, g, b } = hexToRgb(cell.color);
+    const barW = colW;
+    const bx = x0;
+
+    if (ci > 0) {
+      ctx.strokeStyle = 'rgba(56,189,248,0.22)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x0, padT - 4);
+      ctx.lineTo(x0, h - padB + 4);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(bx, padT, barW, trackH);
+
+    ctx.font = '600 11px Inter, sans-serif';
+    ctx.fillStyle = thermal ? thermalHeatColor(cell.value, cell.max) : cell.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(cell.label, x0 + colW / 2, padT - 6);
+
+    for (let i = 0; i < segments; i++) {
+      const filled = i / segments < pct;
+      const pulse = filled && i >= segments - 2 ? 1 + Math.sin(tick / 5 + ci + i) * 0.1 : 1;
+      const y = padT + (segments - 1 - i) * segH;
+      ctx.fillStyle = thermal
+        ? thermalSegmentColor(i, segments, filled)
+        : filled
+          ? `rgba(${r},${g},${b},${0.55 + (i / segments) * 0.4})`
+          : 'rgba(255,255,255,0.05)';
+      ctx.fillRect(bx, y, barW * pulse, Math.max(1, segH - 1));
+    }
+
+    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.fillStyle = thermal ? thermalHeatColor(cell.value, cell.max) : cell.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      cell.format ? cell.format(cell.value) : cell.value.toFixed(0),
+      x0 + colW / 2,
+      h - 6,
+    );
+  });
 }
 
 /** Wireframe globe with node pins for environment spatial */
@@ -1691,7 +1799,20 @@ function initHudDashboard(sim, config) {
         color: li.color,
         format: li.format,
         segments: li.segments,
+        thermal: li.thermal,
       });
+    });
+
+    (config.levelBanks || []).forEach(lb => {
+      const cells = lb.cells.map(c => ({
+        label: c.label,
+        value: getVal(c.metric, c.node),
+        max: c.max ?? 100,
+        color: c.color,
+        format: c.format,
+        thermal: c.thermal,
+      }));
+      drawLevelBank(lb.el, cells, tick, { ...lb.opts, thermal: lb.thermal });
     });
 
     if (config.onTick) config.onTick(tick, agg, sim, activity);

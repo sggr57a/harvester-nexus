@@ -8586,6 +8586,17 @@ select option {
   box-shadow: 0 0 12px var(--theme-accent), inset 0 0 8px rgba(255,255,255,0.18);
   transition: height 0.35s ease;
 }
+.vert-meter-fill.is-thermal {
+  background: linear-gradient(180deg, #ff2200 0%, #f97316 22%, #e879f9 55%, #7c3aed 100%);
+  box-shadow: 0 0 12px rgba(255, 34, 0, 0.45), inset 0 0 8px rgba(255,255,255,0.18);
+}
+.vert-meter-bank.is-thermal {
+  gap: 0;
+  padding: 0.35rem 0.4rem;
+}
+.vert-meter-bank.is-thermal .vert-meter + .vert-meter {
+  border-left: 1px solid rgba(168, 85, 247, 0.25);
+}
 .vert-meter-peak {
   position: absolute;
   left: 0;
