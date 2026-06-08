@@ -6,6 +6,7 @@ interface WizardProps {
   onChange: (config: ApplicationConfig) => void;
   onNext: () => void;
   onBack: () => void;
+  onFinish?: () => void;
 }
 
 const storageOptions: { value: StorageType; label: string; description: string }[] = [
@@ -26,7 +27,7 @@ const storageOptions: { value: StorageType; label: string; description: string }
 
 const workloadOptions: WorkloadType[] = ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'];
 
-export function Wizard({ currentStep, config, onChange, onNext, onBack }: WizardProps) {
+export function Wizard({ currentStep, config, onChange, onNext, onBack, onFinish }: WizardProps) {
   return (
     <section className="wizard-shell">
       <header className="wizard-header">
@@ -918,8 +919,11 @@ export function Wizard({ currentStep, config, onChange, onNext, onBack }: Wizard
         <button onClick={onBack} disabled={currentStep === 1} type="button">
           Back
         </button>
-        <button onClick={onNext} type="button">
-          {currentStep === 7 ? 'Generate Manifests' : 'Next'}
+        <button
+          onClick={() => (currentStep === 7 ? onFinish?.() : onNext())}
+          type="button"
+        >
+          {currentStep === 7 ? 'Finish & review' : 'Next'}
         </button>
       </footer>
     </section>

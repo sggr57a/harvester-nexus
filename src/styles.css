@@ -14695,3 +14695,183 @@ select option {
   .holo-events,
   .holo-wave { grid-column: span 6; }
 }
+
+/* Deploy actions — cluster, workload, VM/container create */
+.deploy-action-bar {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--theme-panel) 88%, transparent);
+  box-shadow: var(--theme-panel-glow);
+}
+
+.deploy-action-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.deploy-action-copy strong {
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.deploy-action-copy span {
+  color: color-mix(in srgb, var(--theme-text) 72%, transparent);
+  font-size: 0.92rem;
+}
+
+.deploy-success { color: var(--theme-accent); }
+.deploy-error { color: #ff7b7b; }
+
+.deploy-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-text) 10%, transparent);
+  overflow: hidden;
+}
+
+.deploy-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--theme-accent), var(--route-glow-intense, var(--theme-accent)));
+  transition: width 0.35s ease;
+}
+
+.deploy-action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.deploy-primary,
+.deploy-secondary,
+.cluster-quick-action,
+.machines-create-btn {
+  padding: 12px 20px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 35%, transparent);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.deploy-primary,
+.machines-create-btn {
+  background: color-mix(in srgb, var(--theme-accent) 22%, transparent);
+  color: var(--theme-text);
+}
+
+.deploy-secondary,
+.cluster-quick-action {
+  background: transparent;
+  color: color-mix(in srgb, var(--theme-text) 85%, transparent);
+}
+
+.deploy-primary:disabled,
+.deploy-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cluster-console-actions,
+.machines-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cluster-console-actions {
+  margin-bottom: 16px;
+}
+
+.machines-create-actions {
+  align-items: center;
+}
+
+.dash-header .machines-create-actions {
+  margin-left: auto;
+}
+
+.workload-create-wizard {
+  display: grid;
+  gap: 18px;
+}
+
+.workload-create-header h2 {
+  margin: 0 0 6px;
+}
+
+.workload-create-header p {
+  margin: 0;
+  color: color-mix(in srgb, var(--theme-text) 72%, transparent);
+}
+
+.workload-kind-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workload-kind-rail button {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--theme-text) 14%, transparent);
+  background: transparent;
+  color: var(--theme-text);
+  cursor: pointer;
+}
+
+.workload-kind-rail button.is-active {
+  border-color: color-mix(in srgb, var(--theme-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--theme-accent) 16%, transparent);
+}
+
+.workload-create-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.2fr);
+  gap: 18px;
+}
+
+.workload-create-preview pre {
+  max-height: 360px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--theme-bg) 92%, transparent);
+  font-size: 0.82rem;
+}
+
+.setup-review-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.setup-review-header h3 {
+  margin: 6px 0;
+}
+
+.setup-review-header p {
+  margin: 0;
+  color: color-mix(in srgb, var(--theme-text) 72%, transparent);
+}
+
+.live-empty-panel .machines-create-actions {
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .workload-create-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-header .machines-create-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+}

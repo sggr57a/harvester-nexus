@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
+import type { DeployPhase, DeployResult } from '../lib/deploySimulation';
 import { HarvesterMachineConfig, HarvesterMachineInstallPlan } from '../lib/harvesterMachineWizard';
+import { DeployActionBar } from './DeployActionBar';
 
 export type MachineWizardTab = 'platform' | 'manifest' | 'review';
 
@@ -19,6 +21,17 @@ interface NexusMachineWizardProps {
   reviewSlot?: ReactNode;
   /** Initial active tab (defaults to platform). */
   initialTab?: MachineWizardTab;
+  /** Primary cluster / platform install action. */
+  onDeployCluster?: () => void;
+  clusterDeployLabel?: string;
+  clusterDeployDisabled?: boolean;
+  clusterDeployDisabledReason?: string;
+  clusterDeploying?: boolean;
+  clusterDeployPhase?: DeployPhase | null;
+  clusterPhaseIndex?: number;
+  clusterPhaseCount?: number;
+  clusterDeployResult?: DeployResult | null;
+  onGoToClusterConsole?: () => void;
 }
 
 function updateListValue(value: string): string[] {
@@ -35,6 +48,16 @@ export function NexusMachineWizard({
   manifestWizardSlot,
   reviewSlot,
   initialTab = 'platform',
+  onDeployCluster,
+  clusterDeployLabel = 'Create cluster',
+  clusterDeployDisabled,
+  clusterDeployDisabledReason,
+  clusterDeploying,
+  clusterDeployPhase,
+  clusterPhaseIndex,
+  clusterPhaseCount,
+  clusterDeployResult,
+  onGoToClusterConsole,
 }: NexusMachineWizardProps) {
   const [tab, setTab] = useState<MachineWizardTab>(initialTab);
 
@@ -334,6 +357,22 @@ export function NexusMachineWizard({
           </div>
           <pre>{plan.configYaml}</pre>
         </div>
+      )}
+
+      {tab === 'platform' && onDeployCluster && (
+        <DeployActionBar
+          primaryLabel={clusterDeployLabel}
+          secondaryLabel={clusterDeployResult?.success ? 'Open Cluster Console' : undefined}
+          disabled={clusterDeployDisabled}
+          disabledReason={clusterDeployDisabledReason}
+          deploying={clusterDeploying}
+          currentPhase={clusterDeployPhase}
+          phaseIndex={clusterPhaseIndex}
+          phaseCount={clusterPhaseCount}
+          result={clusterDeployResult}
+          onDeploy={onDeployCluster}
+          onSecondary={clusterDeployResult?.success ? onGoToClusterConsole : undefined}
+        />
       )}
     </section>
   );
