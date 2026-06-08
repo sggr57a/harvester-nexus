@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mockup — Resource Monitor (Live)</title>
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <header class="mock-header">
+    <span class="kicker">MOCKUP // RESOURCE MONITOR · LIVE TELEMETRY</span>
+    <h1>Resource Monitor <span class="badge-live"><i></i> LIVE CLUSTER</span></h1>
+    <p>Netdata-style multi-channel scope · per-node heatmap · 3D depth terrain · 1s refresh cadence (concept)</p>
+  </header>
+
+  <p class="disclaimer">Design preview only — not connected to Harvester APIs. For stakeholder review before implementation.</p>
+
+  <div class="layout">
+    <div class="panel" style="animation-delay:0.05s">
+      <div class="panel-title"><span>Anomaly rate ribbon</span><strong>cluster health · 60s window</strong></div>
+      <div class="anomaly-ribbon"><span class="ribbon-label">ANOMALY %</span><canvas id="ribbon"></canvas></div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel" style="animation-delay:0.1s">
+        <div class="panel-title"><span>SuperScope · stacked channels</span><strong>CPU · RAM · disk · net RX · net TX</strong></div>
+        <div class="scope-wrap tall"><canvas id="scope-main"></canvas><div class="sweep-line"></div></div>
+        <div class="legend-row">
+          <div class="legend-item"><i style="background:#5b8cff"></i>CPU <b id="cpu-now">—</b></div>
+          <div class="legend-item"><i style="background:#38bdf8"></i>RAM <b id="ram-now">—</b></div>
+          <div class="legend-item"><i style="background:#34d399"></i>Disk IOPS <b>12.4k</b></div>
+          <div class="legend-item"><i style="background:#fbbf24"></i>Net RX <b>842 Mb/s</b></div>
+          <div class="legend-item"><i style="background:#f87171"></i>Net TX <b>791 Mb/s</b></div>
+        </div>
+      </div>
+
+      <div class="panel" style="animation-delay:0.15s">
+        <div class="panel-title"><span>3D node terrain</span><strong>CPU load pillars · isometric</strong></div>
+        <div class="terrain-3d" id="terrain"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="animation-delay:0.2s">
+      <div class="panel-title"><span>Per-node activity heatmap</span><strong>last 24 minutes · 1 sample/min</strong></div>
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel" style="animation-delay:0.25s">
+        <div class="panel-title"><span>Active operations</span><strong>from cluster API</strong></div>
+        <div class="work-stack">
+          <div class="work-card">
+            <div><small>migration</small><strong>Live migration · vm-db-01</strong><br><span style="color:#8b9bb8;font-size:0.75rem">node-a → node-b</span></div>
+            <b>64%</b>
+            <div class="meter" style="--w-min:58%;--w-max:68%"><i style="width:64%"></i></div>
+          </div>
+          <div class="work-card">
+            <div><small>persistent-volume</small><strong>PVC bind · data-vol</strong><br><span style="color:#8b9bb8;font-size:0.75rem">longhorn · default</span></div>
+            <b>40%</b>
+            <div class="meter" style="--w-min:35%;--w-max:45%"><i style="width:40%"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="animation-delay:0.3s">
+        <div class="panel-title"><span>Memory pressure scope</span><strong>Prometheus · node aggregate</strong></div>
+        <div class="scope-wrap"><canvas id="scope-mem"></canvas><div class="sweep-line" style="animation-duration:3s"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="mock-charts.js"></script>
+  <script>
+    setupPillars(document.getElementById('terrain'), [
+      { name: 'harvester-01', x: 80, y: 120, load: 42, colorTop: '#5b8cff', colorBase: '#1e3a8a', glow: 'rgba(91,140,255,0.5)' },
+      { name: 'harvester-02', x: 180, y: 90, load: 68, colorTop: '#38bdf8', colorBase: '#0e7490', glow: 'rgba(56,189,248,0.5)' },
+      { name: 'harvester-03', x: 280, y: 140, load: 31, colorTop: '#34d399', colorBase: '#065f46', glow: 'rgba(52,211,153,0.4)' },
+    ]);
+
+    initHeatmapRows(document.getElementById('heatmap'), ['harvester-01', 'harvester-02', 'harvester-03']);
+
+    initMockCharts({
+      ribbons: [{ el: document.getElementById('ribbon'), color: 'rgba(52, 211, 153, 0.55)' }],
+      scopes: [
+        {
+          el: document.getElementById('scope-main'),
+          channels: [
+            { base: 38, amp: 22, color: '#5b8cff' },
+            { base: 55, amp: 18, color: '#38bdf8' },
+            { base: 28, amp: 30, color: '#34d399' },
+            { base: 45, amp: 25, color: '#fbbf24' },
+            { base: 40, amp: 20, color: '#f87171' },
+          ],
+        },
+        {
+          el: document.getElementById('scope-mem'),
+          channels: [{ base: 62, amp: 15, color: '#38bdf8' }],
+        },
+      ],
+    });
+
+    setInterval(() => {
+      document.getElementById('cpu-now').textContent = (35 + Math.random() * 20).toFixed(1) + '%';
+      document.getElementById('ram-now').textContent = (50 + Math.random() * 15).toFixed(1) + '%';
+    }, 1600);
+  </script>
+</body>
+</html>

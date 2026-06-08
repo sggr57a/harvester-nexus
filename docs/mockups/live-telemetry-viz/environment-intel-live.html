@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mockup — Environment Intel (Live)</title>
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    .spatial-map {
+      position: relative;
+      height: 320px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: radial-gradient(ellipse at center, rgba(91, 140, 255, 0.08), transparent 70%);
+    }
+    .spatial-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .spatial-map polyline {
+      fill: none;
+      stroke: rgba(91, 140, 255, 0.35);
+      stroke-width: 1.5;
+      stroke-dasharray: 6 8;
+      animation: hud-dash 2s linear infinite;
+    }
+    @keyframes hud-dash { to { stroke-dashoffset: -28; } }
+    .zone-pin {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      animation: zone-float 3s ease-in-out infinite;
+    }
+    .zone-pin b {
+      display: block;
+      font-size: 1.1rem;
+      color: var(--accent-2);
+      text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    }
+    .zone-pin small { font-size: 0.65rem; color: var(--muted); }
+    .zone-pin::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      width: 40px;
+      height: 40px;
+      margin-left: -20px;
+      border-radius: 50%;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      animation: ripple 2.5s ease-out infinite;
+    }
+    @keyframes zone-float {
+      0%, 100% { transform: translate(-50%, -50%); }
+      50% { transform: translate(-50%, calc(-50% - 6px)); }
+    }
+    @keyframes ripple {
+      0% { transform: scale(0.3); opacity: 0.8; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+    .event-rail li {
+      list-style: none;
+      padding: 0.65rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      animation: slide-in 0.5s ease both;
+    }
+    .event-rail li span { color: var(--muted); font-size: 0.72rem; margin-right: 0.5rem; }
+    .stream-stack { display: flex; flex-direction: column; gap: 0.5rem; }
+    .mini-scope { height: 72px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.35); }
+    .mini-scope canvas { width: 100%; height: 100%; display: block; }
+  </style>
+</head>
+<body>
+  <header class="mock-header">
+    <span class="kicker">MOCKUP // ENVIRONMENT INTEL · LIVE CLUSTER</span>
+    <h1>Environment Intel <span class="badge-live"><i></i> LIVE CLUSTER</span></h1>
+    <p>Node-derived facility view: power, thermal proxy (CPU), airflow proxy (network), spatial pins per Harvester node</p>
+  </header>
+
+  <p class="disclaimer">Metrics mapped from real node telemetry — not simulated facility hardware. Design preview for implementation sign-off.</p>
+
+  <div class="layout">
+    <div class="kpi-grid panel" style="animation-delay:0.05s">
+      <div class="kpi"><span>CLUSTER CPU</span><strong id="kpi-cpu">41.2<small>%</small></strong></div>
+      <div class="kpi"><span>EST. POWER</span><strong>660<small>W</small></strong></div>
+      <div class="kpi"><span>NET INGRESS</span><strong id="kpi-net">842<small>Mb/s</small></strong></div>
+      <div class="kpi"><span>NODES</span><strong>3<small>online</small></strong></div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel" style="animation-delay:0.1s">
+        <div class="panel-title"><span>Spatial node map</span><strong>3D depth · CPU thermal proxy</strong></div>
+        <div class="spatial-map" id="spatial">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="8,72 28,48 52,58 78,38 92,52" />
+            <polygon points="12,68 38,42 88,36 82,78 24,88" fill="rgba(91,140,255,0.04)" stroke="rgba(91,140,255,0.2)" />
+          </svg>
+          <div class="zone-pin" style="left:22%;top:55%"><b>38°C</b><small>harvester-01</small></div>
+          <div class="zone-pin" style="left:52%;top:42%;animation-delay:0.4s"><b>44°C</b><small>harvester-02</small></div>
+          <div class="zone-pin" style="left:78%;top:58%;animation-delay:0.8s"><b>35°C</b><small>harvester-03</small></div>
+        </div>
+        <div class="terrain-3d" id="terrain-env" style="height:180px;margin-top:1rem"></div>
+      </div>
+
+      <div class="panel" style="animation-delay:0.15s">
+        <div class="panel-title"><span>Multi-metric streams</span><strong>Netdata-style stacked strips</strong></div>
+        <div class="stream-stack">
+          <div><small style="color:#8b9bb8">CPU %</small><div class="mini-scope"><canvas id="s-cpu"></canvas></div></div>
+          <div><small style="color:#8b9bb8">RAM %</small><div class="mini-scope"><canvas id="s-ram"></canvas></div></div>
+          <div><small style="color:#8b9bb8">Disk IOPS</small><div class="mini-scope"><canvas id="s-disk"></canvas></div></div>
+          <div><small style="color:#8b9bb8">Network Mb/s</small><div class="mini-scope"><canvas id="s-net"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel" style="animation-delay:0.2s">
+        <div class="panel-title"><span>Cluster event rail</span><strong>kubernetes warnings · live</strong></div>
+        <ul class="event-rail">
+          <li style="animation-delay:0.1s"><span>02:14</span><strong>Node memory pressure easing</strong><p style="color:#8b9bb8;font-size:0.78rem;margin-top:0.25rem">harvester-02 RAM 81% → 76% over 5m</p></li>
+          <li style="animation-delay:0.2s"><span>02:11</span><strong>Longhorn volume healthy</strong><p style="color:#8b9bb8;font-size:0.78rem;margin-top:0.25rem">all replicas synced · longhorn-system</p></li>
+          <li style="animation-delay:0.3s"><span>02:08</span><strong>Prometheus scrape OK</strong><p style="color:#8b9bb8;font-size:0.78rem;margin-top:0.25rem">rancher-monitoring · 1s resolution</p></li>
+        </ul>
+      </div>
+
+      <div class="panel" style="animation-delay:0.25s">
+        <div class="panel-title"><span>Full-width environment scope</span><strong>ingress + egress + power index</strong></div>
+        <div class="scope-wrap tall"><canvas id="scope-env"></canvas><div class="sweep-line"></div></div>
+        <div class="legend-row">
+          <div class="legend-item"><i style="background:#fbbf24"></i>Ingress</div>
+          <div class="legend-item"><i style="background:#f87171"></i>Egress</div>
+          <div class="legend-item"><i style="background:#34d399"></i>Power index</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="mock-charts.js"></script>
+  <script>
+    setupPillars(document.getElementById('terrain-env'), [
+      { name: 'node-01', x: 60, y: 80, load: 38, colorTop: '#5b8cff', colorBase: '#1e3a8a', glow: 'rgba(91,140,255,0.45)' },
+      { name: 'node-02', x: 160, y: 60, load: 55, colorTop: '#fbbf24', colorBase: '#92400e', glow: 'rgba(251,191,36,0.45)' },
+      { name: 'node-03', x: 260, y: 100, load: 28, colorTop: '#34d399', colorBase: '#065f46', glow: 'rgba(52,211,153,0.4)' },
+    ]);
+
+    initMockCharts({
+      ribbons: [],
+      scopes: [
+        { el: document.getElementById('scope-env'), channels: [
+          { base: 48, amp: 28, color: '#fbbf24' },
+          { base: 42, amp: 22, color: '#f87171' },
+          { base: 35, amp: 18, color: '#34d399' },
+        ]},
+        { el: document.getElementById('s-cpu'), channels: [{ base: 40, amp: 25, color: '#5b8cff' }] },
+        { el: document.getElementById('s-ram'), channels: [{ base: 58, amp: 15, color: '#38bdf8' }] },
+        { el: document.getElementById('s-disk'), channels: [{ base: 32, amp: 35, color: '#34d399' }] },
+        { el: document.getElementById('s-net'), channels: [{ base: 50, amp: 30, color: '#fbbf24' }] },
+      ],
+    });
+
+    setInterval(() => {
+      document.getElementById('kpi-cpu').innerHTML = (38 + Math.random() * 12).toFixed(1) + '<small>%</small>';
+      document.getElementById('kpi-net').innerHTML = Math.round(800 + Math.random() * 80) + '<small>Mb/s</small>';
+    }, 1600);
+  </script>
+</body>
+</html>
