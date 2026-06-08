@@ -35,17 +35,18 @@ node capture-artifacts.cjs
 
 ## Design intent
 
-Visual language inspired by [HUD dashboard references](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJF24b9NiLlbqQHzZzCN98ZrpKkrp9T61sEsAW_oAg&s) and [futuristic HUD UI concepts](https://www.shutterstock.com/shutterstock/photos/403657408/display_1500/stock-vector-hud-ui-for-business-app-futuristic-user-interface-hud-and-infographic-elements-abstract-virtual-403657408.jpg) — **recreated in canvas/SVG** (no stock assets embedded).
+Visual language inspired by [animated business infographics](https://www.shutterstock.com/shutterstock/videos/3793037467/preview/stock-footage-dynamic-data-visuals-for-business-info-graphics-animated-charts-and-data-driven-insights-for-a.mp4) and [futuristic digital interface](https://www.shutterstock.com/shutterstock/videos/26128421/preview/stock-footage-futuristic-digital-interface-screen.mp4) — **recreated in canvas** (no stock assets embedded).
 
 ### HUD visualization kit (`hud-viz.js`)
 
-- **Radial ring gauges** — tick marks, arc fill, sweep needle, center readout
-- **Radar scope** — polar blips, rotating sweep wedge, event tags, range rings
-- **Hex topology** — inter-node links, micro-bars, load-colored cells
-- **Multi-ring oscilloscope** — concentric circular waveforms per metric
-- **Wireframe globe** — rotating lat/long grid, depth-sorted node pins
-- **Bar matrix** — dense HUD infographic strips with rolling history
-- **Angular HUD panels** — bracket corners, clipped polygon frames
+**Gauges:** radial ring KPIs + linear horizontal bars
+
+**Animated infographic charts** (no ring oscilloscopes):
+- Stacked area · multi-line · column · donut · bar matrix
+- Sparkline grid (12+ cells) · meter bank (12+ rows)
+- Live metric table with per-node status
+
+**Spatial:** radar scope, hex topology, wireframe globe
 
 ### Activity simulation (`mock-charts.js`)
 

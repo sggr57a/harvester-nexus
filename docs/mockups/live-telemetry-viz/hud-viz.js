@@ -304,7 +304,440 @@ function drawHexTopology(canvas, nodes, sim, tick) {
   });
 }
 
-/** Circular oscilloscope — waveform on a ring */
+/** Animated area chart — business infographic / stock footage style */
+function drawAnimatedAreaChart(canvas, series, color, tick, maxV = 100, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { l: 44, r: 16, t: opts.title ? 36 : 20, b: 28 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = h - pad.t - pad.b;
+
+  drawHudGrid(ctx, w, h, 28, 0.05);
+  drawHudBrackets(ctx, w, h, 8);
+
+  if (opts.title) {
+    ctx.font = '600 20px Inter, sans-serif';
+    ctx.fillStyle = '#8b9bb8';
+    ctx.textAlign = 'left';
+    ctx.fillText(opts.title, pad.l, 24);
+  }
+
+  // Y axis ticks
+  for (let j = 0; j <= 4; j++) {
+    const y = pad.t + (j / 4) * plotH;
+    ctx.strokeStyle = 'rgba(56,189,248,0.1)';
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.font = '14px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(139,155,184,0.5)';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(Math.round(maxV * (1 - j / 4))), pad.l - 6, y + 4);
+  }
+
+  const len = series.length;
+  if (len < 2) return;
+  const { r, g, b } = hexToRgb(color);
+  const pts = series.map((v, i) => ({
+    x: pad.l + (i / (len - 1)) * plotW,
+    y: pad.t + plotH - (v / maxV) * plotH,
+  }));
+
+  // gradient area
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pad.t + plotH);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length - 1].x, pad.t + plotH);
+  ctx.closePath();
+  const ag = ctx.createLinearGradient(0, pad.t, 0, pad.t + plotH);
+  ag.addColorStop(0, `rgba(${r},${g},${b},0.55)`);
+  ag.addColorStop(0.6, `rgba(${r},${g},${b},0.15)`);
+  ag.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = ag;
+  ctx.fill();
+
+  // glow line
+  ctx.beginPath();
+  pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 14;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // scan pulse
+  const scanX = pad.l + ((tick * 0.025) % 1) * plotW;
+  ctx.fillStyle = `rgba(${r},${g},${b},0.12)`;
+  ctx.fillRect(scanX - 20, pad.t, 40, plotH);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(scanX, pad.t); ctx.lineTo(scanX, pad.t + plotH); ctx.stroke();
+
+  // current value badge
+  const last = series[len - 1];
+  ctx.font = 'bold 22px Inter, sans-serif';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'right';
+  ctx.fillText(opts.format ? opts.format(last) : last.toFixed(1), w - pad.r, pad.t - 4);
+}
+
+/** Multi-line cartesian chart with legend */
+function drawMultiLineChart(canvas, channels, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { l: 48, r: 16, t: opts.title ? 40 : 24, b: 32 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = h - pad.t - pad.b;
+
+  drawHudGrid(ctx, w, h, 24, 0.04);
+  drawHudBrackets(ctx, w, h, 8);
+
+  if (opts.title) {
+    ctx.font = '600 20px Inter, sans-serif';
+    ctx.fillStyle = '#8b9bb8';
+    ctx.textAlign = 'left';
+    ctx.fillText(opts.title, pad.l, 26);
+  }
+
+  for (let j = 0; j <= 5; j++) {
+    const y = pad.t + (j / 5) * plotH;
+    ctx.strokeStyle = 'rgba(56,189,248,0.08)';
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+
+  channels.forEach((ch, ci) => {
+    const len = ch.series.length;
+    if (len < 2) return;
+    const maxV = ch.max ?? 100;
+    ctx.beginPath();
+    ch.series.forEach((v, i) => {
+      const x = pad.l + (i / (len - 1)) * plotW;
+      const y = pad.t + plotH - (v / maxV) * plotH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = ch.color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = ch.color;
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    const last = ch.series[len - 1];
+    ctx.font = '14px Inter, sans-serif';
+    ctx.fillStyle = ch.color;
+    ctx.textAlign = 'left';
+    ctx.fillText(`${ch.label}  ${ch.format ? ch.format(last) : last.toFixed(0)}`, pad.l + ci * 110, h - 10);
+  });
+
+  const scanX = pad.l + ((tick * 0.02) % 1) * plotW;
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(scanX, pad.t); ctx.lineTo(scanX, pad.t + plotH); ctx.stroke();
+}
+
+/** Stacked area chart — multiple metrics layered */
+function drawStackedAreaChart(canvas, channels, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { l: 44, r: 16, t: 36, b: 28 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = h - pad.t - pad.b;
+  const len = channels[0]?.series.length ?? 0;
+  if (len < 2) return;
+
+  drawHudBrackets(ctx, w, h, 10);
+  ctx.font = '600 20px Inter, sans-serif';
+  ctx.fillStyle = '#8b9bb8';
+  ctx.textAlign = 'left';
+  ctx.fillText(opts.title || 'STACKED METRICS', pad.l, 24);
+
+  const norm = channels.map(ch => ch.series.map(v => v / (ch.max ?? 100)));
+
+  for (let ci = channels.length - 1; ci >= 0; ci--) {
+    const ch = channels[ci];
+    const { r, g, b } = hexToRgb(ch.color);
+    ctx.beginPath();
+    for (let i = 0; i < len; i++) {
+      let base = 0;
+      for (let k = 0; k < ci; k++) base += norm[k][i];
+      const top = base + norm[ci][i];
+      const x = pad.l + (i / (len - 1)) * plotW;
+      const y = pad.t + plotH - top * plotH * 0.9;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    for (let i = len - 1; i >= 0; i--) {
+      let base = 0;
+      for (let k = 0; k < ci; k++) base += norm[k][i];
+      const x = pad.l + (i / (len - 1)) * plotW;
+      const y = pad.t + plotH - base * plotH * 0.9;
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${r},${g},${b},0.5)`;
+    ctx.fill();
+  }
+
+  channels.forEach((ch, ci) => {
+    ctx.font = '14px Inter, sans-serif';
+    ctx.fillStyle = ch.color;
+    ctx.fillRect(pad.l + ci * 90, h - 18, 10, 10);
+    ctx.fillText(ch.label, pad.l + ci * 90 + 14, h - 8);
+  });
+}
+
+/** Animated column / bar chart */
+function drawColumnChart(canvas, bars, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { l: 40, r: 16, t: 36, b: 36 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = h - pad.t - pad.b;
+
+  drawHudGrid(ctx, w, h, 24, 0.04);
+  drawHudBrackets(ctx, w, h, 8);
+
+  ctx.font = '600 20px Inter, sans-serif';
+  ctx.fillStyle = '#8b9bb8';
+  ctx.textAlign = 'left';
+  ctx.fillText(opts.title || '', pad.l, 24);
+
+  const n = bars.length;
+  const groupW = plotW / n;
+  bars.forEach((bar, i) => {
+    const pct = clamp(bar.value / bar.max, 0, 1);
+    const anim = 0.88 + Math.sin(tick / 10 + i) * 0.06;
+    const bh = plotH * pct * anim;
+    const x = pad.l + i * groupW + groupW * 0.15;
+    const bw = groupW * 0.7;
+    const y = pad.t + plotH - bh;
+    const { r, g, b } = hexToRgb(bar.color);
+
+    // bar glow
+    ctx.fillStyle = `rgba(${r},${g},${b},0.2)`;
+    ctx.fillRect(x - 4, y, bw + 8, bh);
+    const bg = ctx.createLinearGradient(x, y, x, pad.t + plotH);
+    bg.addColorStop(0, bar.color);
+    bg.addColorStop(1, `rgba(${r},${g},${b},0.25)`);
+    ctx.fillStyle = bg;
+    ctx.fillRect(x, y, bw, bh);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x, y, bw, 3);
+
+    ctx.font = 'bold 18px Inter, sans-serif';
+    ctx.fillStyle = bar.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(bar.format ? bar.format(bar.value) : bar.value.toFixed(0), x + bw / 2, y - 8);
+
+    ctx.font = '13px Inter, sans-serif';
+    ctx.fillStyle = '#8b9bb8';
+    ctx.fillText(bar.label, x + bw / 2, pad.t + plotH + 22);
+  });
+}
+
+/** Donut chart for resource distribution */
+function drawDonutChart(canvas, segments, tick, opts = {}) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const R = Math.min(w, h) * 0.36;
+  const ri = R * 0.58;
+
+  drawHudBrackets(ctx, w, h, 8);
+
+  const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
+  let angle = -Math.PI / 2;
+
+  segments.forEach((seg, i) => {
+    const slice = (seg.value / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, angle, angle + slice);
+    ctx.arc(cx, cy, ri, angle + slice, angle, true);
+    ctx.closePath();
+    const { r, g, b } = hexToRgb(seg.color);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+    ctx.shadowColor = seg.color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    angle += slice;
+  });
+
+  ctx.font = '600 24px Inter, sans-serif';
+  ctx.fillStyle = '#e8eef8';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(opts.center || 'MIX', cx, cy - 6);
+  ctx.font = '14px Inter, sans-serif';
+  ctx.fillStyle = '#8b9bb8';
+  ctx.fillText(opts.sub || '', cx, cy + 16);
+
+  segments.forEach((seg, i) => {
+    ctx.font = '13px Inter, sans-serif';
+    ctx.fillStyle = seg.color;
+    ctx.textAlign = 'left';
+    ctx.fillRect(12, 20 + i * 18, 8, 8);
+    ctx.fillStyle = '#8b9bb8';
+    ctx.fillText(`${seg.label} ${seg.format ? seg.format(seg.value) : seg.value.toFixed(0)}`, 24, 28 + i * 18);
+  });
+}
+
+/** Horizontal meter bank — dense progress rows */
+function drawMeterBank(canvas, meters, tick) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  drawHudBrackets(ctx, w, h, 8);
+  const rowH = h / meters.length;
+
+  meters.forEach((m, i) => {
+    const y = i * rowH + 8;
+    const pct = clamp(m.value / m.max, 0, 1);
+    const pulse = 1 + Math.sin(tick / 8 + i) * 0.03;
+
+    ctx.font = '14px Inter, sans-serif';
+    ctx.fillStyle = '#8b9bb8';
+    ctx.textAlign = 'left';
+    ctx.fillText(m.label, 12, y + 16);
+
+    const bx = 160;
+    const bw = w - bx - 80;
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(bx, y + 6, bw, 10);
+
+    const { r, g, b } = hexToRgb(m.color);
+    const fw = bw * pct * pulse;
+    const mg = ctx.createLinearGradient(bx, 0, bx + fw, 0);
+    mg.addColorStop(0, `rgba(${r},${g},${b},0.5)`);
+    mg.addColorStop(1, m.color);
+    ctx.fillStyle = mg;
+    ctx.fillRect(bx, y + 6, fw, 10);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(bx + fw - 2, y + 6, 2, 10);
+
+    ctx.font = 'bold 16px Inter, sans-serif';
+    ctx.fillStyle = m.color;
+    ctx.textAlign = 'right';
+    ctx.fillText(m.format ? m.format(m.value) : m.value.toFixed(1), w - 12, y + 16);
+  });
+}
+
+/** Dense sparkline grid — many metrics in one panel */
+function drawSparklineGrid(canvas, cells, tick) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  drawHudGrid(ctx, w, h, 20, 0.03);
+  drawHudBrackets(ctx, w, h, 8);
+
+  const cols = 4;
+  const rows = Math.ceil(cells.length / cols);
+  const cellW = w / cols;
+  const cellH = h / rows;
+
+  cells.forEach((cell, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x0 = col * cellW + 8;
+    const y0 = row * cellH + 8;
+    const cw = cellW - 16;
+    const ch = cellH - 16;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(x0, y0, cw, ch);
+    ctx.strokeStyle = 'rgba(56,189,248,0.15)';
+    ctx.strokeRect(x0, y0, cw, ch);
+
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = '#8b9bb8';
+    ctx.textAlign = 'left';
+    ctx.fillText(cell.label, x0 + 6, y0 + 14);
+
+    ctx.font = 'bold 14px Inter, sans-serif';
+    ctx.fillStyle = cell.color;
+    ctx.textAlign = 'right';
+    ctx.fillText(cell.readout, x0 + cw - 6, y0 + 14);
+
+    const series = cell.series;
+    if (series.length < 2) return;
+    const maxV = cell.max ?? 100;
+    const sparkH = ch - 28;
+    const sparkY = y0 + 22;
+    ctx.beginPath();
+    series.forEach((v, si) => {
+      const sx = x0 + 4 + (si / (series.length - 1)) * (cw - 8);
+      const sy = sparkY + sparkH - (v / maxV) * sparkH;
+      if (si === 0) ctx.moveTo(sx, sy);
+      else ctx.lineTo(sx, sy);
+    });
+    ctx.strokeStyle = cell.color;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = cell.color;
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // mini area fill
+    ctx.lineTo(x0 + cw - 4, sparkY + sparkH);
+    ctx.lineTo(x0 + 4, sparkY + sparkH);
+    ctx.closePath();
+    const { r, g, b } = hexToRgb(cell.color);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.12)`;
+    ctx.fill();
+  });
+}
+
+/** Compact linear gauge (horizontal bar style, not ring) */
+function drawLinearGauge(canvas, value, max, label, color, tick) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.clearRect(0, 0, w, h);
+
+  const pct = clamp(value / max, 0, 1);
+  ctx.font = '12px Inter, sans-serif';
+  ctx.fillStyle = '#8b9bb8';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, 8, 18);
+
+  ctx.font = 'bold 20px Inter, sans-serif';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'right';
+  ctx.fillText(max >= 1000 ? fmtK(value) : (value >= 100 ? value.toFixed(0) : value.toFixed(1)), w - 8, 20);
+
+  const by = 28;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.fillRect(8, by, w - 16, 8);
+  const { r, g, b } = hexToRgb(color);
+  const fw = (w - 16) * pct;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.fillRect(8, by, fw, 8);
+  ctx.shadowBlur = 0;
+}
+
+/** Circular oscilloscope — waveform on a ring (deprecated, kept for reference) */
 function drawCircularWaveform(canvas, series, color, tick, maxV = 100, label = '') {
   const ctx = canvas.getContext('2d');
   const w = canvas.width = canvas.offsetWidth * 2;
@@ -587,27 +1020,78 @@ function initHudDashboard(sim, config) {
     (config.hexMaps || []).forEach(h => drawHexTopology(h.el, h.nodes, sim, tick));
     (config.globes || []).forEach(g => drawWireframeGlobe(g.el, g.nodes, sim, tick));
 
-    (config.ringScopes || []).forEach(rs => {
-      const channels = rs.channels.map(ch => {
-        const key = ch.key;
-        if (!series[key]) series[key] = [];
-        pushSeries(series[key], getVal(ch.metric, ch.node), rs.len ?? 64);
-        return {
-          series: series[key],
-          color: ch.color,
-          max: ch.max ?? 100,
-          label: ch.label,
-          format: ch.format,
-        };
-      });
-      drawMultiRingScope(rs.el, channels, tick);
+    (config.areaCharts || []).forEach(ac => {
+      const key = ac.key;
+      if (!series[key]) series[key] = [];
+      pushSeries(series[key], getVal(ac.metric, ac.node), ac.len ?? 72);
+      drawAnimatedAreaChart(ac.el, series[key], ac.color, tick, ac.max ?? 100, ac.opts || {});
     });
 
-    (config.circularWaves || []).forEach(cw => {
-      const key = cw.key;
-      if (!series[key]) series[key] = [];
-      pushSeries(series[key], getVal(cw.metric, cw.node), cw.len ?? 48);
-      drawCircularWaveform(cw.el, series[key], cw.color, tick, cw.max ?? 100, cw.centerLabel);
+    (config.lineCharts || []).forEach(lc => {
+      const channels = lc.channels.map(ch => {
+        const key = ch.key;
+        if (!series[key]) series[key] = [];
+        pushSeries(series[key], getVal(ch.metric, ch.node), lc.len ?? 64);
+        return { series: series[key], color: ch.color, label: ch.label, max: ch.max ?? 100, format: ch.format };
+      });
+      drawMultiLineChart(lc.el, channels, tick, lc.opts || {});
+    });
+
+    (config.stackedAreas || []).forEach(sa => {
+      const channels = sa.channels.map(ch => {
+        const key = ch.key;
+        if (!series[key]) series[key] = [];
+        pushSeries(series[key], getVal(ch.metric, ch.node), sa.len ?? 64);
+        return { series: series[key], color: ch.color, label: ch.label, max: ch.max ?? 100 };
+      });
+      drawStackedAreaChart(sa.el, channels, tick, sa.opts || {});
+    });
+
+    (config.columnCharts || []).forEach(cc => {
+      const bars = cc.bars.map(b => ({
+        label: b.label,
+        value: getVal(b.metric, b.node),
+        max: b.max ?? 100,
+        color: b.color,
+        format: b.format,
+      }));
+      drawColumnChart(cc.el, bars, tick, cc.opts || {});
+    });
+
+    (config.donuts || []).forEach(d => {
+      const segments = d.segments.map(seg => ({
+        label: seg.label,
+        value: getVal(seg.metric, seg.node),
+        color: seg.color,
+        format: seg.format,
+      }));
+      drawDonutChart(d.el, segments, tick, d.opts || {});
+    });
+
+    (config.meterBanks || []).forEach(mb => {
+      const meters = mb.meters.map(m => ({
+        label: m.label,
+        value: getVal(m.metric, m.node),
+        max: m.max ?? 100,
+        color: m.color,
+        format: m.format,
+      }));
+      drawMeterBank(mb.el, meters, tick);
+    });
+
+    (config.sparklineGrids || []).forEach(sg => {
+      const cells = sg.cells.map(c => {
+        const key = c.key;
+        if (!series[key]) series[key] = [];
+        const v = getVal(c.metric, c.node);
+        pushSeries(series[key], v, c.len ?? 32);
+        return { label: c.label, series: [...series[key]], color: c.color, max: c.max ?? 100, readout: c.format ? c.format(v) : v.toFixed(0) };
+      });
+      drawSparklineGrid(sg.el, cells, tick);
+    });
+
+    (config.linearGauges || []).forEach(lg => {
+      drawLinearGauge(lg.el, getVal(lg.metric, lg.node), lg.max ?? 100, lg.label, lg.color, tick);
     });
 
     (config.barMatrices || []).forEach(bm => {

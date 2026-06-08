@@ -34,19 +34,14 @@ const pages = [
     });
     console.log('screenshot', spec.name);
 
-    // Slow scroll to show animation
+    // Scroll through page in fixed steps (long pages)
     await page.evaluate(async () => {
-      await new Promise((resolve) => {
-        let y = 0;
-        const step = () => {
-          y += 40;
-          window.scrollTo(0, y);
-          if (y < document.body.scrollHeight - window.innerHeight) {
-            requestAnimationFrame(step);
-          } else resolve(undefined);
-        };
-        step();
-      });
+      const step = 120;
+      const maxY = document.body.scrollHeight - window.innerHeight;
+      for (let y = 0; y <= maxY; y += step) {
+        window.scrollTo(0, y);
+        await new Promise(r => setTimeout(r, 16));
+      }
     });
     await page.waitForTimeout(spec.dwell);
 
