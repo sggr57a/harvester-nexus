@@ -314,62 +314,7 @@ export function initMockCharts(config) {
   return sim;
 }
 
-function initHeatmapRows(container, rowLabels, sim) {
-  const cols = 36;
-  const grid = rowLabels.map(() => Array.from({ length: cols }, () => 15 + Math.random() * 20));
-  container.innerHTML = '';
-  container.style.gridTemplateColumns = `88px repeat(${cols}, 1fr)`;
 
-  const header = document.createElement('div');
-  header.textContent = '';
-  container.appendChild(header);
-  for (let c = 0; c < cols; c++) {
-    const h = document.createElement('div');
-    h.textContent = c % 6 === 0 ? `-${cols - c}m` : '';
-    h.style.fontSize = '0.55rem';
-    h.style.color = '#6b7280';
-    h.style.alignSelf = 'end';
-    container.appendChild(h);
-  }
-
-  const cells = [];
-  rowLabels.forEach((label, ri) => {
-    const name = document.createElement('div');
-    name.className = 'heatmap-node-label';
-    name.innerHTML = `<strong>${label}</strong><small id="hm-load-${ri}">—</small>`;
-    container.appendChild(name);
-    const rowCells = [];
-    for (let c = 0; c < cols; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      container.appendChild(cell);
-      rowCells.push(cell);
-    }
-    cells.push(rowCells);
-  });
-
-  let frame = 0;
-  return function updateHeatmap() {
-    frame += 1;
-    if (frame % 8 !== 0) return;
-    rowLabels.forEach((_, ri) => {
-      const s = sim.sample('hm', ri);
-      grid[ri].shift();
-      grid[ri].push(s.cpu);
-      const el = document.getElementById(`hm-load-${ri}`);
-      if (el) el.textContent = fmtPct(s.cpu);
-      grid[ri].forEach((v, c) => {
-        const cell = cells[ri][c];
-        const hot = v > 70;
-        const hue = hot ? 25 - (v - 70) * 0.5 : 210 - v * 1.4;
-        const light = hot ? 52 + (v - 50) * 0.3 : 38 + v * 0.15;
-        cell.style.background = `hsla(${hue}, ${hot ? 90 : 70}%, ${light}%, ${0.35 + v / 120})`;
-        cell.style.boxShadow = hot && c === cols - 1 ? '0 0 8px rgba(248,113,113,0.6)' : 'none';
-        cell.classList.toggle('cell-hot', hot && c === cols - 1);
-      });
-    });
-  };
-}
 
 function setupDynamicPillars(container, nodeConfigs, sim) {
   container.innerHTML = `
