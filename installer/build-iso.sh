@@ -170,6 +170,28 @@ INSTALLER_FILES=${INSTALLER_SRC}/package/harvester-os/files
 rm -rf "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/dist"
 copy_tree "${NEXUS_OVERLAY}" "${INSTALLER_FILES}"
 
+verify_overlay_merge() {
+  local root=$1
+  local missing=0
+  for path in \
+    usr/local/bin/nexus-cockpit \
+    usr/local/bin/nexus-bootstrap \
+    usr/local/bin/nexus-postinstall \
+    etc/systemd/system/nexus-cockpit.service \
+    system/oem/92_nexus.yaml \
+    etc/nexus/config.yaml \
+    usr/local/share/nexus-cockpit/dist.tar.gz; do
+    if [[ ! -e "${root}/${path}" ]]; then
+      log "overlay verify FAILED · missing ${path}"
+      missing=$((missing + 1))
+    fi
+  done
+  [[ "${missing}" -eq 0 ]] || fail "Nexus overlay merge incomplete (${missing} paths missing under ${root})"
+  log "overlay verify OK · Nexus files present under harvester-os/files"
+}
+
+verify_overlay_merge "${INSTALLER_FILES}"
+
 # ============================================================
 # Stage 4 — stage Nexus wizard questions (reference copy)
 # ============================================================

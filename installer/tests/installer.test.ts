@@ -297,6 +297,11 @@ describe('installer · build-iso.sh artifact staging', () => {
     expect(script).toMatch(/ensure_toolchain/);
     expect(script).toMatch(/yq_linux_\$\{arch\}/);
   });
+
+  it('verifies Nexus overlay files exist under harvester-os/files before running ci', () => {
+    expect(script).toMatch(/verify_overlay_merge/);
+    expect(script).toMatch(/usr\/local\/bin\/nexus-cockpit/);
+  });
 });
 
 describe('installer · first-boot OEM + host cockpit wiring', () => {
