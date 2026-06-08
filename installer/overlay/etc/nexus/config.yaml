@@ -28,8 +28,8 @@ cockpit:
   port: 8443
   tlsSelfSigned: true
   # Path that the static cockpit assets are served from. Populated by
-  # the install overlay at /usr/local/share/nexus-cockpit.
-  staticRoot: /usr/local/share/nexus-cockpit
+  # the install overlay at /usr/share/nexus-cockpit.
+  staticRoot: /usr/share/nexus-cockpit
   # Hosts the cockpit binds to. `0.0.0.0` exposes on the management VIP.
   bindAddress: 0.0.0.0
 

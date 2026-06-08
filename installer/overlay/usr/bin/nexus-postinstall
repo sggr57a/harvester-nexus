@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # nexus-postinstall — invoked from the Harvester install wizard's
 # `post_install` hook AFTER the operator has answered every install
 # question. Writes wizard answers into /etc/nexus/config.yaml so the

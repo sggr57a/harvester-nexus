@@ -10,7 +10,7 @@ import ssl
 import sys
 import threading
 
-ROOT = os.environ.get("NEXUS_COCKPIT_ROOT", "/usr/local/share/nexus-cockpit/dist")
+ROOT = os.environ.get("NEXUS_COCKPIT_ROOT", "/usr/share/nexus-cockpit/dist")
 HTTP_PORT = int(os.environ.get("NEXUS_COCKPIT_HTTP_PORT", "8080"))
 HTTPS_PORT = int(os.environ.get("NEXUS_COCKPIT_HTTPS_PORT", "8443"))
 TLS_CRT = os.environ.get("NEXUS_COCKPIT_TLS_CRT", "/etc/nexus/tls/cockpit.crt")

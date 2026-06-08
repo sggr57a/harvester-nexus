@@ -8,12 +8,12 @@ stages:
       commands:
         - mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls
         - |
-          if [ -f /usr/local/share/nexus-cockpit/dist.tar.gz ] \
-             && [ ! -f /usr/local/share/nexus-cockpit/dist/index.html ] \
+          if [ -f /usr/share/nexus-cockpit/dist.tar.gz ] \
+             && [ ! -f /usr/share/nexus-cockpit/dist/index.html ] \
              && [ ! -f /var/lib/nexus/cockpit-dist/index.html ]; then
-            tar -xzf /usr/local/share/nexus-cockpit/dist.tar.gz -C /var/lib/nexus/cockpit-dist
+            tar -xzf /usr/share/nexus-cockpit/dist.tar.gz -C /var/lib/nexus/cockpit-dist
           fi
-        - /usr/local/bin/nexus-postinstall || true
+        - /usr/bin/nexus-postinstall || true
       systemctl:
         enable:
           - nexus-bootstrap.service
@@ -26,10 +26,10 @@ stages:
       commands:
         - mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls
         - |
-          if [ -f /usr/local/share/nexus-cockpit/dist.tar.gz ] \
-             && [ ! -f /usr/local/share/nexus-cockpit/dist/index.html ] \
+          if [ -f /usr/share/nexus-cockpit/dist.tar.gz ] \
+             && [ ! -f /usr/share/nexus-cockpit/dist/index.html ] \
              && [ ! -f /var/lib/nexus/cockpit-dist/index.html ]; then
-            tar -xzf /usr/local/share/nexus-cockpit/dist.tar.gz -C /var/lib/nexus/cockpit-dist
+            tar -xzf /usr/share/nexus-cockpit/dist.tar.gz -C /var/lib/nexus/cockpit-dist
           fi
       systemctl:
         enable:

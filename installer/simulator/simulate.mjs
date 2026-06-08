@@ -38,7 +38,7 @@ const REPO_ROOT     = process.env.REPO_ROOT     ?? join(__dirname, '..', '..');
 const INSTALLER_DIR = join(REPO_ROOT, 'installer');
 const OVERLAY       = process.env.HARVESTER_NEXUS_OVERLAY ?? join(REPO_ROOT, 'build', 'nexus-overlay');
 const CONFIG_PATH   = join(OVERLAY, 'etc', 'nexus', 'config.yaml');
-const MANIFESTS_DIR = join(OVERLAY, 'usr', 'local', 'share', 'nexus-cockpit', 'manifests');
+const MANIFESTS_DIR = join(OVERLAY, 'usr', 'share', 'nexus-cockpit', 'manifests');
 const REPORT_PATH   = process.env.SIM_REPORT ?? join(REPO_ROOT, 'build', 'install-simulation-report.yaml');
 
 /* ============================================================
@@ -79,7 +79,7 @@ function loadConfig() {
     if (cfg.kind !== 'NexusInstallConfig') throw new Error(`kind=${cfg.kind}`);
   });
   check('cockpit static bundle present (dist/index.html)', () => {
-    const index = join(OVERLAY, 'usr', 'local', 'share', 'nexus-cockpit', 'dist', 'index.html');
+    const index = join(OVERLAY, 'usr', 'share', 'nexus-cockpit', 'dist', 'index.html');
     if (!existsSync(index)) throw new Error(`missing ${index} — run \`make overlay\` to build and stage the SPA`);
   });
   check('admin username defaults to "admin"', () => {

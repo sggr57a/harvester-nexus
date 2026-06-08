@@ -5,8 +5,8 @@
 #   1. Build the cockpit production bundle (npm run build).
 #   2. Stage the overlay tree:
 #        installer/overlay/                  → /
-#        dist/                               → /usr/local/share/nexus-cockpit/dist/
-#        installer/manifests/                → /usr/local/share/nexus-cockpit/manifests/
+#        dist/                               → /usr/share/nexus-cockpit/dist/
+#        installer/manifests/                → /usr/share/nexus-cockpit/manifests/
 #        installer/installer-config/         → /etc/nexus/installer/
 #   3. Clone harvester-installer (master) and merge the staged overlay
 #      into `package/harvester-os/files/` (COPY files/ / in the OS Dockerfile).
@@ -102,7 +102,7 @@ copy_tree "${INSTALLER_DIR}/overlay" "${NEXUS_OVERLAY}"
 
 # Cockpit production bundle — expanded tree for overlay/simulator checks,
 # plus a single dist.tar.zst for docker build (avoids huge COPY layers).
-COCKPIT_ROOT="${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit"
+COCKPIT_ROOT="${NEXUS_OVERLAY}/usr/share/nexus-cockpit"
 COCKPIT_STAGING=$(mktemp -d)
 cleanup_cockpit_staging() { rm -rf "${COCKPIT_STAGING}"; }
 trap cleanup_cockpit_staging EXIT
@@ -134,8 +134,8 @@ copy_tree "${INSTALLER_DIR}/installer-config" "${NEXUS_OVERLAY}/etc/nexus/instal
 # About panel + the install-record yaml.
 printf '%s\n' "${VERSION}" > "${NEXUS_OVERLAY}/etc/nexus/version"
 
-[[ -f "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/dist/index.html" ]] \
-  || fail "cockpit bundle missing index.html under usr/local/share/nexus-cockpit/dist/"
+[[ -f "${NEXUS_OVERLAY}/usr/share/nexus-cockpit/dist/index.html" ]] \
+  || fail "cockpit bundle missing index.html under usr/share/nexus-cockpit/dist/"
 
 log "stage 2 complete · overlay has $(find "${NEXUS_OVERLAY}" -type f | wc -l) files"
 
@@ -167,20 +167,21 @@ INSTALLER_FILES=${INSTALLER_SRC}/package/harvester-os/files
 [[ -d "${INSTALLER_FILES}" ]] || fail "harvester-installer layout changed: missing ${INSTALLER_FILES}"
 
 # Docker COPY files/ / is fragile with many small SPA assets — ship the tarball only.
-rm -rf "${NEXUS_OVERLAY}/usr/local/share/nexus-cockpit/dist"
+rm -rf "${NEXUS_OVERLAY}/usr/share/nexus-cockpit/dist"
 copy_tree "${NEXUS_OVERLAY}" "${INSTALLER_FILES}"
 
 verify_overlay_merge() {
   local root=$1
   local missing=0
   for path in \
-    usr/local/bin/nexus-cockpit \
-    usr/local/bin/nexus-bootstrap \
-    usr/local/bin/nexus-postinstall \
+    usr/bin/nexus-cockpit \
+    usr/bin/nexus-bootstrap \
+    usr/bin/nexus-postinstall \
+    usr/lib/nexus/serve-cockpit.py \
     etc/systemd/system/nexus-cockpit.service \
     system/oem/92_nexus.yaml \
     etc/nexus/config.yaml \
-    usr/local/share/nexus-cockpit/dist.tar.gz; do
+    usr/share/nexus-cockpit/dist.tar.gz; do
     if [[ ! -e "${root}/${path}" ]]; then
       log "overlay verify FAILED · missing ${path}"
       missing=$((missing + 1))

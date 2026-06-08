@@ -210,13 +210,13 @@ describe('installer · wizard questions cover every install-time setting', () =>
 });
 
 describe('installer · overlay scripts are present + executable', () => {
-  const binDir = join(INSTALLER, 'overlay', 'usr', 'local', 'bin');
+  const binDir = join(INSTALLER, 'overlay', 'usr', 'bin');
   for (const script of ['nexus-bootstrap', 'nexus-cockpit', 'nexus-postinstall']) {
-    it(`${script} exists and starts with a shebang`, () => {
+    it(`${script} exists and starts with a bash shebang`, () => {
       const p = join(binDir, script);
       expect(existsSync(p), `${p} missing`).toBe(true);
       const text = readFileSync(p, 'utf8');
-      expect(text.startsWith('#!/usr/bin/env bash') || text.startsWith('#!/bin/bash')).toBe(true);
+      expect(text.startsWith('#!/bin/bash') || text.startsWith('#!/usr/bin/env bash')).toBe(true);
     });
   }
 });
@@ -290,7 +290,7 @@ describe('installer · build-iso.sh artifact staging', () => {
     const text = readFileSync(patchScript, 'utf8');
     expect(text).toMatch(/HARVESTER_NEXUS_COCKPIT_DIST_EXTRACT/);
     expect(text).not.toMatch(/\\&\\&/);
-    expect(text).toMatch(/mkdir -p \/usr\/local\/share\/nexus-cockpit\/dist &&/);
+    expect(text).toMatch(/mkdir -p \/usr\/share\/nexus-cockpit\/dist &&/);
   });
 
   it('bootstraps yq in build-iso.sh when iso-builder image is stale', () => {
@@ -300,7 +300,8 @@ describe('installer · build-iso.sh artifact staging', () => {
 
   it('verifies Nexus overlay files exist under harvester-os/files before running ci', () => {
     expect(script).toMatch(/verify_overlay_merge/);
-    expect(script).toMatch(/usr\/local\/bin\/nexus-cockpit/);
+    expect(script).toMatch(/usr\/bin\/nexus-cockpit/);
+    expect(script).toMatch(/usr\/share\/nexus-cockpit/);
   });
 });
 
@@ -340,23 +341,23 @@ describe('installer · systemd units have correct After / Wants ordering', () =>
   it('nexus-bootstrap.service runs after k3s/rke2 and before nexus-cockpit', () => {
     const text = readFileSync(join(unitsDir, 'nexus-bootstrap.service'), 'utf8');
     expect(text).toMatch(/After=.*k3s\.service.*rke2-server\.service/);
-    expect(text).toContain('ExecStart=/usr/local/bin/nexus-bootstrap');
+    expect(text).toContain('ExecStart=/usr/bin/nexus-bootstrap');
   });
 
   it('nexus-cockpit.service serves the static bundle after network is online', () => {
     const text = readFileSync(join(unitsDir, 'nexus-cockpit.service'), 'utf8');
     expect(text).toContain('After=network-online.target');
     expect(text).toContain('Type=simple');
-    expect(text).toMatch(/ExecStartPre=-\/usr\/local\/bin\/nexus-cockpit --ensure-tls/);
-    expect(text).toMatch(/ExecStart=\/usr\/local\/bin\/nexus-cockpit --serve$/m);
+    expect(text).toMatch(/ExecStartPre=-\/usr\/bin\/nexus-cockpit --ensure-tls/);
+    expect(text).toMatch(/ExecStart=\/usr\/bin\/nexus-cockpit --serve$/m);
     expect(text).toContain('/var/lib/nexus/cockpit-dist');
     expect(text).not.toContain('ProtectSystem=strict');
   });
 });
 
 describe('installer · nexus-cockpit launcher serves HTTPS on 8443', () => {
-  const launcher = readFileSync(join(INSTALLER, 'overlay', 'usr', 'local', 'bin', 'nexus-cockpit'), 'utf8');
-  const servePy = join(INSTALLER, 'overlay', 'usr', 'local', 'lib', 'nexus', 'serve-cockpit.py');
+  const launcher = readFileSync(join(INSTALLER, 'overlay', 'usr', 'bin', 'nexus-cockpit'), 'utf8');
+  const servePy = join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'serve-cockpit.py');
 
   it('ships a python fallback that listens on both 8443 and 8080', () => {
     expect(existsSync(servePy), `${servePy} missing`).toBe(true);
@@ -366,7 +367,15 @@ describe('installer · nexus-cockpit launcher serves HTTPS on 8443', () => {
     expect(text).toMatch(/healthz/);
     expect(launcher).toMatch(/serve-cockpit\.py/);
     expect(launcher).toMatch(/--status/);
+    expect(launcher).toMatch(/usr\/share\/nexus-cockpit/);
     expect(launcher).toMatch(/var\/lib\/nexus\/cockpit-dist/);
     expect(launcher).toMatch(/resolve_serve_root/);
+    expect(launcher).not.toMatch(/usr\/local\/share\/nexus-cockpit/);
+  });
+});
+
+describe('installer · overlay avoids Elemental /usr/local persistent mount', () => {
+  it('does not install Nexus assets under /usr/local (hidden by COS_PERSISTENT)', () => {
+    expect(existsSync(join(INSTALLER, 'overlay', 'usr', 'local'))).toBe(false);
   });
 });

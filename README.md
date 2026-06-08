@@ -433,8 +433,8 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
 4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk. When install completes, `system/oem/92_nexus.yaml` enables and **starts** `nexus-cockpit.service` (and enables `nexus-bootstrap.service` for when Kubernetes is up).
 
 5. **First boot bootstrap** (automatic, 5–15 minutes depending on disk and network):
-   - `nexus-cockpit` serves the bundled React cockpit from `/usr/local/share/nexus-cockpit/dist/` on port **8443** (HTTPS) and **8080** (HTTP health)
-   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/local/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit metadata → `99-` features)
+   - `nexus-cockpit` serves the bundled React cockpit from `/usr/share/nexus-cockpit/dist/` on port **8443** (HTTPS) and **8080** (HTTP health)
+   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit metadata → `99-` features)
    - Logs: `/var/log/nexus/bootstrap.log`, `/var/log/nexus/cockpit.log`
 
 6. **Open the Nexus cockpit** at `https://<node-ip>:8443` (or `http://<node-ip>:8080` if TLS material is unavailable). Accept the self-signed certificate.
@@ -570,8 +570,8 @@ docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
 | `make iso` runs out of disk | ISO build needs ~25 GB | Free space under `/var/lib/docker` and the repo checkout |
 | QEMU `-enable-kvm` error | KVM not available | Run `kvm-ok`; enable virtualization in firmware; or drop `-enable-kvm` (much slower) |
 | Cockpit unreachable after install | Wrong URL (Harvester `:443` vs Nexus `:8443`), service not running, missing bundle, or firewall | Use the **node management IP** (not the cluster VIP). Try `https://<node-ip>:8443` then `http://<node-ip>:8080`. On the node: `sudo nexus-cockpit --status`, `systemctl status nexus-cockpit`, `journalctl -u nexus-cockpit -b`, `curl -sk https://127.0.0.1:8443/healthz`. If `index.html` is missing, rebuild + reinstall from the current branch |
-| `nexus-cockpit.service` fails / restart loop | Read-only root blocked tarball extract under `/usr/local`, missing `python3`, or broken nginx picked first | On the node: `journalctl -u nexus-cockpit -b --no-pager`. Check `python3 --version`, `ls /var/lib/nexus/cockpit-dist/index.html /usr/local/share/nexus-cockpit/dist/index.html`. Rebuild ISO from current branch (extracts bundle to `/var/lib/nexus/cockpit-dist`, installs `python3`, prefers Python over nginx) |
-| `/usr/local/bin/nexus-cockpit: No such file or directory` | Installed from **stock Harvester ISO** or an ISO built before the overlay merge into `package/harvester-os/files/` | On the node run `bash /path/to/verify-installed.sh` (from repo `installer/verify-installed.sh`) or check `ls /usr/local/bin/nexus-* /etc/nexus/version`. Rebuild with `git pull origin cursor/fix-iso-entrypoint-d930 && cd installer && make iso-builder && make iso`, then **reinstall** using `dist/harvester-nexus-*.iso` |
+| `nexus-cockpit.service` fails / restart loop | Read-only root blocked tarball extract, missing `python3`, or broken nginx picked first | On the node: `journalctl -u nexus-cockpit -b --no-pager`. Check `python3 --version`, `ls /usr/share/nexus-cockpit/dist/index.html /var/lib/nexus/cockpit-dist/index.html`. Rebuild ISO from current branch |
+| `cannot execute /usr/local/bin/nexus-cockpit: No such file or directory` | **Wrong path** — Nexus lives under `/usr/bin/nexus-cockpit`, not `/usr/local` (Elemental mounts `/usr/local` as empty persistent storage and hides ISO files). Or stock Harvester ISO | On the node: `ls -la /usr/bin/nexus-cockpit /usr/share/nexus-cockpit/`. Rebuild with `git pull origin cursor/fix-iso-entrypoint-d930 && cd installer && make iso-builder && make iso`, then **reinstall** using `dist/harvester-nexus-*.iso` |
 | Login rejected | Wrong credentials | Production default is `admin` / `admin`; dev server also accepts `admin` / `demo` |
 
 For installer internals, manifest layout, and simulator details, see [`installer/README.md`](./installer/README.md).

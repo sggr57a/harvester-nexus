@@ -1,18 +1,19 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # nexus-cockpit — serves the cockpit production bundle on each node.
-# Bundle lives in the read-only squashfs under /usr/local/share/nexus-cockpit/
-# or is extracted once into writable /var/lib/nexus/cockpit-dist.
+# Assets live on the read-only squashfs under /usr/share/nexus-cockpit/
+# (/usr/local is a persistent mount on Elemental and hides ISO-baked files).
+# Runtime tarball extract uses writable /var/lib/nexus/cockpit-dist.
 
 set -euo pipefail
 
 ACTION=${1:-help}
 shift || true
 
-COCKPIT_SHARE=/usr/local/share/nexus-cockpit
+COCKPIT_SHARE=/usr/share/nexus-cockpit
 RUNTIME_DIST=/var/lib/nexus/cockpit-dist
 CONFIG_FILE=/etc/nexus/config.yaml
 LOG_DIR=/var/log/nexus
-SERVE_PY=/usr/local/lib/nexus/serve-cockpit.py
+SERVE_PY=/usr/lib/nexus/serve-cockpit.py
 HTTPS_PORT=8443
 HTTP_PORT=8080
 TLS_DIR=/etc/nexus/tls
@@ -138,7 +139,6 @@ start_python_server() {
   done
   [[ -n "${py}" ]] || return 1
   [[ -f "${SERVE_PY}" ]] || return 1
-  [[ -x "${SERVE_PY}" ]] || chmod +x "${SERVE_PY}"
   export NEXUS_COCKPIT_ROOT="${root}"
   export NEXUS_COCKPIT_HTTP_PORT="${HTTP_PORT}"
   export NEXUS_COCKPIT_HTTPS_PORT="${HTTPS_PORT}"

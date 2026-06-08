@@ -24,7 +24,9 @@ installer/
 ├── overlay/                          files merged into the squashfs root
 │   ├── etc/nexus/config.yaml         install-time config (admin/admin, themes, XDR profile, ...)
 │   ├── etc/systemd/system/           nexus-bootstrap.service + nexus-cockpit.service
-│   └── usr/local/bin/                nexus-bootstrap, nexus-cockpit, nexus-postinstall
+│   ├── usr/bin/                      nexus-bootstrap, nexus-cockpit, nexus-postinstall
+│   ├── usr/share/nexus-cockpit/      cockpit bundle + bootstrap manifests
+│   └── usr/lib/nexus/                serve-cockpit.py
 │
 ├── manifests/                        applied by nexus-bootstrap on first boot
 │   ├── 00-nexus-namespace.yaml       3 namespaces (nexus-system / nexus-xdr / nexus-cockpit)
@@ -137,4 +139,4 @@ The contract tests lock in:
 - Every workload image references a real upstream FOSS registry — no placeholder or private registries.
 - The wizard question schema exposes every install-time setting the cockpit checks at boot.
 - The systemd units order correctly (`nexus-bootstrap` after `k3s/rke2`; `nexus-cockpit` after `network-online.target`).
-- Every helper script under `overlay/usr/local/bin/` is present and starts with a bash shebang.
+- Every helper script under `overlay/usr/bin/` is present and starts with a bash shebang. Assets must not live under `/usr/local/` — Elemental mounts that path as persistent storage and hides squashfs files baked there.
