@@ -56,9 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      # Must run before checkout — this action mounts over $GITHUB_WORKSPACE and
+      # hides any files already checked out into that directory.
       - name: Maximize disk space
         uses: easimon/maximize-build-space@v10
         with:
@@ -67,6 +66,9 @@ jobs:
           remove-haskell: true
           remove-codeql: true
           overprovision-lvm: true
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Resolve ISO version
         id: version
