@@ -56,26 +56,38 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      # Must run before checkout — this action mounts over $GITHUB_WORKSPACE and
-      # hides any files already checked out into that directory.
-      - name: Maximize disk space
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Expand Docker storage — mount on /var/lib/docker, NOT $GITHUB_WORKSPACE,
+      # so the repo checkout stays visible for the rest of the job.
+      - name: Maximize Docker disk space
         uses: easimon/maximize-build-space@v10
         with:
+          build-mount-path: /var/lib/docker
+          root-reserve-mb: 2048
+          swap-size-mb: 2048
           remove-dotnet: true
           remove-android: true
           remove-haskell: true
           remove-codeql: true
-          overprovision-lvm: true
+          remove-docker-images: true
 
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Restart Docker
+        run: sudo service docker restart
 
       - name: Resolve ISO version
         id: version
+        working-directory: ${{ github.workspace }}
         run: |
-          VERSION=$(bash installer/ci-version.sh)
+          set -euo pipefail
+          test -f installer/VERSION
+          BASE=$(tr -d '[:space:]' < installer/VERSION)
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          VERSION="${BASE}.main.${GITHUB_RUN_NUMBER}.${SHORT_SHA}"
           echo "nexus_version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "ISO version: ${VERSION}"
+          ls -la installer/ci-version.sh installer/VERSION
 
       - name: Build iso-builder image
         run: |
