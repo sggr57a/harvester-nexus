@@ -56,17 +56,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Expand Docker storage — mount on /var/lib/docker, NOT $GITHUB_WORKSPACE,
-      # so the repo checkout stays visible for the rest of the job.
+      # Expand Docker + ISO build storage (~60 GB LVM volume).
       - name: Maximize Docker disk space
         uses: easimon/maximize-build-space@v10
         with:
           build-mount-path: /var/lib/docker
-          root-reserve-mb: 2048
-          swap-size-mb: 2048
+          root-reserve-mb: 512
+          temp-reserve-mb: 100
+          swap-size-mb: 4096
           remove-dotnet: true
           remove-android: true
           remove-haskell: true
@@ -75,6 +72,23 @@ jobs:
 
       - name: Restart Docker
         run: sudo service docker restart
+
+      - name: Prepare build directories on expanded volume
+        run: |
+          set -euo pipefail
+          BUILD_ROOT=/var/lib/docker/nexus-ci
+          sudo mkdir -p "${BUILD_ROOT}/build" "${BUILD_ROOT}/dist"
+          sudo chown -R "$(id -u):$(id -g)" "${BUILD_ROOT}"
+          echo "BUILD_DIR=${BUILD_ROOT}/build" >> "$GITHUB_ENV"
+          echo "DIST_DIR=${BUILD_ROOT}/dist" >> "$GITHUB_ENV"
+          rm -rf "${GITHUB_WORKSPACE}/build" "${GITHUB_WORKSPACE}/dist"
+          ln -sfn "${BUILD_ROOT}/build" "${GITHUB_WORKSPACE}/build"
+          ln -sfn "${BUILD_ROOT}/dist" "${GITHUB_WORKSPACE}/dist"
+          echo "Disk layout:"
+          df -h / /var/lib/docker "${BUILD_ROOT}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Resolve ISO version
         id: version
@@ -93,13 +107,21 @@ jobs:
         run: |
           cd installer
           make iso-builder
+          docker image prune -f
+
+      - name: Show disk before ISO build
+        run: df -h / /var/lib/docker "${BUILD_DIR}" "${DIST_DIR}"
 
       - name: Build ISO
         env:
           BUILD_VERSION: ${{ steps.version.outputs.nexus_version }}
+          BUILD_DIR: ${{ env.BUILD_DIR }}
+          DIST: ${{ env.DIST_DIR }}
         run: |
           cd installer
-          make iso BUILD_VERSION="${BUILD_VERSION}"
+          make iso-only BUILD_VERSION="${BUILD_VERSION}" BUILD_DIR="${BUILD_DIR}" DIST="${DIST}"
+          mkdir -p "${GITHUB_WORKSPACE}/dist"
+          cp -a "${DIST_DIR}/." "${GITHUB_WORKSPACE}/dist/"
 
       - name: List artifacts
         run: |

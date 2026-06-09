@@ -14,10 +14,25 @@ VERSION         := $(shell cat $(INSTALLER_DIR)/VERSION)
 BUILD_VERSION   ?= $(VERSION)
 # Docker tags cannot contain '+'; keep the human-readable VERSION for ISO filenames.
 DOCKER_TAG      := $(subst +,-,$(VERSION))
-DIST            := $(REPO_ROOT)/dist
-BUILD_DIR       := $(REPO_ROOT)/build
+# Override at build time for CI: BUILD_DIR=/var/lib/docker/nexus-ci/build
+BUILD_DIR       ?= $(REPO_ROOT)/build
+DIST            ?= $(REPO_ROOT)/dist
 ISO_BUILDER_IMG := harvester-nexus-iso-builder:$(DOCKER_TAG)
 ISO_FILE        := $(DIST)/harvester-nexus-$(BUILD_VERSION).iso
+
+ISO_RUN = docker run --rm --privileged \
+	  --entrypoint /bin/bash \
+	  -v /var/run/docker.sock:/var/run/docker.sock \
+	  -v $(REPO_ROOT):/src \
+	  -v $(BUILD_DIR):/build \
+	  -v $(DIST):/build/dist \
+	  -e BUILD_DIR=/build \
+	  -e HARVESTER_NEXUS_DIST=/build/dist \
+	  -e REPO_ROOT=/src \
+	  -e NEXUS_VERSION=$(BUILD_VERSION) \
+	  -e DOCKER_API_VERSION=1.44 \
+	  -e DOCKER_BUILDKIT=0 \
+	  $(ISO_BUILDER_IMG)
 
 .PHONY: overlay
 overlay:
@@ -44,20 +59,15 @@ iso-builder:
 iso: iso-builder
 	@echo ">> building ISO via $(ISO_BUILDER_IMG)"
 	@mkdir -p $(DIST) $(BUILD_DIR)
-	@docker run --rm --privileged \
-	  --entrypoint /bin/bash \
-	  -v /var/run/docker.sock:/var/run/docker.sock \
-	  -v $(REPO_ROOT):/src \
-	  -v $(BUILD_DIR):/build \
-	  -v $(DIST):/build/dist \
-	  -e BUILD_DIR=/build \
-	  -e HARVESTER_NEXUS_DIST=/build/dist \
-	  -e REPO_ROOT=/src \
-	  -e NEXUS_VERSION=$(BUILD_VERSION) \
-	  -e DOCKER_API_VERSION=1.44 \
-	  -e DOCKER_BUILDKIT=0 \
-	  $(ISO_BUILDER_IMG) \
-	  /src/installer/build-iso.sh
+	@$(ISO_RUN) /src/installer/build-iso.sh
+	@echo ">> ISO produced: $(ISO_FILE)"
+	@ls -lh $(ISO_FILE)
+
+.PHONY: iso-only
+iso-only:
+	@echo ">> building ISO via $(ISO_BUILDER_IMG) (reusing existing iso-builder image)"
+	@mkdir -p $(DIST) $(BUILD_DIR)
+	@$(ISO_RUN) /src/installer/build-iso.sh
 	@echo ">> ISO produced: $(ISO_FILE)"
 	@ls -lh $(ISO_FILE)
 

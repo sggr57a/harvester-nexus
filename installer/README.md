@@ -111,6 +111,8 @@ Download the latest build from the repo **Releases** tab (look for `Main ISO bui
 
 Manual re-run: **Actions → Build install ISO → Run workflow**.
 
+CI stores heavy ISO build artifacts under `/var/lib/docker/nexus-ci/` on the expanded runner volume (not the small root disk).
+
 ### Install + verify (real ISO on bare metal or QEMU)
 
 ```bash
