@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ApplicationConfig } from '../types';
 import type { ActiveWorkItem } from './activeOperations';
 import type { MachineRow } from './dashboards';
