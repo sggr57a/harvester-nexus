@@ -17,7 +17,7 @@ DOCKER_TAG      := $(subst +,-,$(VERSION))
 # Override at build time for CI: BUILD_DIR=/var/lib/docker/nexus-ci/build
 BUILD_DIR       ?= $(REPO_ROOT)/build
 DIST            ?= $(REPO_ROOT)/dist
-ISO_BUILDER_IMG := harvester-nexus-iso-builder:$(DOCKER_TAG)
+ISO_BUILDER_IMG := harvester-nexus-iso-builder:$(DOCKER_TAG)-go1.26
 ISO_FILE        := $(DIST)/harvester-nexus-$(BUILD_VERSION).iso
 
 ISO_RUN = docker run --rm --privileged \
@@ -32,7 +32,7 @@ ISO_RUN = docker run --rm --privileged \
 	  -e NEXUS_VERSION=$(BUILD_VERSION) \
 	  -e DOCKER_API_VERSION=1.44 \
 	  -e DOCKER_BUILDKIT=0 \
-	  -e GOTOOLCHAIN=auto \
+	  -e GOTOOLCHAIN=local \
 	  $(ISO_BUILDER_IMG)
 
 .PHONY: overlay
@@ -51,10 +51,19 @@ simulate: overlay
 .PHONY: iso-builder
 iso-builder:
 	@echo ">> building iso-builder image $(ISO_BUILDER_IMG)"
-	@docker build -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
-	@echo ">> verifying iso-builder toolchain"
+	@docker build --pull -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
+	@echo ">> verifying iso-builder toolchain (Go 1.26+ required)"
 	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
-	  'export PATH=/usr/local/bin:/usr/bin:/bin; yq --version && helm version --short && docker --version'
+	  'export PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin; \
+	   go version | grep -qE "go1\\.(2[6-9]|[3-9][0-9])" || { echo "FATAL: iso-builder Go too old: $(go version)"; exit 1; }; \
+	   yq --version && helm version --short && docker --version && go version'
+
+.PHONY: verify-iso-builder
+verify-iso-builder:
+	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
+	  'export PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin; \
+	   go version | grep -qE "go1\\.(2[6-9]|[3-9][0-9])"' \
+	  || (echo ">> iso-builder image missing or Go < 1.26 — run: make iso-builder" && exit 1)
 
 .PHONY: iso
 iso: iso-builder
@@ -65,7 +74,7 @@ iso: iso-builder
 	@ls -lh $(ISO_FILE)
 
 .PHONY: iso-only
-iso-only:
+iso-only: verify-iso-builder
 	@echo ">> building ISO via $(ISO_BUILDER_IMG) (reusing existing iso-builder image)"
 	@mkdir -p $(DIST) $(BUILD_DIR)
 	@$(ISO_RUN) /src/installer/build-iso.sh

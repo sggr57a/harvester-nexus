@@ -35,11 +35,20 @@ mkdir -p "${NEXUS_OVERLAY}" "${DIST}"
 log()  { printf '[%s] [build-iso] %s\n' "$(date -Iseconds)" "$*"; }
 fail() { printf '[%s] [build-iso] FATAL %s\n' "$(date -Iseconds)" "$*" >&2; exit 1; }
 
+require_go126() {
+  if ! command -v go >/dev/null 2>&1; then
+    fail "go not found on PATH — run: cd installer && make iso-builder"
+  fi
+  if ! go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'; then
+    fail "harvester-installer requires Go 1.26+ but found: $(go version). Rebuild the iso-builder image: cd installer && make iso-builder"
+  fi
+  log "Go toolchain OK · $(go version | head -1)"
+}
+
 # Docker 29+ host daemons require >= 1.44 — force negotiation before any harvester-installer scripts run.
 export DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
-# harvester-installer master requires go >= 1.26; auto-download if the image Go is older.
-export GOTOOLCHAIN=${GOTOOLCHAIN:-auto}
-export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
+export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
+export GOTOOLCHAIN=${GOTOOLCHAIN:-local}
 
 YQ_VERSION=${YQ_VERSION:-v4.52.5}
 
@@ -218,6 +227,7 @@ cp "${INSTALLER_DIR}/installer-config/nexus-wizard-questions.yaml" \
 # Stage 5 — run the upstream Harvester ISO build
 # ============================================================
 log "stage 5 · running harvester-installer/scripts/ci"
+require_go126
 # harvester-installer/scripts/build clones ../harvester and runs git there;
 # mark both repos safe when running as root inside Docker.
 git config --global --add safe.directory "${INSTALLER_SRC}" || true
