@@ -66,6 +66,7 @@ iso-builder:
 	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
 	  'export PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin; \
 	   go version | grep -qE "go1\\.(2[6-9]|[3-9][0-9])" || { echo "FATAL: iso-builder Go too old: $(go version)"; exit 1; }; \
+	   command -v mkfs.vfat >/dev/null || { echo "FATAL: mkfs.vfat missing from iso-builder"; exit 1; }; \
 	   yq --version && helm version --short && docker --version && go version'
 
 .PHONY: verify-iso-builder

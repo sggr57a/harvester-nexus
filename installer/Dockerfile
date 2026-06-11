@@ -30,7 +30,7 @@ RUN GOARCH="${ARCH}" && \
     ln -sf /usr/local/go/bin/go /usr/bin/go && \
     ln -sf /usr/local/go/bin/gofmt /usr/bin/gofmt && \
     /usr/bin/go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'
-ENV PATH="/usr/local/go/bin:/usr/local/bin:${PATH}"
+ENV PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin"
 ENV GOROOT=/usr/local/go
 ENV GOTOOLCHAIN=local
 
@@ -56,7 +56,11 @@ RUN zypper -n rm container-suseconnect && \
       dosfstools \
       unzip \
       rsync \
-      patch
+      patch && \
+    (command -v mkfs.vfat >/dev/null || \
+      ln -sf "$(readlink -f "$(command -v mkfs.fat || command -v mkdosfs)")" /usr/local/bin/mkfs.vfat) && \
+    command -v mkfs.vfat >/dev/null && \
+    command -v mcopy >/dev/null
 
 # Docker CLI — must match the host daemon API (Docker 29+ requires >= 1.44).
 # Static tarball layout: docker/docker (client), docker/dockerd, …

@@ -48,7 +48,7 @@ require_go126() {
 
 bootstrap_go_toolchain() {
   local arch="${ARCH:-amd64}"
-  export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
+  export PATH="${ISO_HOST_PATH}:${PATH}"
 
   if [[ -x /usr/local/go/bin/go ]] && /usr/local/go/bin/go version 2>/dev/null | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'; then
     export GOROOT=/usr/local/go
@@ -78,10 +78,24 @@ bootstrap_go_toolchain() {
 
 # Docker 29+ host daemons require >= 1.44 — force negotiation before any harvester-installer scripts run.
 export DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
-export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
+export PATH="${ISO_HOST_PATH}:${PATH}"
 export GOTOOLCHAIN=${GOTOOLCHAIN:-local}
 
 YQ_VERSION=${YQ_VERSION:-v4.52.5}
+ISO_HOST_PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin"
+
+ensure_elemental_host_tools() {
+  export PATH="${ISO_HOST_PATH}:${PATH}"
+  if ! command -v mkfs.vfat >/dev/null 2>&1; then
+    local mkfs_fat
+    mkfs_fat=$(command -v mkfs.fat || command -v mkdosfs || true)
+    if [[ -z "${mkfs_fat}" ]]; then
+      fail "mkfs.vfat missing — rebuild the iso-builder image: cd installer && make iso-rebuild"
+    fi
+    ln -sf "$(readlink -f "${mkfs_fat}")" /usr/local/bin/mkfs.vfat
+  fi
+  log "elemental host tools OK · mkfs.vfat=$(command -v mkfs.vfat)"
+}
 
 ensure_toolchain() {
   if ! command -v yq >/dev/null 2>&1; then
@@ -260,9 +274,10 @@ cp "${INSTALLER_DIR}/installer-config/nexus-wizard-questions.yaml" \
 log "stage 5 · running harvester-installer/scripts/ci"
 bootstrap_go_toolchain
 require_go126
+ensure_elemental_host_tools
 # Ensure child scripts (./ci → ./build) never pick up a stale /usr/bin/go from the BCI base image.
 export GOROOT=/usr/local/go
-export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="${ISO_HOST_PATH}"
 export GOTOOLCHAIN=local
 # harvester-installer/scripts/build clones ../harvester and runs git there;
 # mark both repos safe when running as root inside Docker.
