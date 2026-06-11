@@ -17,14 +17,21 @@ ENV ARCH=${ARCH}
 
 # harvester-installer master requires go >= 1.26. Install upstream Go explicitly so
 # stale BCI layers or cached iso-builder images cannot leave go 1.25 on PATH.
+# Bump when changing Go bootstrap logic to invalidate cached iso-builder layers.
+ARG GO_TOOLCHAIN_REV=2
 ARG GO_VERSION=1.26.0
 RUN GOARCH="${ARCH}" && \
+    echo "go-toolchain-rev=${GO_TOOLCHAIN_REV} go=${GO_VERSION}" >/dev/null && \
     curl -sfL "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" -o /tmp/go.tgz && \
     rm -rf /usr/local/go && \
     tar -C /usr/local -xzf /tmp/go.tgz && \
     rm /tmp/go.tgz && \
-    /usr/local/go/bin/go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'
+    /usr/local/go/bin/go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])' && \
+    ln -sf /usr/local/go/bin/go /usr/bin/go && \
+    ln -sf /usr/local/go/bin/gofmt /usr/bin/gofmt && \
+    /usr/bin/go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'
 ENV PATH="/usr/local/go/bin:/usr/local/bin:${PATH}"
+ENV GOROOT=/usr/local/go
 ENV GOTOOLCHAIN=local
 
 # ISO build toolchain — mirrors harvester-installer/Dockerfile.dapper.

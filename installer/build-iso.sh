@@ -36,13 +36,44 @@ log()  { printf '[%s] [build-iso] %s\n' "$(date -Iseconds)" "$*"; }
 fail() { printf '[%s] [build-iso] FATAL %s\n' "$(date -Iseconds)" "$*" >&2; exit 1; }
 
 require_go126() {
+  bootstrap_go_toolchain
   if ! command -v go >/dev/null 2>&1; then
-    fail "go not found on PATH — run: cd installer && make iso-builder"
+    fail "go not found on PATH after bootstrap — run: cd installer && make iso-builder"
   fi
   if ! go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'; then
-    fail "harvester-installer requires Go 1.26+ but found: $(go version). Rebuild the iso-builder image: cd installer && make iso-builder"
+    fail "harvester-installer requires Go 1.26+ but found: $(go version). Run: cd installer && make iso-rebuild && make iso"
   fi
-  log "Go toolchain OK · $(go version | head -1)"
+  log "Go toolchain OK · $(go version | head -1) · $(command -v go)"
+}
+
+bootstrap_go_toolchain() {
+  local arch="${ARCH:-amd64}"
+  export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
+
+  if [[ -x /usr/local/go/bin/go ]] && /usr/local/go/bin/go version 2>/dev/null | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'; then
+    export GOROOT=/usr/local/go
+    ln -sf /usr/local/go/bin/go /usr/bin/go 2>/dev/null || true
+    ln -sf /usr/local/go/bin/gofmt /usr/bin/gofmt 2>/dev/null || true
+    hash -r 2>/dev/null || true
+    return 0
+  fi
+
+  if command -v go >/dev/null 2>&1 && go version 2>/dev/null | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'; then
+    return 0
+  fi
+
+  local GO_VERSION="${GO_VERSION:-1.26.0}"
+  log "bootstrapping Go ${GO_VERSION} (harvester-installer requires >= 1.26; stale iso-builder image detected)"
+  command -v curl >/dev/null 2>&1 || fail "curl required to bootstrap Go inside iso-builder"
+  curl -sfL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" -o /tmp/nexus-go.tgz
+  rm -rf /usr/local/go
+  tar -C /usr/local -xzf /tmp/nexus-go.tgz
+  rm -f /tmp/nexus-go.tgz
+  export GOROOT=/usr/local/go
+  export PATH="/usr/local/go/bin:${PATH}"
+  ln -sf /usr/local/go/bin/go /usr/bin/go
+  ln -sf /usr/local/go/bin/gofmt /usr/bin/gofmt
+  hash -r 2>/dev/null || true
 }
 
 # Docker 29+ host daemons require >= 1.44 — force negotiation before any harvester-installer scripts run.
@@ -227,7 +258,12 @@ cp "${INSTALLER_DIR}/installer-config/nexus-wizard-questions.yaml" \
 # Stage 5 — run the upstream Harvester ISO build
 # ============================================================
 log "stage 5 · running harvester-installer/scripts/ci"
+bootstrap_go_toolchain
 require_go126
+# Ensure child scripts (./ci → ./build) never pick up a stale /usr/bin/go from the BCI base image.
+export GOROOT=/usr/local/go
+export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin"
+export GOTOOLCHAIN=local
 # harvester-installer/scripts/build clones ../harvester and runs git there;
 # mark both repos safe when running as root inside Docker.
 git config --global --add safe.directory "${INSTALLER_SRC}" || true
