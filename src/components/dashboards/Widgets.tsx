@@ -526,7 +526,8 @@ export function StackedAreaChart({ series, height = 140, yMax, xLabels }: Stacke
     acc.push(s.values.map((v, i) => v + (prev ? prev[i] : 0)));
     return acc;
   }, []);
-  const max = yMax ?? Math.max(...cumulative[cumulative.length - 1]);
+  const max = yMax ?? Math.max(...cumulative[cumulative.length - 1], 1);
+  const xAt = (index: number) => (len <= 1 ? 100 : (index / (len - 1)) * 200);
   const palette = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)', 'var(--theme-warn)', 'var(--theme-danger)', 'var(--theme-channel-gitops)'];
   return (
     <div className="stacked-area-chart" style={{ height }}>
@@ -547,7 +548,7 @@ export function StackedAreaChart({ series, height = 140, yMax, xLabels }: Stacke
         {[...cumulative].reverse().map((cum, reverseIdx) => {
           const idx = cumulative.length - 1 - reverseIdx;
           const color = series[idx].color ?? palette[idx % palette.length];
-          const points = cum.map((v, i) => `${(i / (len - 1)) * 200},${100 - (v / max) * 100}`).join(' ');
+          const points = cum.map((v, i) => `${xAt(i)},${100 - (v / max) * 100}`).join(' ');
           return (
             <g key={idx}>
               <polygon points={`0,100 ${points} 200,100`} fill={`url(#stack-grad-${idx})`} stroke={color} strokeWidth="0.5" opacity="0.9" />
@@ -1874,10 +1875,16 @@ export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 4
       });
     });
     // compute -> storage (each compute to two storage)
-    compute.forEach((cp, ci) => {
-      list.push({ from: cp, to: storage[ci % storage.length], channel: 'storage' });
-      list.push({ from: cp, to: storage[(ci + 1) % storage.length], channel: 'storage' });
-    });
+    if (storage.length > 0) {
+      compute.forEach((cp, ci) => {
+        list.push({ from: cp, to: storage[ci % storage.length], channel: 'storage' });
+        list.push({ from: cp, to: storage[(ci + 1) % storage.length], channel: 'storage' });
+      });
+    } else if (compute.length > 1) {
+      for (let i = 0; i < compute.length - 1; i += 1) {
+        list.push({ from: compute[i], to: compute[i + 1], channel: 'mesh' });
+      }
+    }
     // vcluster -> control + storage
     for (const v of vc) {
       if (ctrl[0]) list.push({ from: v, to: ctrl[0], channel: 'gitops' });
@@ -1998,6 +2005,7 @@ export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 4
           ))}
           {/* Connection chords */}
           {chords.map((chord, idx) => {
+            if (!chord.from || !chord.to) return null;
             const channelColor = `var(--theme-channel-${chord.channel})`;
             return (
               <g key={idx} className={`radar-chord channel-${chord.channel}`}>
@@ -2435,11 +2443,17 @@ export function LiveEventFeed({ snapshot, height = 220, maxLines = 8 }: LiveEven
 export function useRollingSeries(value: number, length = 32, key?: string | number): number[] {
   const ref = useRef<number[]>([]);
   const lastKeyRef = useRef<string | number | undefined>(undefined);
+  const safeValue = Number.isFinite(value) ? value : 0;
+
   if (key !== undefined && key !== lastKeyRef.current) {
     lastKeyRef.current = key;
-    ref.current = [...ref.current, value].slice(-length);
+    const next = [...ref.current, safeValue].slice(-length);
+    ref.current =
+      next.length >= length
+        ? next
+        : Array.from({ length }, (_, index) => next[index] ?? safeValue);
   } else if (ref.current.length === 0) {
-    ref.current = Array.from({ length }, () => value);
+    ref.current = Array.from({ length }, () => safeValue);
   }
   return ref.current;
 }
