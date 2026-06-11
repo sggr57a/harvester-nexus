@@ -235,7 +235,5 @@ export function useSimulationRevision(): number {
 
   useEffect(() => subscribeSimulation(() => setRevision(readState().revision)), []);
 
-  const refresh = useCallback(() => setRevision(readState().revision), []);
-
   return revision;
 }
