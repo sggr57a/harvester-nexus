@@ -48,13 +48,17 @@ function statusFor(cpu: number, event?: string): HudNodeRow['status'] {
 }
 
 function aggregateHost(host: string, fleet: MachineRow[], telemetry: EnvironmentSnapshot | undefined): HudNodeRow {
-  const workloads = fleet.filter((row) => row.host === host);
-  const cpu = workloads.length
-    ? workloads.reduce((sum, row) => sum + row.cpuPercent, 0) / workloads.length
-    : telemetry?.cpuPercent ?? 40;
-  const ram = workloads.length
-    ? workloads.reduce((sum, row) => sum + (row.ramGiB / Math.max(1, row.ramAllocGiB)) * 100, 0) / workloads.length
-    : telemetry?.ramPercent ?? 55;
+  const nodeRow = fleet.find((row) => row.kind === 'node' && row.host === host);
+  const workloads = fleet.filter((row) => row.host === host && row.kind !== 'node');
+  const cpu = nodeRow?.cpuPercent
+    ?? (workloads.length
+      ? workloads.reduce((sum, row) => sum + row.cpuPercent, 0) / workloads.length
+      : telemetry?.cpuPercent ?? 40);
+  const ram = nodeRow
+    ? (nodeRow.ramGiB / Math.max(1, nodeRow.ramAllocGiB)) * 100
+    : workloads.length
+      ? workloads.reduce((sum, row) => sum + (row.ramGiB / Math.max(1, row.ramAllocGiB)) * 100, 0) / workloads.length
+      : telemetry?.ramPercent ?? 55;
   const disk = telemetry ? Math.min(100, telemetry.totalIops / 14_000) : 48;
   const net = telemetry ? Math.min(100, telemetry.ingressMbps / 1_100) : 42;
   const migrating = workloads.some((row) => row.status === 'migrating');
@@ -80,7 +84,9 @@ export function buildHudClusterModel(
   telemetry: EnvironmentSnapshot | undefined,
   resourceMonitoring?: ResourceMonitoring,
 ): HudClusterModel {
-  const hosts = [...new Set(fleet.map((row) => row.host))];
+  const infraHosts = fleet.filter((row) => row.kind === 'node').map((row) => row.host);
+  const workloadHosts = fleet.filter((row) => row.kind !== 'node').map((row) => row.host);
+  const hosts = [...new Set([...infraHosts, ...workloadHosts])];
   const nodes = (hosts.length ? hosts : ['compute-01', 'compute-02', 'compute-03']).map((host) =>
     aggregateHost(host, fleet, telemetry),
   );

@@ -25,11 +25,6 @@ export function LaunchSequence() {
           <i />
           <b />
         </div>
-        <div className="launch-waveform">
-          {launchSequence.steps.map((step, index) => (
-            <span key={step.signal} style={{ height: `${28 + index * 15}%`, animationDelay: `${index * 120}ms` }} />
-          ))}
-        </div>
       </div>
       <ol className="launch-steps">
         {launchSequence.steps.map((step, index) => (

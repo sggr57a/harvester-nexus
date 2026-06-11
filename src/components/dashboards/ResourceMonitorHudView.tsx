@@ -3,6 +3,7 @@ import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 import type { ResourceMonitoring } from '../../lib/activeOperations';
 import type { MachinesDashboard } from '../../lib/dashboards';
 import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters';
+import { withTelemetryFallbacks } from '../../lib/telemetry/effectiveTelemetry';
 import {
   buildCity3DEdges,
   buildCity3DNodes,
@@ -52,21 +53,25 @@ export function ResourceMonitorHudView({
     () => buildHudClusterModel(fleet, telemetry, resourceMonitoring),
     [fleet, telemetry, resourceMonitoring],
   );
+  const effectiveTelemetry = useMemo(
+    () => withTelemetryFallbacks(telemetry, model),
+    [telemetry, model],
+  );
 
-  const cpuSeries = useRollingSeries(telemetry?.cpuPercent ?? model.nodes[0]?.cpu ?? 58, 48, telemetry?.tick);
-  const ramSeries = useRollingSeries(telemetry?.ramPercent ?? model.nodes[0]?.ram ?? 64, 48, telemetry?.tick);
+  const cpuSeries = useRollingSeries(effectiveTelemetry?.cpuPercent ?? model.nodes[0]?.cpu ?? 58, 48, effectiveTelemetry?.tick);
+  const ramSeries = useRollingSeries(effectiveTelemetry?.ramPercent ?? model.nodes[0]?.ram ?? 64, 48, effectiveTelemetry?.tick);
   const netSeries = useRollingSeries(
-    telemetry ? telemetry.ingressMbps / 100 : model.nodes[0]?.net ?? 40,
+    effectiveTelemetry ? effectiveTelemetry.ingressMbps / 100 : model.nodes[0]?.net ?? 40,
     48,
-    telemetry?.tick,
+    effectiveTelemetry?.tick,
   );
   const diskSeries = useRollingSeries(
-    telemetry ? telemetry.totalIops / 12000 : model.nodes[0]?.disk ?? 50,
+    effectiveTelemetry ? effectiveTelemetry.totalIops / 12000 : model.nodes[0]?.disk ?? 50,
     48,
-    telemetry?.tick,
+    effectiveTelemetry?.tick,
   );
-  const iopsSeries = useRollingSeries(telemetry ? telemetry.totalIops / 12000 : 90, 48, telemetry?.tick);
-  const txSeries = useRollingSeries(telemetry ? telemetry.egressMbps / 1000 : 75, 48, telemetry?.tick);
+  const iopsSeries = useRollingSeries(effectiveTelemetry ? effectiveTelemetry.totalIops / 12000 : 90, 48, effectiveTelemetry?.tick);
+  const txSeries = useRollingSeries(effectiveTelemetry ? effectiveTelemetry.egressMbps / 1000 : 75, 48, effectiveTelemetry?.tick);
 
   const burst = model.activity > 0.55;
   const mapNodes = buildCity3DNodes(model);
@@ -105,26 +110,26 @@ export function ResourceMonitorHudView({
         </div>
         <div className="dash-totals">
           <div><span>Nodes</span><strong>{model.nodes.length}</strong></div>
-          <div><span>CPU</span><strong>{fmtPct(telemetry?.cpuPercent ?? model.nodes[0]?.cpu ?? 0)}</strong></div>
-          <div><span>Active ops</span><strong>{resourceMonitoring?.workItems.length ?? telemetry?.activeMigrations ?? 0}</strong></div>
+          <div><span>CPU</span><strong>{fmtPct(effectiveTelemetry?.cpuPercent ?? model.nodes[0]?.cpu ?? 0)}</strong></div>
+          <div><span>Active ops</span><strong>{resourceMonitoring?.workItems.length ?? effectiveTelemetry?.activeMigrations ?? 0}</strong></div>
         </div>
       </header>
 
       <div className="holo-grid">
         <HudTile label="CPU" className="holo-gauge">
-          <KpiTile label="CPU" value={fmtPct(telemetry?.cpuPercent ?? 0)} size="sm" series={cpuSeries} status="good" />
+          <KpiTile label="CPU" value={fmtPct(effectiveTelemetry?.cpuPercent ?? 0)} size="sm" series={cpuSeries} status="good" />
         </HudTile>
         <HudTile label="RAM" className="holo-gauge">
-          <KpiTile label="RAM" value={fmtPct(telemetry?.ramPercent ?? 0)} size="sm" series={ramSeries} />
+          <KpiTile label="RAM" value={fmtPct(effectiveTelemetry?.ramPercent ?? 0)} size="sm" series={ramSeries} />
         </HudTile>
         <HudTile label="DISK" className="holo-gauge">
-          <KpiTile label="DSK" value={fmtK(telemetry?.totalIops ?? 0)} unit="IOPS" size="sm" series={diskSeries} />
+          <KpiTile label="DSK" value={fmtK(effectiveTelemetry?.totalIops ?? 0)} unit="IOPS" size="sm" series={diskSeries} />
         </HudTile>
         <HudTile label="NET RX" className="holo-gauge">
-          <KpiTile label="RX" value={fmtMb(telemetry?.ingressMbps ?? 0)} size="sm" series={netSeries} status="warn" />
+          <KpiTile label="RX" value={fmtMb(effectiveTelemetry?.ingressMbps ?? 0)} size="sm" series={netSeries} status="warn" />
         </HudTile>
         <HudTile label="NET TX" className="holo-gauge">
-          <KpiTile label="TX" value={fmtMb(telemetry?.egressMbps ?? 0)} size="sm" series={txSeries} status="warn" />
+          <KpiTile label="TX" value={fmtMb(effectiveTelemetry?.egressMbps ?? 0)} size="sm" series={txSeries} status="warn" />
         </HudTile>
         <HudTile label="Cluster event" className="holo-event" burst={burst}>
           <HudEventStrip title="CLUSTER EVENT" detail={model.eventLabel} />
@@ -132,14 +137,14 @@ export function ResourceMonitorHudView({
 
         <HudTile label="Linear strip" className="holo-linear-row">
           <div className="holo-linear-grid">
-            <HudLinearBar label="WL" value={telemetry?.cpuPercent ?? 0} max={100} />
-            <HudLinearBar label="MEM" value={telemetry?.ramPercent ?? 0} max={100} tone="accent-2" />
-            <HudLinearBar label="IO" value={telemetry?.totalIops ?? 0} max={1_400_000} tone="good" />
-            <HudLinearBar label="NET" value={telemetry?.ingressMbps ?? 0} max={110_000} tone="warn" />
-            <HudLinearBar label="IOPS" value={telemetry?.totalIops ?? 0} max={1_400_000} tone="good" />
-            <HudLinearBar label="Q" value={telemetry?.cpuPercent ?? 0} max={100} />
-            <HudLinearBar label="PWR" value={telemetry?.watts ?? 0} max={2000} tone="danger" />
-            <HudLinearBar label="TMP" value={telemetry?.ramPercent ?? 0} max={100} tone="accent-2" />
+            <HudLinearBar label="WL" value={effectiveTelemetry?.cpuPercent ?? 0} max={100} />
+            <HudLinearBar label="MEM" value={effectiveTelemetry?.ramPercent ?? 0} max={100} tone="accent-2" />
+            <HudLinearBar label="IO" value={effectiveTelemetry?.totalIops ?? 0} max={1_400_000} tone="good" />
+            <HudLinearBar label="NET" value={effectiveTelemetry?.ingressMbps ?? 0} max={110_000} tone="warn" />
+            <HudLinearBar label="IOPS" value={effectiveTelemetry?.totalIops ?? 0} max={1_400_000} tone="good" />
+            <HudLinearBar label="Q" value={effectiveTelemetry?.cpuPercent ?? 0} max={100} />
+            <HudLinearBar label="PWR" value={effectiveTelemetry?.watts ?? 0} max={2000} tone="danger" />
+            <HudLinearBar label="TMP" value={effectiveTelemetry?.ramPercent ?? 0} max={100} tone="accent-2" />
           </div>
         </HudTile>
 
@@ -150,7 +155,7 @@ export function ResourceMonitorHudView({
           <HudWaveStrip title="NET VIBRATION" values={netSeries} max={100} tone="warn" />
         </HudTile>
         <HudTile label="Virtual hologram · cluster topology" className="holo-hero" burst={burst} hero>
-          <Cluster3DMap nodes={mapNodes} edges={mapEdges} snapshot={telemetry} height={248} />
+          <Cluster3DMap nodes={mapNodes} edges={mapEdges} snapshot={effectiveTelemetry} height={248} />
         </HudTile>
         <HudTile label="Level bank · CPU · disk · net" className="holo-level-bank">
           <VerticalMeterBank
@@ -166,12 +171,12 @@ export function ResourceMonitorHudView({
 
         <HudTile label="Radar · mix" className="holo-side-stack">
           <div className="holo-side-grid">
-            <ClusterRadar nodes={radarNodes} snapshot={telemetry} height={118} />
+            <ClusterRadar nodes={radarNodes} snapshot={effectiveTelemetry} height={118} />
             <RingMeterCluster
               size={72}
               meters={[
-                { label: 'CPU', value: telemetry?.cpuPercent ?? 0 },
-                { label: 'RAM', value: telemetry?.ramPercent ?? 0 },
+                { label: 'CPU', value: effectiveTelemetry?.cpuPercent ?? 0 },
+                { label: 'RAM', value: effectiveTelemetry?.ramPercent ?? 0 },
               ]}
             />
           </div>

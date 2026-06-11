@@ -75,7 +75,7 @@ Exit code is 0 on success, non-zero on any failure. The latest verified run repo
 
 ### Build the full ISO (needs Docker on native Ubuntu 24.10+ · ~30 minutes · ~25 GB free disk)
 
-The iso-builder image is based on `registry.suse.com/bci/golang:1.25` with the same
+The iso-builder image installs **Go 1.26** from go.dev (required by upstream `harvester-installer`) on top of `registry.suse.com/bci/golang:1.26`, with the same
 xorriso / squashfs / Helm / **Docker 29 CLI** toolchain Harvester upstream uses — **not**
 `rancher/harvester-installer:<tag>`, which is a `FROM scratch` image containing only
 the `/usr/bin/harvester-installer` binary and no shell. The zypper `docker` package is
@@ -85,9 +85,11 @@ builder image sets `DOCKER_API_VERSION=1.44` for Docker 29+ host daemons.
 
 ```bash
 cd installer
-make iso-builder        # builds harvester-nexus-iso-builder:1.0.0-nexus.1 (Docker tag sanitizes '+')
+make iso-builder        # builds harvester-nexus-iso-builder:<version>-go1.26
 make iso                # produces dist/harvester-nexus-<version>.iso
 ```
+
+If `make iso` fails with `go.mod requires go >= 1.26 (running go 1.25…)`, you are using a **stale iso-builder image**. Run `make iso-builder` again (the image tag includes `-go1.26` so old tags are not reused).
 
 The `make iso` target runs `build-iso.sh` inside the `harvester-nexus-iso-builder` container, which:
 

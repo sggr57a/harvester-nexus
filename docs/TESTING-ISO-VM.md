@@ -80,8 +80,10 @@ If CI is slow or unavailable:
 
 ```bash
 cd installer
-make iso-builder
+make iso-builder   # rebuild after Dockerfile changes (requires Go 1.26 in the builder image)
 make iso
 ```
+
+The iso-builder image installs Go 1.26 from go.dev (tag `harvester-nexus-iso-builder:<version>-go1.26`). If you see `go.mod requires go >= 1.26 (running go 1.25…; GOTOOLCHAIN=local)`, rebuild the builder — do not reuse an older image tag without `-go1.26`.
 
 Output: `dist/harvester-nexus-*.iso`

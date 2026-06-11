@@ -8,12 +8,24 @@
 #
 # Built and tagged by `make iso-builder`. Run with `make iso`.
 
-FROM registry.suse.com/bci/golang:1.25
+FROM registry.suse.com/bci/golang:1.26
 
 SHELL ["/bin/bash", "-c"]
 
 ARG ARCH=amd64
 ENV ARCH=${ARCH}
+
+# harvester-installer master requires go >= 1.26. Install upstream Go explicitly so
+# stale BCI layers or cached iso-builder images cannot leave go 1.25 on PATH.
+ARG GO_VERSION=1.26.0
+RUN GOARCH="${ARCH}" && \
+    curl -sfL "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" -o /tmp/go.tgz && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf /tmp/go.tgz && \
+    rm /tmp/go.tgz && \
+    /usr/local/go/bin/go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'
+ENV PATH="/usr/local/go/bin:/usr/local/bin:${PATH}"
+ENV GOTOOLCHAIN=local
 
 # ISO build toolchain — mirrors harvester-installer/Dockerfile.dapper.
 # mtools + dosfstools are required by luet-makeiso >= 0.4.0 for hybrid ISOs.
@@ -52,7 +64,6 @@ RUN DOCKER_ARCH=$([ "${ARCH}" = "arm64" ] && echo aarch64 || echo x86_64) && \
 
 # Node.js, yq, and helm also land in /usr/local/bin — ensure they are on PATH
 # (BCI golang images do not include /usr/local/bin by default).
-ENV PATH="/usr/local/bin:${PATH}"
 
 # elemental (copied from rancher/harvester-os during package-harvester-os) embeds
 # go-containerregistry/moby with API 1.42. Docker 29+ host daemons require >= 1.44.

@@ -123,6 +123,63 @@ def _longhorn_volumes(kubeconfig: str) -> list[dict[str, Any]]:
     return vols
 
 
+def _node_fleet(kubeconfig: str) -> list[dict[str, Any]]:
+    nodes = _kubectl_json(kubeconfig, "get", "nodes")
+    if not isinstance(nodes, dict):
+        return []
+
+    metrics = _kubectl_raw_json(kubeconfig, "/apis/metrics.k8s.io/v1beta1/nodes")
+    usage_by_name: dict[str, dict[str, str]] = {}
+    if isinstance(metrics, dict):
+        for item in metrics.get("items") or []:
+            meta = item.get("metadata") or {}
+            name = meta.get("name")
+            if name:
+                usage_by_name[name] = item.get("usage") or {}
+
+    rows: list[dict[str, Any]] = []
+    for item in nodes.get("items") or []:
+        meta = item.get("metadata") or {}
+        name = meta.get("name") or ""
+        if not name:
+            continue
+        status = item.get("status") or {}
+        capacity = status.get("capacity") or {}
+        cpu_cap = _parse_cpu_cores(str(capacity.get("cpu", "0")))
+        mem_cap = _parse_bytes(str(capacity.get("memory", "0")))
+        usage = usage_by_name.get(name) or {}
+        cpu_used = _parse_cpu_cores(str(usage.get("cpu", "0"))) if usage else 0.0
+        mem_used = _parse_bytes(str(usage.get("memory", "0"))) if usage else 0.0
+        cpu_percent = round((cpu_used / cpu_cap) * 100.0, 1) if cpu_cap > 0 and usage else 0.0
+        mem_gib = round(mem_used / (1024**3), 1) if usage else 0.0
+        mem_cap_gib = round(mem_cap / (1024**3), 1) if mem_cap > 0 else 0.0
+        conditions = status.get("conditions") or []
+        ready = any(
+            c.get("type") == "Ready" and c.get("status") == "True"
+            for c in conditions
+        )
+        labels = meta.get("labels") or {}
+        ha_enabled = (
+            "node-role.kubernetes.io/control-plane" in labels
+            or "node-role.kubernetes.io/master" in labels
+        )
+        rows.append(
+            {
+                "id": meta.get("uid") or ("node-%s" % name),
+                "name": name,
+                "kind": "node",
+                "host": name,
+                "cpuPercent": cpu_percent,
+                "ramGiB": mem_gib,
+                "ramAllocGiB": mem_cap_gib or mem_gib or 1.0,
+                "status": "running" if ready else "paused",
+                "haEnabled": ha_enabled,
+                "affinity": "none",
+            }
+        )
+    return rows
+
+
 def _vm_fleet(kubeconfig: str) -> list[dict[str, Any]]:
     vms = _kubectl_json(kubeconfig, "get", "virtualmachines.kubevirt.io", "-A")
     vmis = _kubectl_json(kubeconfig, "get", "virtualmachineinstances.kubevirt.io", "-A")
@@ -401,7 +458,7 @@ def collect_dashboards_live() -> dict[str, Any]:
     used_classes = {pvc["storageClass"] for pvc in pvcs if pvc.get("storageClass")}
     backends = _storage_classes(kubeconfig, used_classes)
     longhorn = _longhorn_volumes(kubeconfig) if used_classes else []
-    fleet = _vm_fleet(kubeconfig) + _pod_fleet(kubeconfig)
+    fleet = _node_fleet(kubeconfig) + _vm_fleet(kubeconfig) + _pod_fleet(kubeconfig)
     migrations = _migration_rows(kubeconfig)
     xdr = _xdr_sensor_health(kubeconfig)
     events = _k8s_security_events(kubeconfig)
