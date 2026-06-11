@@ -84,6 +84,17 @@ make iso-builder   # rebuild after Dockerfile changes (requires Go 1.26 in the b
 make iso
 ```
 
-The iso-builder image installs Go 1.26 from go.dev (tag `harvester-nexus-iso-builder:<version>-go1.26`). If you see `go.mod requires go >= 1.26 (running go 1.25…; GOTOOLCHAIN=local)`, rebuild the builder — do not reuse an older image tag without `-go1.26`.
+If `make iso` fails with `go.mod requires go >= 1.26 (running go 1.25…)`:
+
+1. `git pull` (ensure you have the latest `installer/build-iso.sh` — it bootstraps Go 1.26 automatically).
+2. Force a fresh builder image:
+
+```bash
+cd installer
+make iso-rebuild
+make iso
+```
+
+The build script also downloads Go 1.26 at runtime if the cached iso-builder image is still on 1.25.
 
 Output: `dist/harvester-nexus-*.iso`

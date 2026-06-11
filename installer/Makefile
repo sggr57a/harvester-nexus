@@ -48,10 +48,20 @@ simulate: overlay
 	@echo ">> running install simulator"
 	@node $(INSTALLER_DIR)/simulator/simulate.mjs
 
+.PHONY: iso-rebuild
+iso-rebuild:
+	@echo ">> force-rebuilding iso-builder image $(ISO_BUILDER_IMG) (no cache)"
+	@docker build --pull --no-cache \
+	  --build-arg GO_TOOLCHAIN_REV=2 \
+	  -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
+	@$(MAKE) verify-iso-builder
+
 .PHONY: iso-builder
 iso-builder:
 	@echo ">> building iso-builder image $(ISO_BUILDER_IMG)"
-	@docker build --pull -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
+	@docker build --pull \
+	  --build-arg GO_TOOLCHAIN_REV=2 \
+	  -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
 	@echo ">> verifying iso-builder toolchain (Go 1.26+ required)"
 	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
 	  'export PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin; \
