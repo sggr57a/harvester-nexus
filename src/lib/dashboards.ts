@@ -102,7 +102,7 @@ export interface StorageDashboard {
 export interface MachineRow {
   id: string;
   name: string;
-  kind: 'vm' | 'lxc' | 'docker' | 'pod';
+  kind: 'vm' | 'lxc' | 'docker' | 'pod' | 'node';
   host: string;
   cpuPercent: number;
   ramGiB: number;

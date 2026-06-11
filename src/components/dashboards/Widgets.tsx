@@ -1821,10 +1821,19 @@ interface ClusterRadarProps {
 export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 460 }: ClusterRadarProps) {
   const seed = snapshot?.tick ?? 0;
 
+  const dedupedNodes = useMemo(() => {
+    const seen = new Set<string>();
+    return nodes.filter((node) => {
+      if (seen.has(node.id)) return false;
+      seen.add(node.id);
+      return true;
+    });
+  }, [nodes]);
+
   // Group nodes by tier and assign each one a stable angle around its ring
   const positionedNodes = useMemo(() => {
     const groups: Record<string, RadarNode[]> = {};
-    for (const node of nodes) {
+    for (const node of dedupedNodes) {
       (groups[node.tier] = groups[node.tier] ?? []).push(node);
     }
     const positions: { node: RadarNode; angle: number; x: number; y: number; r: number }[] = [];
@@ -1845,7 +1854,7 @@ export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 4
       });
     }
     return positions;
-  }, [nodes]);
+  }, [dedupedNodes]);
 
   // Programmatically generate connection chords (control ↔ edge, edge ↔ compute, compute ↔ storage)
   const chords = useMemo(() => {
@@ -1900,7 +1909,7 @@ export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 4
   const tierStats = useMemo(() => {
     const tiers: RadarNode['tier'][] = ['control', 'edge', 'compute', 'storage', 'vcluster'];
     return tiers.map((tier) => {
-      const list = nodes.filter((n) => n.tier === tier);
+      const list = dedupedNodes.filter((n) => n.tier === tier);
       if (list.length === 0) return { tier, count: 0, avgHealth: 0, totalThroughput: 0, avgP95: 0, errors: 0 };
       const totalThroughput = list.reduce((s, n) => s + n.throughput, 0);
       const avgHealth = list.reduce((s, n) => s + n.health, 0) / list.length;
@@ -1908,15 +1917,15 @@ export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 4
       const errors = list.reduce((s, n) => s + n.errorPct, 0) / list.length;
       return { tier, count: list.length, avgHealth, totalThroughput, avgP95, errors };
     });
-  }, [nodes]);
+  }, [dedupedNodes]);
 
   // Top talkers and flagged nodes for the right-side rail
   const topTalkers = useMemo(() => {
-    return [...nodes].sort((a, b) => b.throughput - a.throughput).slice(0, 5);
-  }, [nodes]);
+    return [...dedupedNodes].sort((a, b) => b.throughput - a.throughput).slice(0, 5);
+  }, [dedupedNodes]);
   const flagged = useMemo(() => {
-    return nodes.filter((n) => n.status === 'watch' || n.errorPct > 0.3).slice(0, 4);
-  }, [nodes]);
+    return dedupedNodes.filter((n) => n.status === 'watch' || n.errorPct > 0.3).slice(0, 4);
+  }, [dedupedNodes]);
 
   return (
     <div className="cluster-radar" style={{ height }}>
@@ -2027,12 +2036,12 @@ export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 4
           <circle cx="50" cy="50" r="1.2" fill="var(--theme-text)" />
           <text x="50" y="56" textAnchor="middle" className="radar-hub-label">VIP · 10.10.40.20</text>
           {/* Nodes */}
-          {positionedNodes.map((pos) => {
+          {positionedNodes.map((pos, idx) => {
             const color = TIER_COLOR[pos.node.tier];
             const swept = sweptIds.has(pos.node.id);
             const r = 1.4 + (pos.node.health / 100) * 0.7;
             return (
-              <g key={pos.node.id} className={`radar-node tier-${pos.node.tier} status-${pos.node.status} ${swept ? 'is-swept' : ''}`}>
+              <g key={`${pos.node.id}-${idx}`} className={`radar-node tier-${pos.node.tier} status-${pos.node.status} ${swept ? 'is-swept' : ''}`}>
                 <circle cx={pos.x} cy={pos.y} r={r * 2.2} fill="none" stroke={color} strokeWidth="0.2" opacity={swept ? 0.85 : 0.4}>
                   {swept && (
                     <>
@@ -2052,7 +2061,7 @@ export function ClusterRadar({ nodes = DEFAULT_RADAR_NODES, snapshot, height = 4
         <div className="radar-readout">
           <span>SWEEP</span>
           <strong>{Math.round(sweepDeg)}°</strong>
-          <small>{nodes.length} nodes · {chords.length} chords</small>
+          <small>{dedupedNodes.length} nodes · {chords.length} chords</small>
         </div>
       </div>
 
@@ -2977,8 +2986,8 @@ interface SparklineGridItem {
 export function SparklineGrid({ items, columns = 3 }: { items: SparklineGridItem[]; columns?: number }) {
   return (
     <div className="sparkgrid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
-      {items.map((item) => (
-        <div key={item.label} className={`sparkgrid-cell status-${item.status ?? 'neutral'}`}>
+      {items.map((item, idx) => (
+        <div key={`${item.label}-${idx}`} className={`sparkgrid-cell status-${item.status ?? 'neutral'}`}>
           <header>
             <span>{item.label}</span>
             <b>{item.current}{item.unit && <em>{item.unit}</em>}</b>

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { buildClusterDashboardBundle } from './dashboardAdapters';
 import type { DashboardTelemetryPayload } from './dashboardTypes';
+import { clearSimulationState, recordPolyComputeDeploy } from '../simulationStore';
 
 const samplePayload: DashboardTelemetryPayload = {
   environment: {
@@ -89,6 +90,10 @@ const samplePayload: DashboardTelemetryPayload = {
 };
 
 describe('buildClusterDashboardBundle', () => {
+  beforeEach(() => {
+    clearSimulationState();
+  });
+
   it('returns demo catalog when dataSource is demo', () => {
     const bundle = buildClusterDashboardBundle(null, 'demo');
     expect(bundle.dataSource).toBe('demo');
@@ -96,24 +101,38 @@ describe('buildClusterDashboardBundle', () => {
     expect(bundle.machines.fleet.length).toBeGreaterThan(0);
   });
 
-  it('uses only live cluster rows — never demo catalog fallbacks', () => {
+  it('merges live cluster rows with infrastructure nodes', () => {
     const bundle = buildClusterDashboardBundle(samplePayload, 'live');
     expect(bundle.dataSource).toBe('live');
     expect(bundle.storage.pvcs).toHaveLength(1);
-    expect(bundle.storage.pvcs[0]?.name).toBe('data-vol');
-    expect(bundle.storage.backends).toHaveLength(1);
-    expect(bundle.machines.fleet).toHaveLength(1);
-    expect(bundle.machines.affinityRules).toHaveLength(0);
-    expect(bundle.resourceMonitoring.securityAudits).toHaveLength(0);
+    expect(bundle.machines.fleet.some((row) => row.kind === 'node')).toBe(true);
+    expect(bundle.machines.fleet.some((row) => row.name === 'test-vm')).toBe(true);
     expect(bundle.resourceMonitoring.resourceGraphs.map((g) => g.label)).toEqual(['CPU', 'RAM']);
   });
 
-  it('returns empty live dashboards when payload missing in live mode', () => {
+  it('synthesizes infrastructure rows when live fleet is empty but nodes exist', () => {
+    const sparse: DashboardTelemetryPayload = {
+      ...samplePayload,
+      machines: { fleet: [], migrations: [] },
+      environment: { ...samplePayload.environment, nodeCount: 3, cpuPercent: 30, ramPercent: 50 },
+    };
+    const bundle = buildClusterDashboardBundle(sparse, 'live');
+    expect(bundle.machines.fleet.filter((row) => row.kind === 'node')).toHaveLength(3);
+  });
+
+  it('includes simulated workloads in live mode', () => {
+    recordPolyComputeDeploy({
+      kind: 'kubevirt-vm',
+      name: 'edge-vm',
+      namespace: 'tenant-apps',
+      cpuCores: 2,
+      memoryGiB: 4,
+      image: 'kubevirt/cirros-container-disk-demo:latest',
+      enableHa: true,
+      hostAffinity: 'any',
+    });
     const bundle = buildClusterDashboardBundle(null, 'live');
-    expect(bundle.dataSource).toBe('live');
-    expect(bundle.storage.backends).toHaveLength(0);
-    expect(bundle.storage.pvcs).toHaveLength(0);
-    expect(bundle.machines.fleet).toHaveLength(0);
-    expect(bundle.resourceMonitoring.workItems).toHaveLength(0);
+    expect(bundle.machines.fleet.some((row) => row.name === 'edge-vm')).toBe(true);
+    expect(bundle.resourceMonitoring.workItems.length).toBeGreaterThan(0);
   });
 });

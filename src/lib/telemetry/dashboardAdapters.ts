@@ -1,10 +1,15 @@
 import {
   buildMachinesDashboard,
   buildStorageDashboard,
+  type MachineRow,
   type MachinesDashboard,
   type StorageDashboard,
 } from '../dashboards';
 import { buildResourceMonitoring, type ResourceMonitoring } from '../activeOperations';
+import {
+  simulationToFleet,
+  simulationToWorkItems,
+} from '../simulationStore';
 import type {
   DashboardTelemetryPayload,
   LiveMachinesSlice,
@@ -41,6 +46,46 @@ const EMPTY_MACHINES: MachinesDashboard = {
   ha: [],
   consoleChips: [],
 };
+
+function mergeFleetRows(...groups: MachineRow[][]): MachineRow[] {
+  const byId = new Map<string, MachineRow>();
+  for (const group of groups) {
+    for (const row of group) {
+      byId.set(row.id, row);
+    }
+  }
+  return [...byId.values()];
+}
+
+function infrastructureRowsFromPayload(payload: DashboardTelemetryPayload | null | undefined): MachineRow[] {
+  if (!payload?.environment?.nodeCount || payload.environment.nodeCount <= 0) {
+    return [];
+  }
+  const infra = payload.machines.fleet.filter((row) => row.kind === 'node');
+  if (infra.length > 0) return infra;
+
+  const nodeCount = payload.environment.nodeCount;
+  const cpu = payload.environment.cpuPercent || 0;
+  const ram = payload.environment.ramPercent || 0;
+  const perNodeCpu = nodeCount > 0 ? cpu / nodeCount : cpu;
+  const perNodeRamGiB = nodeCount > 0 ? Math.max(8, (ram / 100) * 64) : 32;
+
+  return Array.from({ length: nodeCount }, (_, index) => {
+    const host = `node-${String(index + 1).padStart(2, '0')}`;
+    return {
+      id: `infra-${host}`,
+      name: host,
+      kind: 'node' as const,
+      host,
+      cpuPercent: Math.round(perNodeCpu * 10) / 10,
+      ramGiB: Math.round(perNodeRamGiB * 10) / 10,
+      ramAllocGiB: 64,
+      status: 'running' as const,
+      haEnabled: index === 0,
+      affinity: 'none' as const,
+    };
+  });
+}
 
 function buildLiveStorage(live: LiveStorageSlice): StorageDashboard {
   return {
@@ -91,7 +136,7 @@ function buildLiveResourceMonitoring(live: LiveResourceMonitoringSlice): Resourc
       { id: 'security', label: 'Security', signal: 'AUDIT' },
     ],
     workItems: live.workItems,
-    monitoredResourceClasses: ['pods', 'virtual-machines', 'persistent-volumes', 'cpu', 'ram'],
+    monitoredResourceClasses: ['pods', 'virtual-machines', 'persistent-volumes', 'cpu', 'ram', 'nodes'],
     resourceGraphs: graphs,
     memoryPressure: {
       visible: memoryPressurePercent >= 80,
@@ -118,16 +163,103 @@ const EMPTY_RESOURCE: ResourceMonitoring = buildLiveResourceMonitoring({
   memoryPressurePercent: 0,
 });
 
+function mergeResourceMonitoring(
+  base: ResourceMonitoring,
+  payload: DashboardTelemetryPayload | null | undefined,
+): ResourceMonitoring {
+  const simItems = simulationToWorkItems();
+  const mergedItems = [...base.workItems];
+  for (const item of simItems) {
+    if (!mergedItems.some((existing) => existing.id === item.id)) {
+      mergedItems.push(item);
+    }
+  }
+
+  const cpuSeries =
+    base.resourceGraphs.find((graph) => graph.label === 'CPU')?.samples ??
+    (payload?.resourceMonitoring.cpuSeries.length
+      ? payload.resourceMonitoring.cpuSeries
+      : payload?.environment.cpuPercent
+        ? [payload.environment.cpuPercent]
+        : []);
+  const ramSeries =
+    base.resourceGraphs.find((graph) => graph.label === 'RAM')?.samples ??
+    (payload?.resourceMonitoring.ramSeries.length
+      ? payload.resourceMonitoring.ramSeries
+      : payload?.environment.ramPercent
+        ? [payload.environment.ramPercent]
+        : []);
+
+  const graphs: ResourceMonitoring['resourceGraphs'] = [];
+  if (cpuSeries.length > 0) graphs.push({ label: 'CPU', unit: '%', samples: cpuSeries });
+  if (ramSeries.length > 0) graphs.push({ label: 'RAM', unit: '%', samples: ramSeries });
+
+  const memoryPressurePercent =
+    payload?.resourceMonitoring.memoryPressurePercent ?? base.memoryPressure.pressurePercent;
+
+  return {
+    ...base,
+    workItems: mergedItems,
+    resourceGraphs: graphs,
+    memoryPressure: {
+      ...base.memoryPressure,
+      visible: memoryPressurePercent >= 80,
+      severity: memoryPressurePercent >= 92 ? 'critical' : memoryPressurePercent >= 80 ? 'warning' : 'normal',
+      pressurePercent: memoryPressurePercent,
+    },
+    summary: {
+      ...base.summary,
+      activeWorkCount: mergedItems.length,
+    },
+  };
+}
+
+function applySimulation(
+  bundle: ClusterDashboardBundle,
+  payload: DashboardTelemetryPayload | null | undefined,
+): ClusterDashboardBundle {
+  const simulatedFleet = simulationToFleet();
+  const infraRows = infrastructureRowsFromPayload(payload);
+  const workloadRows = bundle.machines.fleet.filter((row) => row.kind !== 'node');
+
+  const fleet = mergeFleetRows(infraRows, workloadRows, simulatedFleet);
+  const machines: MachinesDashboard = {
+    ...bundle.machines,
+    fleet,
+  };
+
+  return {
+    ...bundle,
+    machines,
+    resourceMonitoring: mergeResourceMonitoring(bundle.resourceMonitoring, payload),
+  };
+}
+
 export function buildClusterDashboardBundle(
   payload: DashboardTelemetryPayload | null | undefined,
   dataSource: TelemetryDataSource,
 ): ClusterDashboardBundle {
   if (dataSource === 'demo') {
+    const demoMachines = buildMachinesDashboard();
+    const demoFleet = mergeFleetRows(demoMachines.fleet, simulationToFleet());
+    const demoResource = buildResourceMonitoring();
+    const mergedResource = mergeResourceMonitoring(
+      {
+        ...demoResource,
+        workItems: [...demoResource.workItems, ...simulationToWorkItems()],
+        summary: {
+          ...demoResource.summary,
+          activeWorkCount: demoResource.workItems.length + simulationToWorkItems().length,
+        },
+      },
+      payload,
+    );
+
     return {
       dataSource: 'demo',
       storage: buildStorageDashboard(),
-      machines: buildMachinesDashboard(),
-      resourceMonitoring: buildResourceMonitoring(),
+      machines: { ...demoMachines, fleet: demoFleet },
+      resourceMonitoring: mergedResource,
       xdr: undefined,
       operations: undefined,
     };
@@ -144,7 +276,7 @@ export function buildClusterDashboardBundle(
     },
   };
 
-  return {
+  const base: ClusterDashboardBundle = {
     dataSource: 'live',
     storage: buildLiveStorage(live.storage),
     machines: buildLiveMachines(live.machines),
@@ -152,6 +284,8 @@ export function buildClusterDashboardBundle(
     xdr: payload?.xdr,
     operations: payload?.operations,
   };
+
+  return applySimulation(base, payload);
 }
 
 export { EMPTY_STORAGE, EMPTY_MACHINES, EMPTY_RESOURCE };

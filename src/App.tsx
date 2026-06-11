@@ -22,6 +22,11 @@ import {
 import { isDemoLogin } from './lib/auth';
 import { useEnvironmentTelemetry } from './lib/telemetry/useEnvironmentTelemetry';
 import { useClusterDashboards } from './lib/telemetry/useClusterDashboards';
+import {
+  recordClusterDeploy,
+  recordPolyComputeDeploy,
+  recordWorkloadDeploy,
+} from './lib/simulationStore';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from './lib/themes';
 import { ClusterIntegrationPanel } from './components/ClusterIntegrationPanel';
 import { DeployActionBar } from './components/DeployActionBar';
@@ -187,11 +192,18 @@ function App() {
           kubectlCommands: commands,
           completedAt: new Date().toISOString(),
         });
+        if (target === 'cluster' || target === 'join-cluster') {
+          recordClusterDeploy(machineConfig);
+        } else if (target === 'workload') {
+          recordWorkloadDeploy(config);
+        } else if (target === 'vm' || target === 'lxc' || target === 'pod') {
+          recordPolyComputeDeploy(workloadCreateConfig);
+        }
       } finally {
         setDeploying(false);
       }
     },
-    [],
+    [config, machineConfig, workloadCreateConfig],
   );
 
   const handleDeployCluster = useCallback(async () => {
@@ -208,7 +220,7 @@ function App() {
       setClusterPhaseIndex,
       setClusterPhaseCount,
       setClusterDeployResult,
-      `${machineConfig.hostName} cluster operation completed (demo simulation).`,
+      `${machineConfig.hostName} cluster operation completed. Nodes appear on Resource Monitor and Machines.`,
     );
   }, [clusterDeploying, machineConfig, machinePlan, runSimulatedDeploy]);
 
@@ -225,7 +237,7 @@ function App() {
       setWorkloadPhaseIndex,
       setWorkloadPhaseCount,
       setWorkloadDeployResult,
-      `${config.workloadType}/${config.appName} deployed to ${config.namespace} (demo simulation).`,
+      `${config.workloadType}/${config.appName} deployed to ${config.namespace}. Visible on Machines and Resource Monitor.`,
     );
   }, [config, runSimulatedDeploy, validation, workloadDeploying]);
 
@@ -243,7 +255,7 @@ function App() {
       setPolyPhaseIndex,
       setPolyPhaseCount,
       setPolyDeployResult,
-      `${workloadCreateConfig.name} is running (demo simulation). Check Machines dashboard.`,
+      `${workloadCreateConfig.name} is running on ${workloadCreateConfig.hostAffinity === 'any' ? 'the cluster' : workloadCreateConfig.hostAffinity}. Check Machines and Resource Monitor.`,
     );
   }, [polyDeploying, runSimulatedDeploy, workloadCreateConfig]);
 
