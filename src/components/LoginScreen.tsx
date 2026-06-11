@@ -90,13 +90,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </div>
           )}
 
-          {isLoading && (
-            <div className="login-loading" aria-live="polite">
-              <div className="spinner-small" aria-hidden="true" />
-              <span>Elevating&hellip;</span>
-            </div>
-          )}
-
           {/* No visible submit button — pressing Enter inside the form still submits.
               `type="submit"` with `hidden` is required so the form has an implicit
               submitter for keyboard activation. */}
