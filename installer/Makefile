@@ -32,6 +32,7 @@ ISO_RUN = docker run --rm --privileged \
 	  -e NEXUS_VERSION=$(BUILD_VERSION) \
 	  -e DOCKER_API_VERSION=1.44 \
 	  -e DOCKER_BUILDKIT=0 \
+	  -e GOTOOLCHAIN=auto \
 	  $(ISO_BUILDER_IMG)
 
 .PHONY: overlay

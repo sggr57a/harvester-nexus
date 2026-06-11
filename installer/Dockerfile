@@ -8,7 +8,7 @@
 #
 # Built and tagged by `make iso-builder`. Run with `make iso`.
 
-FROM registry.suse.com/bci/golang:1.25
+FROM registry.suse.com/bci/golang:1.26
 
 SHELL ["/bin/bash", "-c"]
 
@@ -57,6 +57,8 @@ ENV PATH="/usr/local/bin:${PATH}"
 # elemental (copied from rancher/harvester-os during package-harvester-os) embeds
 # go-containerregistry/moby with API 1.42. Docker 29+ host daemons require >= 1.44.
 ENV DOCKER_API_VERSION=1.44
+# harvester-installer master requires go >= 1.26.
+ENV GOTOOLCHAIN=auto
 
 # Node.js 20 — the golang BCI image does not ship nodejs20 in its default
 # zypper repos; install the official upstream binary (same approach as yq/Helm).
