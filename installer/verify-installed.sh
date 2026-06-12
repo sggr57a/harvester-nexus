@@ -24,6 +24,8 @@ check 'Nexus config' /etc/nexus/config.yaml
 check 'Nexus version stamp' /etc/nexus/version
 check 'python server script' /usr/lib/nexus/serve-cockpit.py
 check 'cluster metrics collector' /usr/lib/nexus/cluster_metrics.py
+check 'dashboard collectors' /usr/lib/nexus/dashboard_collectors.py
+check 'harvester Steve API collector' /usr/lib/nexus/harvester_collectors.py
 check 'cockpit bundle tarball' /usr/share/nexus-cockpit/dist.tar.gz
 if [[ -f /usr/share/nexus-cockpit/dist/index.html ]]; then
   printf 'OK   cockpit index.html (squashfs) (/usr/share/nexus-cockpit/dist/index.html)\n'

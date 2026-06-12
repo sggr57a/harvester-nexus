@@ -306,6 +306,7 @@ describe('installer · build-iso.sh artifact staging', () => {
     expect(script).toMatch(/verify_overlay_merge/);
     expect(script).toMatch(/usr\/bin\/nexus-cockpit/);
     expect(script).toMatch(/usr\/share\/nexus-cockpit/);
+    expect(script).toMatch(/harvester_collectors\.py/);
   });
 });
 
@@ -385,9 +386,15 @@ describe('installer · overlay avoids Elemental /usr/local persistent mount', ()
 
   it('ships cluster metrics collector for live telemetry BFF', () => {
     const metrics = join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'cluster_metrics.py');
+    const harvester = join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'harvester_collectors.py');
+    const dashboards = join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'dashboard_collectors.py');
     expect(existsSync(metrics)).toBe(true);
+    expect(existsSync(harvester)).toBe(true);
+    expect(existsSync(dashboards)).toBe(true);
     const serve = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'serve-cockpit.py'), 'utf8');
     expect(serve).toMatch(/\/api\/v1\/telemetry\/environment/);
     expect(serve).toMatch(/\/api\/v1\/health\/live/);
+    expect(serve).toMatch(/\/api\/v1\/harvester\/dashboard/);
+    expect(serve).toMatch(/\/api\/v1\/harvester\/resources\//);
   });
 });

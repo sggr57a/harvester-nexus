@@ -30,6 +30,9 @@ data:
   view.cluster-console:   "true"
   view.launch-mockups:    "true"
   view.setup-wizard:      "true"
+  view.harvester-unified:   "true"
+  surface.harvester:      "true"
+  surface.nexus-ops:        "true"
 
   # Capability gates — drive what's visible inside the wizards
   capability.kubevirt:    "true"

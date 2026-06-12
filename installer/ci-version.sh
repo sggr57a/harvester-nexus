@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
-# Emit a traceable Nexus ISO version for CI builds on main.
+# Emit a traceable Nexus ISO version for CI and local builds.
 # Usage: NEXUS_VERSION=$(installer/ci-version.sh)
+#
+# CI (GitHub Actions):
+#   main            → 1.0.0+nexus.1.main.<run>.<sha>
+#   cursor/foo-5878 → 1.0.0+nexus.1.cursor-foo-5878.<run>.<sha>
+#
+# Local:
+#   → 1.0.0+nexus.1.local.<sha>  or  ….<branch-slug>.local.<sha>
 
 set -euo pipefail
 
@@ -16,8 +23,27 @@ else
   SHORT_SHA=local
 fi
 
+slugify_branch() {
+  local raw=${1:-local}
+  printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'
+}
+
+BRANCH=${GITHUB_REF_NAME:-}
+if [[ -z "${BRANCH}" ]] && command -v git >/dev/null 2>&1; then
+  BRANCH=$(git -C "${REPO_ROOT}" branch --show-current 2>/dev/null || true)
+fi
+BRANCH_SLUG=$(slugify_branch "${BRANCH:-local}")
+
 if [[ "${RUN_NUMBER}" != "0" ]]; then
-  printf '%s.main.%s.%s\n' "${BASE}" "${RUN_NUMBER}" "${SHORT_SHA}"
+  if [[ "${BRANCH}" == "main" ]]; then
+    printf '%s.main.%s.%s\n' "${BASE}" "${RUN_NUMBER}" "${SHORT_SHA}"
+  else
+    printf '%s.%s.%s.%s\n' "${BASE}" "${BRANCH_SLUG}" "${RUN_NUMBER}" "${SHORT_SHA}"
+  fi
 else
-  printf '%s.local.%s\n' "${BASE}" "${SHORT_SHA}"
+  if [[ "${BRANCH}" == "main" || -z "${BRANCH}" ]]; then
+    printf '%s.local.%s\n' "${BASE}" "${SHORT_SHA}"
+  else
+    printf '%s.%s.local.%s\n' "${BASE}" "${BRANCH_SLUG}" "${SHORT_SHA}"
+  fi
 fi

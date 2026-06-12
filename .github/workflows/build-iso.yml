@@ -2,11 +2,13 @@ name: Build install ISO
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'cursor/**'
   workflow_dispatch:
 
 concurrency:
-  group: build-iso-main
+  group: build-iso-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -96,12 +98,28 @@ jobs:
         run: |
           set -euo pipefail
           test -f installer/VERSION
-          BASE=$(tr -d '[:space:]' < installer/VERSION)
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          VERSION="${BASE}.main.${GITHUB_RUN_NUMBER}.${SHORT_SHA}"
+          VERSION=$(installer/ci-version.sh)
           echo "nexus_version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "ISO version: ${VERSION}"
           ls -la installer/ci-version.sh installer/VERSION
+
+      - name: Resolve release metadata
+        id: release
+        run: |
+          set -euo pipefail
+          BRANCH="${GITHUB_REF_NAME}"
+          SLUG=$(printf '%s' "${BRANCH}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
+          if [[ "${BRANCH}" == "main" ]]; then
+            echo "tag=iso-main-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "name=Main ISO build #${GITHUB_RUN_NUMBER} (${{ steps.version.outputs.nexus_version }})" >> "$GITHUB_OUTPUT"
+            echo "update_latest=true" >> "$GITHUB_OUTPUT"
+            echo "branch_label=main" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=iso-${SLUG}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "name=Branch ISO ${BRANCH} #${GITHUB_RUN_NUMBER} (${{ steps.version.outputs.nexus_version }})" >> "$GITHUB_OUTPUT"
+            echo "update_latest=false" >> "$GITHUB_OUTPUT"
+            echo "branch_label=${BRANCH}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build iso-builder image
         run: |
@@ -129,6 +147,7 @@ jobs:
           sha256sum dist/*.iso | tee dist/BUILD-MANIFEST.txt
           echo "commit=${{ github.sha }}" >> dist/BUILD-MANIFEST.txt
           echo "run=${{ github.run_number }}" >> dist/BUILD-MANIFEST.txt
+          echo "branch=${{ steps.release.outputs.branch_label }}" >> dist/BUILD-MANIFEST.txt
           echo "version=${{ steps.version.outputs.nexus_version }}" >> dist/BUILD-MANIFEST.txt
 
       - name: Compress ISO (GitHub release assets are limited to 2 GiB)
@@ -180,14 +199,16 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: iso-main-${{ github.run_number }}
-          name: Main ISO build #${{ github.run_number }} (${{ steps.version.outputs.nexus_version }})
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ${{ steps.release.outputs.name }}
           prerelease: true
           generate_release_notes: true
           body: |
-            Automated ISO build from [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on `main`.
+            Automated ISO build from [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on `${{ steps.release.outputs.branch_label }}`.
 
             **Version:** `${{ steps.version.outputs.nexus_version }}`
+
+            Includes the unified Harvester + Nexus cockpit (Harvester native controls with Nexus theming).
 
             ## Download
 
@@ -209,12 +230,13 @@ jobs:
               -device virtio-net,netdev=net0
             ```
 
-            After install: **https://127.0.0.1:8443** (`admin` / `admin`).
+            After install: **https://127.0.0.1:8443** (`admin` / `admin`). Use the **Harvester** sidebar surface for native VM controls.
 
             Full guide: [docs/TESTING-ISO-VM.md](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/TESTING-ISO-VM.md)
           files: release-assets/*
 
       - name: Point iso-latest at this build
+        if: steps.release.outputs.update_latest == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: iso-latest

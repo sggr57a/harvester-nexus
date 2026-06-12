@@ -1,15 +1,15 @@
 # Testing each main build in a VM
 
-Every push to **`main`** triggers a fresh install ISO. Use this flow to download and boot it in a virtual machine.
+Every push to **`main`** or a **`cursor/**`** feature branch triggers a fresh install ISO. Use this flow to download and boot it in a virtual machine.
 
 ## 1. Get the ISO
 
-After your change lands on `main`:
+After your change lands on `main` or a `cursor/**` branch:
 
 1. Open **GitHub → Actions → Build install ISO** and wait for the green check (~30–90 minutes).
 2. Download from either:
-   - **Releases → `iso-latest`** (always the newest successful build), or
-   - **Releases → `Main ISO build #…`** (numbered build with full notes), or
+   - **Releases → `iso-latest`** (newest successful **main** build only), or
+   - **Releases → `Main ISO build #…`** or **`Branch ISO cursor/… #…`** (numbered build with full notes), or
    - **Actions → latest run → Artifacts** (14-day retention).
 
 Verify checksum:
@@ -63,25 +63,28 @@ On the VM host (with port forwards above):
 
 - **Nexus cockpit:** https://127.0.0.1:8443  
 - Default login: `admin` / `admin` (forced password change on first login)
+- **Harvester surface:** sidebar toggle → **Harvester** for native VM/Host/Volume controls with Nexus theming
+- **Nexus Ops surface:** Mission Control, XDR, wizards, and extended HUD dashboards
 
 Stock Harvester UI (if needed): https://127.0.0.1:443
 
 ## Workflow for every change
 
 ```
-feature branch → PR → merge to main → ISO build starts automatically → download iso-latest → boot VM
+feature branch (cursor/**) → push → ISO build starts automatically → download branch release or artifact → boot VM
+feature branch → PR → merge to main → ISO build on main → download iso-latest → boot VM
 ```
 
-To rebuild without a new commit: **Actions → Build install ISO → Run workflow**.
+To rebuild without a new commit: **Actions → Build install ISO → Run workflow** (works on any branch).
 
-## Local ISO build (optional)
+## Local ISO build (recommended for branch testing)
 
-If CI is slow or unavailable:
+Build the unified Harvester Nexus ISO from your current checkout:
 
 ```bash
 cd installer
 make iso-builder   # rebuild after Dockerfile changes (requires Go 1.26 in the builder image)
-make iso
+make iso BUILD_VERSION="$(./ci-version.sh)"
 ```
 
 If `make iso` fails with `go.mod requires go >= 1.26 (running go 1.25…)`:

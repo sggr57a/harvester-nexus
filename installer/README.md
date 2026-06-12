@@ -26,7 +26,7 @@ installer/
 │   ├── etc/systemd/system/           nexus-bootstrap.service + nexus-cockpit.service
 │   ├── usr/bin/                      nexus-bootstrap, nexus-cockpit, nexus-postinstall
 │   ├── usr/share/nexus-cockpit/      cockpit bundle + bootstrap manifests
-│   └── usr/lib/nexus/                serve-cockpit.py
+│   └── usr/lib/nexus/                serve-cockpit.py + Steve API collectors
 │
 ├── manifests/                        applied by nexus-bootstrap on first boot
 │   ├── 00-nexus-namespace.yaml       3 namespaces (nexus-system / nexus-xdr / nexus-cockpit)
@@ -101,17 +101,33 @@ The `make iso` target runs `build-iso.sh` inside the `harvester-nexus-iso-builde
 6. Runs `harvester-installer/scripts/ci` to produce the squashfs + bootable ISO.
 7. Copies the artifact to `dist/harvester-nexus-<version>.iso` with a `.sha256` next to it.
 
-### Automated ISO on every `main` push (GitHub Actions)
+### Automated ISO on every `main` or `cursor/**` push (GitHub Actions)
 
-Pushes to **`main`** trigger [`.github/workflows/build-iso.yml`](../.github/workflows/build-iso.yml):
+Pushes to **`main`** or feature branches matching **`cursor/**`** trigger [`.github/workflows/build-iso.yml`](../.github/workflows/build-iso.yml):
 
 1. **Validate** — `npm test`, stage overlay, run install simulator
-2. **Build ISO** — `make iso-builder` + `make iso` with version `$(installer/VERSION).main.<run>.<sha>`
-3. **Publish** — GitHub Release `iso-main-<run>` (pre-release) + workflow artifact (14-day retention)
+2. **Build ISO** — `make iso-builder` + `make iso` with a traceable version from `installer/ci-version.sh`
+3. **Publish** — GitHub Release (pre-release) + workflow artifact (14-day retention)
 
-Download the latest build from the repo **Releases** tab (look for `Main ISO build #…`) or from the **Actions** run artifacts. If the raw ISO exceeds GitHub’s 2 GiB asset limit, the workflow also uploads a `.iso.zst` — decompress with `zstd -d harvester-nexus-*.iso.zst`.
+| Branch | Release tag example | Version suffix |
+|--------|---------------------|----------------|
+| `main` | `iso-main-<run>` + rolling `iso-latest` | `…main.<run>.<sha>` |
+| `cursor/harvester-nexus-unified-5878` | `iso-cursor-harvester-nexus-unified-5878-<run>` | `…cursor-harvester-nexus-unified-5878.<run>.<sha>` |
 
-Manual re-run: **Actions → Build install ISO → Run workflow**.
+Download from the repo **Releases** tab or from the **Actions** run artifacts. If the raw ISO exceeds GitHub’s 2 GiB asset limit, the workflow also uploads a `.iso.zst` — decompress with `zstd -d harvester-nexus-*.iso.zst`.
+
+Manual re-run on any branch: **Actions → Build install ISO → Run workflow**.
+
+### Build a test ISO from your current branch (local)
+
+```bash
+# From the repo root — produces dist/harvester-nexus-<version>.iso
+cd installer
+make iso-builder          # once, or after Dockerfile changes (~5 min)
+make iso BUILD_VERSION="$(../installer/ci-version.sh)"
+```
+
+The ISO bundles the **unified Harvester + Nexus cockpit** (Harvester sidebar surface + Nexus Ops dashboards) baked from `npm run build` at stage 1.
 
 CI stores heavy ISO build artifacts under `/var/lib/docker/nexus-ci/` on the expanded runner volume (not the small root disk).
 

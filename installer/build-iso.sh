@@ -251,6 +251,9 @@ verify_overlay_merge() {
     usr/bin/nexus-postinstall \
     usr/lib/nexus/serve-cockpit.py \
     usr/lib/nexus/cluster_metrics.py \
+    usr/lib/nexus/dashboard_collectors.py \
+    usr/lib/nexus/cluster_resources.py \
+    usr/lib/nexus/harvester_collectors.py \
     etc/systemd/system/nexus-cockpit.service \
     system/oem/92_nexus.yaml \
     etc/nexus/config.yaml \

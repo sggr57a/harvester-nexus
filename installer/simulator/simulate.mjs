@@ -243,7 +243,9 @@ function simulateBootstrap(manifests) {
     if (!cm) throw new Error('missing nexus-features');
     const required = [
       'view.mission-control', 'view.xdr-operations', 'view.security-posture',
-      'view.cluster-console', 'view.launch-mockups', 'capability.xdr', 'capability.anyraid',
+      'view.cluster-console', 'view.launch-mockups', 'view.harvester-unified',
+      'surface.harvester', 'surface.nexus-ops',
+      'capability.xdr', 'capability.anyraid',
     ];
     for (const k of required) {
       if (cm.data?.[k] !== 'true') throw new Error(`feature ${k} not enabled`);
