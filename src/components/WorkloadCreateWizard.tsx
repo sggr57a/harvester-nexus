@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import {
   buildDefaultWorkloadCreateConfig,
   buildPolyComputeDeployCommands,
-  buildWorkloadManifest,
+  buildWorkloadApplyManifest,
   type PolyComputeWorkloadKind,
   type WorkloadCreateConfig,
   workloadCreateLabel,
@@ -10,9 +10,11 @@ import {
 } from '../lib/deploySimulation';
 import { DeployActionBar } from './DeployActionBar';
 import type { DeployPhase, DeployResult } from '../lib/deploySimulation';
+import type { TelemetryDataSource } from '../lib/telemetry/dashboardAdapters';
 
 interface WorkloadCreateWizardProps {
   config: WorkloadCreateConfig;
+  dataSource?: TelemetryDataSource;
   onChange: (config: WorkloadCreateConfig) => void;
   deploying?: boolean;
   currentPhase?: DeployPhase | null;
@@ -27,6 +29,7 @@ const kindOptions: PolyComputeWorkloadKind[] = ['kubevirt-vm', 'incus-lxc', 'k8s
 
 export function WorkloadCreateWizard({
   config,
+  dataSource,
   onChange,
   deploying,
   currentPhase,
@@ -36,7 +39,10 @@ export function WorkloadCreateWizard({
   onDeploy,
   onCancel,
 }: WorkloadCreateWizardProps) {
-  const manifest = useMemo(() => buildWorkloadManifest(config), [config]);
+  const manifest = useMemo(
+    () => buildWorkloadApplyManifest(config, { live: dataSource === 'live' }),
+    [config, dataSource],
+  );
   const commands = useMemo(() => buildPolyComputeDeployCommands(config), [config]);
 
   const setKind = (kind: PolyComputeWorkloadKind) => {

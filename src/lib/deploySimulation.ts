@@ -142,6 +142,90 @@ export function buildPolyComputeDeployCommands(workload: WorkloadCreateConfig): 
   }
 }
 
+export const NEXUS_LXC_WORKLOAD_LABEL = 'nexus.nexus.io/workload-kind';
+export const NEXUS_LXC_WORKLOAD_VALUE = 'lxc';
+
+export function normalizeLxcImageForCluster(image: string): string {
+  const trimmed = image.trim();
+  if (trimmed.startsWith('images:')) {
+    const path = trimmed.slice('images:'.length);
+    const slash = path.indexOf('/');
+    if (slash >= 0) {
+      return `${path.slice(0, slash)}:${path.slice(slash + 1)}`;
+    }
+    return path;
+  }
+  return trimmed;
+}
+
+export function buildNamespaceManifestYaml(namespace: string): string {
+  return YAML.stringify({
+    apiVersion: 'v1',
+    kind: 'Namespace',
+    metadata: { name: namespace.trim() },
+  });
+}
+
+export function prependNamespaceToManifest(namespace: string, resourceYaml: string): string {
+  const ns = namespace.trim();
+  const body = resourceYaml.trim();
+  if (!ns) return body;
+  return `${buildNamespaceManifestYaml(ns)}\n---\n${body}`;
+}
+
+function buildLxcAsPodManifest(workload: WorkloadCreateConfig): string {
+  const image = normalizeLxcImageForCluster(workload.image);
+  const pod: Record<string, unknown> = {
+    apiVersion: 'v1',
+    kind: 'Pod',
+    metadata: {
+      name: workload.name,
+      namespace: workload.namespace,
+      labels: { [NEXUS_LXC_WORKLOAD_LABEL]: NEXUS_LXC_WORKLOAD_VALUE },
+    },
+    spec: {
+      restartPolicy: workload.enableHa ? 'Always' : 'Never',
+      containers: [
+        {
+          name: workload.name,
+          image,
+          resources: {
+            requests: { cpu: `${workload.cpuCores}`, memory: `${workload.memoryGiB}Gi` },
+            limits: { cpu: `${workload.cpuCores}`, memory: `${workload.memoryGiB}Gi` },
+          },
+        },
+      ],
+    },
+  };
+  if (workload.hostAffinity !== 'any') {
+    (pod.spec as Record<string, unknown>).nodeSelector = { 'kubernetes.io/hostname': workload.hostAffinity };
+  }
+  return YAML.stringify(pod);
+}
+
+/** Manifest bundle for kubectl apply (namespace + workload). LXC maps to a labeled Pod on live clusters. */
+export function buildWorkloadApplyManifest(
+  workload: WorkloadCreateConfig,
+  options?: { live?: boolean },
+): string {
+  const live = options?.live === true;
+  const resourceYaml =
+    live && workload.kind === 'incus-lxc'
+      ? buildLxcAsPodManifest(workload)
+      : buildWorkloadManifest(workload);
+  return prependNamespaceToManifest(workload.namespace, resourceYaml);
+}
+
+export function isManifestApplyPhase(phase: DeployPhase): boolean {
+  const label = phase.label.toLowerCase();
+  return (
+    label.includes('apply manifest') ||
+    label.includes('launch vm') ||
+    label.includes('start container') ||
+    label.includes('schedule pod')
+  );
+}
+
 export function buildWorkloadManifest(workload: WorkloadCreateConfig): string {
   if (workload.kind === 'kubevirt-vm') {
     return YAML.stringify({

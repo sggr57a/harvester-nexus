@@ -32,8 +32,10 @@ export function useClusterDashboards(telemetry: TelemetryState, intervalMs: numb
     return () => window.clearInterval(id);
   }, [intervalMs, refresh, useLive]);
 
-  return useMemo(
+  const bundle = useMemo(
     () => buildClusterDashboardBundle(useLive ? payload : null, dataSource),
     [dataSource, payload, simulationRevision, useLive],
   );
+
+  return useMemo(() => ({ ...bundle, refresh }), [bundle, refresh]);
 }

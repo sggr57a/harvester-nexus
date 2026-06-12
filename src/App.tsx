@@ -7,19 +7,21 @@ import {
   buildClusterDeployCommands,
   buildDefaultWorkloadCreateConfig,
   buildPolyComputeDeployCommands,
+  buildWorkloadApplyManifest,
   buildWorkloadDeployCommands,
-  buildWorkloadManifest,
   canDeployCluster,
   canDeployWorkload,
   clusterDeployLabel,
   clusterDeployTarget,
   getDeployPhases,
-  simulateDeploy,
+  isManifestApplyPhase,
+  prependNamespaceToManifest,
   type DeployPhase,
   type DeployResult,
   type PolyComputeWorkloadKind,
 } from './lib/deploySimulation';
 import { isDemoLogin } from './lib/auth';
+import { applyOrSimulateManifest } from './lib/clusterApply';
 import { useEnvironmentTelemetry } from './lib/telemetry/useEnvironmentTelemetry';
 import { useClusterDashboards } from './lib/telemetry/useClusterDashboards';
 import {
@@ -140,7 +142,7 @@ function App() {
   const [polyDeployResult, setPolyDeployResult] = useState<DeployResult | null>(null);
 
   const { snapshot: telemetry, telemetry: telemetryState, setRequestedMode } = useEnvironmentTelemetry(1600);
-  const clusterDashboards = useClusterDashboards(telemetryState, 1600);
+  const { refresh: refreshDashboards, ...clusterDashboards } = useClusterDashboards(telemetryState, 1600);
   const dataSource = clusterDashboards.dataSource;
 
   useEffect(() => {
@@ -160,7 +162,10 @@ function App() {
   const csiPreview = useMemo(() => buildCsiTemplatePreview(config.storage), [config.storage]);
   const operationBundle = useMemo(() => buildNexusClusterOperationBundle(displayedManifest, config), [displayedManifest, config]);
   const machinePlan = useMemo(() => buildHarvesterMachineInstallPlan(machineConfig), [machineConfig]);
-  const generatedWorkloadYaml = useMemo(() => buildWorkloadManifest(workloadCreateConfig), [workloadCreateConfig]);
+  const generatedWorkloadYaml = useMemo(
+    () => buildWorkloadApplyManifest(workloadCreateConfig, { live: dataSource === 'live' }),
+    [workloadCreateConfig, dataSource],
+  );
   const displayedWorkloadYaml = workloadYaml || generatedWorkloadYaml;
 
   const runSimulatedDeploy = useCallback(
@@ -175,40 +180,100 @@ function App() {
       setCount: (value: number) => void,
       setResult: (value: DeployResult | null) => void,
       successMessage: string,
+      options?: {
+        manifestYaml?: string;
+        recordSimulation?: () => void;
+      },
     ) => {
+      const manifestYaml = options?.manifestYaml?.trim();
+      const delayMs = 350;
+
       setDeploying(true);
       setResult(null);
       setCount(phases.length);
       setIndex(0);
       setPhase(phases[0] ?? null);
+
+      let applyResult: { success: boolean; message: string; live: boolean } | null = null;
+
       try {
-        await simulateDeploy(phases, (index, phase) => {
+        for (let index = 0; index < phases.length; index += 1) {
+          const phase = phases[index];
           setIndex(index);
           setPhase(phase);
-        });
+
+          if (manifestYaml && isManifestApplyPhase(phase) && !applyResult) {
+            applyResult = await applyOrSimulateManifest(manifestYaml, commands);
+            if (!applyResult.success) {
+              setResult({
+                success: false,
+                target,
+                name,
+                message: applyResult.message,
+                kubectlCommands: commands,
+                completedAt: new Date().toISOString(),
+              });
+              return;
+            }
+          }
+
+          await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+        }
+
+        if (manifestYaml && !applyResult) {
+          applyResult = await applyOrSimulateManifest(manifestYaml, commands);
+          if (!applyResult.success) {
+            setResult({
+              success: false,
+              target,
+              name,
+              message: applyResult.message,
+              kubectlCommands: commands,
+              completedAt: new Date().toISOString(),
+            });
+            return;
+          }
+        }
+
+        const liveApplied = applyResult?.live === true;
+        const message = liveApplied
+          ? `${name} applied to the cluster. ${applyResult?.message ?? 'Check Machines and Resource Monitor.'}`
+          : applyResult
+            ? `${successMessage} ${applyResult.message}`
+            : successMessage;
+
         setResult({
           success: true,
           target,
           name,
-          message: successMessage,
+          message,
           kubectlCommands: commands,
           completedAt: new Date().toISOString(),
         });
-        if (dataSource === 'demo') {
-          if (target === 'cluster' || target === 'join-cluster') {
-            recordClusterDeploy(machineConfig);
-          } else if (target === 'workload') {
-            recordWorkloadDeploy(config);
-          } else if (target === 'vm' || target === 'lxc' || target === 'pod') {
-            recordPolyComputeDeploy(workloadCreateConfig);
-          }
+
+        if (liveApplied) {
+          void refreshDashboards();
+        } else {
+          options?.recordSimulation?.();
         }
       } finally {
         setDeploying(false);
       }
     },
-    [config, machineConfig, workloadCreateConfig, dataSource],
+    [refreshDashboards],
   );
+
+  const recordPolyComputeSimulation = useCallback(() => {
+    recordPolyComputeDeploy(workloadCreateConfig);
+  }, [workloadCreateConfig]);
+
+  const recordWorkloadSimulation = useCallback(() => {
+    recordWorkloadDeploy(config);
+  }, [config]);
+
+  const recordClusterSimulation = useCallback(() => {
+    recordClusterDeploy(machineConfig);
+  }, [machineConfig]);
 
   const handleDeployCluster = useCallback(async () => {
     if (!canDeployCluster(machinePlan) || clusterDeploying) return;
@@ -225,12 +290,14 @@ function App() {
       setClusterPhaseCount,
       setClusterDeployResult,
       `${machineConfig.hostName} cluster operation completed. Nodes appear on Resource Monitor and Machines.`,
+      { recordSimulation: dataSource === 'demo' ? recordClusterSimulation : undefined },
     );
-  }, [clusterDeploying, machineConfig, machinePlan, runSimulatedDeploy]);
+  }, [clusterDeploying, dataSource, machineConfig, machinePlan, recordClusterSimulation, runSimulatedDeploy]);
 
   const handleDeployWorkload = useCallback(async () => {
     if (!canDeployWorkload(validation) || workloadDeploying) return;
     const phases = getDeployPhases('workload', config.appName);
+    const manifestYaml = prependNamespaceToManifest(config.namespace, displayedManifest);
     await runSimulatedDeploy(
       phases,
       buildWorkloadDeployCommands(config),
@@ -242,13 +309,28 @@ function App() {
       setWorkloadPhaseCount,
       setWorkloadDeployResult,
       `${config.workloadType}/${config.appName} deployed to ${config.namespace}. Visible on Machines and Resource Monitor.`,
+      {
+        manifestYaml,
+        recordSimulation: dataSource === 'demo' ? recordWorkloadSimulation : undefined,
+      },
     );
-  }, [config, runSimulatedDeploy, validation, workloadDeploying]);
+  }, [
+    config,
+    dataSource,
+    displayedManifest,
+    recordWorkloadSimulation,
+    runSimulatedDeploy,
+    validation,
+    workloadDeploying,
+  ]);
 
   const handleDeployPolyCompute = useCallback(async () => {
     if (polyDeploying || !workloadCreateConfig.name.trim()) return;
     const target = polyComputeDeployTarget(workloadCreateConfig.kind);
     const phases = getDeployPhases(target, workloadCreateConfig.name);
+    const manifestYaml = workloadYaml.trim()
+      ? prependNamespaceToManifest(workloadCreateConfig.namespace, workloadYaml.trim())
+      : buildWorkloadApplyManifest(workloadCreateConfig, { live: dataSource === 'live' });
     await runSimulatedDeploy(
       phases,
       buildPolyComputeDeployCommands(workloadCreateConfig),
@@ -260,8 +342,19 @@ function App() {
       setPolyPhaseCount,
       setPolyDeployResult,
       `${workloadCreateConfig.name} is running on ${workloadCreateConfig.hostAffinity === 'any' ? 'the cluster' : workloadCreateConfig.hostAffinity}. Check Machines and Resource Monitor.`,
+      {
+        manifestYaml,
+        recordSimulation: dataSource === 'demo' ? recordPolyComputeSimulation : undefined,
+      },
     );
-  }, [polyDeploying, runSimulatedDeploy, workloadCreateConfig]);
+  }, [
+    dataSource,
+    polyDeploying,
+    recordPolyComputeSimulation,
+    runSimulatedDeploy,
+    workloadCreateConfig,
+    workloadYaml,
+  ]);
 
   const openCreateWorkload = useCallback((kind: PolyComputeWorkloadKind = 'kubevirt-vm') => {
     setWorkloadCreateConfig(buildDefaultWorkloadCreateConfig(kind));
@@ -548,6 +641,7 @@ function App() {
         {cockpitView === 'create-workload' && (
           <WorkloadCreateWizard
             config={workloadCreateConfig}
+            dataSource={dataSource}
             onChange={(next) => {
               setWorkloadCreateConfig(next);
               setWorkloadYaml('');
