@@ -6,6 +6,7 @@ import {
   type StorageDashboard,
 } from '../dashboards';
 import { buildResourceMonitoring, type ResourceMonitoring } from '../activeOperations';
+import { consoleChipsFromFleet } from '../machineConsole';
 import {
   simulationToFleet,
   simulationToWorkItems,
@@ -100,6 +101,7 @@ function buildLiveMachines(live: LiveMachinesSlice): MachinesDashboard {
     ...EMPTY_MACHINES,
     fleet: live.fleet,
     migrations: live.migrations,
+    consoleChips: consoleChipsFromFleet(live.fleet),
   };
 }
 
@@ -240,7 +242,11 @@ export function buildClusterDashboardBundle(
     return {
       dataSource: 'demo',
       storage: buildStorageDashboard(),
-      machines: { ...demoMachines, fleet: demoFleet },
+      machines: {
+        ...demoMachines,
+        fleet: demoFleet,
+        consoleChips: consoleChipsFromFleet(demoFleet),
+      },
       resourceMonitoring: mergedResource,
       xdr: undefined,
       operations: undefined,

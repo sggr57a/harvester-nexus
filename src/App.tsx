@@ -451,6 +451,7 @@ function App() {
             telemetry={telemetry}
             dataSource={dataSource}
             machinesDashboard={clusterDashboards.machines}
+            storageDashboard={clusterDashboards.storage}
             onCreateWorkload={openCreateWorkload}
           />
         )}
