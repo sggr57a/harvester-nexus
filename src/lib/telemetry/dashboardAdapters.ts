@@ -122,23 +122,6 @@ function buildLiveNetworking(live: LiveNetworkingSlice): NetworkingDashboard {
   };
 }
 
-function emptyLiveNetworking(): NetworkingDashboard {
-  return buildLiveNetworking({
-    available: false,
-    virtualSwitches: [],
-    ovsPorts: [],
-    ovsFlows: [],
-    vlans: [],
-    overlays: [],
-    ingressRoutes: [],
-    policyMatrix: [],
-    tenants: [],
-    virtualBridges: [],
-    portGroups: [],
-    sdnZones: [],
-  });
-}
-
 function mergeFleetRows(...groups: MachineRow[][]): MachineRow[] {
   const byId = new Map<string, MachineRow>();
   for (const group of groups) {
