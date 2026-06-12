@@ -1,7 +1,7 @@
 import type { ApplyManifestResult } from './telemetry/types';
 import type { VirtualNicAttachRequest, VirtualNicAttachResult } from './machineNetworkAttach';
 import { ovsProvisionCommands, type OvsProvisionConfig } from './ovsProvisioning';
-import { applyClusterManifest, applyOrSimulateManifest } from './clusterApply';
+import { applyOrSimulateManifest } from './clusterApply';
 
 const API_BASE = '/api/v1';
 
