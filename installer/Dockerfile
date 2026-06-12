@@ -17,8 +17,8 @@ ENV ARCH=${ARCH}
 
 # harvester-installer master requires go >= 1.26. Install upstream Go explicitly so
 # stale BCI layers or cached iso-builder images cannot leave go 1.25 on PATH.
-# Bump when changing Go bootstrap logic to invalidate cached iso-builder layers.
-ARG GO_TOOLCHAIN_REV=2
+# Bump when changing Go bootstrap or ISO host-tool logic to invalidate cached layers.
+ARG GO_TOOLCHAIN_REV=3
 ARG GO_VERSION=1.26.0
 RUN GOARCH="${ARCH}" && \
     echo "go-toolchain-rev=${GO_TOOLCHAIN_REV} go=${GO_VERSION}" >/dev/null && \
@@ -56,10 +56,22 @@ RUN zypper -n rm container-suseconnect && \
       dosfstools \
       unzip \
       rsync \
-      patch && \
-    (command -v mkfs.vfat >/dev/null || \
-      ln -sf "$(readlink -f "$(command -v mkfs.fat || command -v mkdosfs)")" /usr/local/bin/mkfs.vfat) && \
-    command -v mkfs.vfat >/dev/null && \
+      patch
+# dosfstools on SUSE installs mkfs.fat under /usr/sbin; elemental expects mkfs.vfat on PATH.
+RUN set -euo pipefail; \
+    mkfs_src=""; \
+    for candidate in /usr/sbin/mkfs.vfat /sbin/mkfs.vfat \
+                     /usr/sbin/mkfs.fat /sbin/mkfs.fat \
+                     /usr/sbin/mkdosfs /sbin/mkdosfs; do \
+      if [[ -x "${candidate}" ]]; then mkfs_src="${candidate}"; break; fi; \
+    done; \
+    if [[ -z "${mkfs_src}" ]]; then \
+      echo "FATAL: dosfstools installed but no mkfs.fat/mkdosfs binary found" >&2; \
+      ls -la /usr/sbin/mkfs* /sbin/mkfs* 2>/dev/null || true; \
+      exit 1; \
+    fi; \
+    ln -sf "$(readlink -f "${mkfs_src}")" /usr/local/bin/mkfs.vfat; \
+    test -x /usr/local/bin/mkfs.vfat; \
     command -v mcopy >/dev/null
 
 # Docker CLI — must match the host daemon API (Docker 29+ requires >= 1.44).

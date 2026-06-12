@@ -87,12 +87,23 @@ ISO_HOST_PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin"
 ensure_elemental_host_tools() {
   export PATH="${ISO_HOST_PATH}:${PATH}"
   if ! command -v mkfs.vfat >/dev/null 2>&1; then
-    local mkfs_fat
-    mkfs_fat=$(command -v mkfs.fat || command -v mkdosfs || true)
-    if [[ -z "${mkfs_fat}" ]]; then
+    local mkfs_src=""
+    local candidate
+    for candidate in /usr/sbin/mkfs.vfat /sbin/mkfs.vfat \
+                     /usr/sbin/mkfs.fat /sbin/mkfs.fat \
+                     /usr/sbin/mkdosfs /sbin/mkdosfs; do
+      if [[ -x "${candidate}" ]]; then
+        mkfs_src="${candidate}"
+        break
+      fi
+    done
+    if [[ -z "${mkfs_src}" ]]; then
+      mkfs_src=$(command -v mkfs.fat || command -v mkdosfs || true)
+    fi
+    if [[ -z "${mkfs_src}" ]]; then
       fail "mkfs.vfat missing — rebuild the iso-builder image: cd installer && make iso-rebuild"
     fi
-    ln -sf "$(readlink -f "${mkfs_fat}")" /usr/local/bin/mkfs.vfat
+    ln -sf "$(readlink -f "${mkfs_src}")" /usr/local/bin/mkfs.vfat
   fi
   log "elemental host tools OK · mkfs.vfat=$(command -v mkfs.vfat)"
 }
