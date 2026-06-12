@@ -22,6 +22,7 @@ TLS_KEY = os.environ.get("NEXUS_COCKPIT_TLS_KEY", "/etc/nexus/tls/cockpit.key")
 METRICS_MODULE = os.path.join(os.path.dirname(__file__), "cluster_metrics.py")
 DASHBOARDS_MODULE = os.path.join(os.path.dirname(__file__), "dashboard_collectors.py")
 RESOURCES_MODULE = os.path.join(os.path.dirname(__file__), "cluster_resources.py")
+HARVESTER_MODULE = os.path.join(os.path.dirname(__file__), "harvester_collectors.py")
 
 
 def _load_module(path: str, name: str):
@@ -45,11 +46,16 @@ def _load_resources():
     return _load_module(RESOURCES_MODULE, "nexus_cluster_resources")
 
 
+def _load_harvester():
+    return _load_module(HARVESTER_MODULE, "nexus_harvester_collectors")
+
+
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, metrics=None, dashboards=None, resources=None, **kwargs):
+    def __init__(self, *args, metrics=None, dashboards=None, resources=None, harvester=None, **kwargs):
         self._metrics = metrics
         self._dashboards = dashboards
         self._resources = resources
+        self._harvester = harvester
         super().__init__(*args, directory=ROOT, **kwargs)
 
     def do_GET(self):
@@ -70,6 +76,15 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == "/api/v1/telemetry/dashboards":
             self._json_api(self._handle_dashboards)
+            return
+
+        if path.startswith("/api/v1/harvester/resources/"):
+            resource_type = path.split("/api/v1/harvester/resources/", 1)[1]
+            self._json_api(lambda: self._handle_harvester_resources(resource_type))
+            return
+
+        if path == "/api/v1/harvester/dashboard":
+            self._json_api(self._handle_harvester_dashboard)
             return
 
         requested = self.translate_path(self.path)
@@ -136,16 +151,26 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         dry_run = bool(body.get("dryRun"))
         return self._resources.apply_manifest_yaml(manifest, dry_run=dry_run)
 
+    def _handle_harvester_resources(self, resource_type: str) -> dict:
+        if self._harvester is None:
+            raise RuntimeError("harvester collector unavailable")
+        return self._harvester.collect_resource_list(resource_type)
+
+    def _handle_harvester_dashboard(self) -> dict:
+        if self._harvester is None:
+            raise RuntimeError("harvester collector unavailable")
+        return self._harvester.collect_dashboard()
+
     def log_message(self, fmt, *args):
         sys.stderr.write("[nexus-cockpit] %s - %s\n" % (self.address_string(), fmt % args))
 
 
-def bind_server(port: int, metrics, dashboards, resources) -> socketserver.TCPServer:
+def bind_server(port: int, metrics, dashboards, resources, harvester) -> socketserver.TCPServer:
     class ReuseTCPServer(socketserver.TCPServer):
         allow_reuse_address = True
 
     def handler(*args, **kwargs):
-        SPAHandler(*args, metrics=metrics, dashboards=dashboards, resources=resources, **kwargs)
+        SPAHandler(*args, metrics=metrics, dashboards=dashboards, resources=resources, harvester=harvester, **kwargs)
 
     try:
         return ReuseTCPServer(("0.0.0.0", port), handler)
@@ -154,9 +179,9 @@ def bind_server(port: int, metrics, dashboards, resources) -> socketserver.TCPSe
         raise
 
 
-def serve_http_background(metrics, dashboards, resources) -> None:
+def serve_http_background(metrics, dashboards, resources, harvester) -> None:
     try:
-        with bind_server(HTTP_PORT, metrics, dashboards, resources) as httpd:
+        with bind_server(HTTP_PORT, metrics, dashboards, resources, harvester) as httpd:
             httpd.serve_forever()
     except OSError:
         sys.stderr.write("nexus-cockpit: HTTP listener on %d unavailable\n" % HTTP_PORT)
@@ -185,14 +210,20 @@ def main() -> int:
         sys.stderr.write("nexus-cockpit: resource apply disabled: %s\n" % exc)
         resources = None
 
+    try:
+        harvester = _load_harvester()
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write("nexus-cockpit: harvester collector disabled: %s\n" % exc)
+        harvester = None
+
     if os.path.isfile(TLS_CRT) and os.path.isfile(TLS_KEY):
         threading.Thread(
-            target=serve_http_background, args=(metrics, dashboards, resources), daemon=True
+            target=serve_http_background, args=(metrics, dashboards, resources, harvester), daemon=True
         ).start()
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(certfile=TLS_CRT, keyfile=TLS_KEY)
         try:
-            with bind_server(HTTPS_PORT, metrics, dashboards, resources) as httpd:
+            with bind_server(HTTPS_PORT, metrics, dashboards, resources, harvester) as httpd:
                 httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
                 sys.stderr.write(
                     "nexus-cockpit listening on https://0.0.0.0:%d (http://0.0.0.0:%d)\n"
@@ -206,7 +237,7 @@ def main() -> int:
             "nexus-cockpit listening on http://0.0.0.0:%d (no TLS certs)\n" % HTTP_PORT
         )
         try:
-            with bind_server(HTTP_PORT, metrics, dashboards, resources) as httpd:
+            with bind_server(HTTP_PORT, metrics, dashboards, resources, harvester) as httpd:
                 httpd.serve_forever()
         except OSError:
             return 1

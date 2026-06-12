@@ -54,6 +54,14 @@ import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
 import { XdrOperationsCenter } from './components/dashboards/XdrOperationsCenter';
 import { SecurityPostureWizard } from './components/SecurityPostureWizard';
 import { StorageProvisionWizard } from './components/StorageProvisionWizard';
+import { HarvesterDashboardView, HarvesterResourceView } from './components/harvester/HarvesterViews';
+import {
+  HARVESTER_GROUP_LABELS,
+  HARVESTER_NAV_GROUPS,
+  HARVESTER_NAV_ITEMS,
+  type HarvesterNavGroup,
+} from './lib/harvester/harvesterNav';
+import { HCI, type HarvesterResourceType } from './lib/harvester/harvesterTypes';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -91,6 +99,8 @@ type CockpitView =
   | 'storage-provision'
   | 'create-workload';
 
+type CockpitSurface = 'harvester' | 'nexus';
+
 function readStoredTheme(): ThemeId {
   if (typeof window === 'undefined') return DEFAULT_THEME_ID;
   const stored = window.localStorage.getItem('nexus.theme');
@@ -116,6 +126,8 @@ function App() {
   const [workloadCreateConfig, setWorkloadCreateConfig] = useState(buildDefaultWorkloadCreateConfig);
   const [step, setStep] = useState(1);
   const [cockpitView, setCockpitView] = useState<CockpitView>('mission-control');
+  const [cockpitSurface, setCockpitSurface] = useState<CockpitSurface>('harvester');
+  const [harvesterResource, setHarvesterResource] = useState<HarvesterResourceType>(HCI.DASHBOARD);
   const [editedYaml, setEditedYaml] = useState('');
   const [workloadYaml, setWorkloadYaml] = useState('');
   const [theme, setTheme] = useState<ThemeId>(readStoredTheme);
@@ -267,19 +279,33 @@ function App() {
     setWorkloadCreateConfig(buildDefaultWorkloadCreateConfig(kind));
     setWorkloadYaml('');
     setPolyDeployResult(null);
+    setCockpitSurface('nexus');
     setCockpitView('create-workload');
   }, []);
 
   const goToClusterConsole = useCallback(() => {
+    setCockpitSurface('nexus');
     setCockpitView('cluster');
   }, []);
 
   const goToStorageProvision = useCallback(() => {
+    setCockpitSurface('nexus');
     setCockpitView('storage-provision');
   }, []);
 
   const goToSetupWizard = useCallback(() => {
+    setCockpitSurface('nexus');
     setCockpitView('setup');
+  }, []);
+
+  const openHarvesterResource = useCallback((resource: HarvesterResourceType) => {
+    setCockpitSurface('harvester');
+    setHarvesterResource(resource);
+  }, []);
+
+  const openNexusView = useCallback((view: CockpitView) => {
+    setCockpitSurface('nexus');
+    setCockpitView(view);
   }, []);
 
   if (isLaunching) {
@@ -304,7 +330,7 @@ function App() {
     );
   }
 
-  const NAV_ITEMS: { id: CockpitView; label: string; sig: string; group: string }[] = [
+  const NEXUS_NAV_ITEMS: { id: CockpitView; label: string; sig: string; group: string }[] = [
     { id: 'mission-control', label: 'Mission Control', sig: 'CMD_00', group: 'MONITOR' },
     { id: 'telemetry-wave', label: 'Telemetry Wave', sig: 'WAVE_S', group: 'MONITOR' },
     { id: 'networking', label: 'Networking', sig: 'NET_02', group: 'MONITOR' },
@@ -323,8 +349,8 @@ function App() {
     { id: 'setup', label: 'Setup Wizard', sig: 'SETUP', group: 'DEPLOY' },
   ];
 
-  const navGroups = ['MONITOR', 'COMPUTE', 'SECURE', 'DEPLOY'] as const;
-  const showManifestPanel = cockpitView === 'cluster' || cockpitView === 'setup' || cockpitView === 'create-workload';
+  const nexusNavGroups = ['MONITOR', 'COMPUTE', 'SECURE', 'DEPLOY'] as const;
+  const showManifestPanel = cockpitSurface === 'nexus' && (cockpitView === 'cluster' || cockpitView === 'setup' || cockpitView === 'create-workload');
   const clusterReady = canDeployCluster(machinePlan);
   const workloadReady = canDeployWorkload(validation);
 
@@ -382,28 +408,69 @@ function App() {
           <div className="brand-wordmark">
             <h1>Harvester</h1>
             <span className="brand-sub">Nexus</span>
-            <p className="brand-tagline">HCI cockpit · poly-compute · storage fabric</p>
+            <p className="brand-tagline">Harvester platform · Nexus cockpit · unified HCI</p>
           </div>
         </div>
 
+        <div className="surface-toggle" role="tablist" aria-label="Cockpit surface">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={cockpitSurface === 'harvester'}
+            className={`surface-toggle-btn ${cockpitSurface === 'harvester' ? 'active' : ''}`}
+            onClick={() => setCockpitSurface('harvester')}
+          >
+            Harvester
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={cockpitSurface === 'nexus'}
+            className={`surface-toggle-btn ${cockpitSurface === 'nexus' ? 'active' : ''}`}
+            onClick={() => setCockpitSurface('nexus')}
+          >
+            Nexus Ops
+          </button>
+        </div>
+
         <nav className="cockpit-nav" aria-label="Cockpit views">
-          {navGroups.map((group) => (
-            <div className="nav-group" key={group}>
-              <span className="nav-group-label">{group}</span>
-              {NAV_ITEMS.filter((item) => item.group === group).map((item) => (
-                <button
-                  key={item.id}
-                  className={`nav-item ${cockpitView === item.id ? 'active' : ''}`}
-                  onClick={() => setCockpitView(item.id)}
-                  title={item.label}
-                >
-                  <span className="nav-sig">{item.sig}</span>
-                  <span className="nav-label">{item.label}</span>
-                  {cockpitView === item.id && <span className="nav-live-dot" />}
-                </button>
-              ))}
-            </div>
-          ))}
+          {cockpitSurface === 'harvester' ? (
+            HARVESTER_NAV_GROUPS.map((group) => (
+              <div className="nav-group" key={group}>
+                <span className="nav-group-label">{HARVESTER_GROUP_LABELS[group as HarvesterNavGroup]}</span>
+                {HARVESTER_NAV_ITEMS.filter((item) => item.group === group).map((item) => (
+                  <button
+                    key={item.id}
+                    className={`nav-item harvester-nav ${harvesterResource === item.id ? 'active' : ''}`}
+                    onClick={() => openHarvesterResource(item.id)}
+                    title={item.label}
+                  >
+                    <span className="nav-sig">{item.sig}</span>
+                    <span className="nav-label">{item.label}</span>
+                    {harvesterResource === item.id && <span className="nav-live-dot" />}
+                  </button>
+                ))}
+              </div>
+            ))
+          ) : (
+            nexusNavGroups.map((group) => (
+              <div className="nav-group" key={group}>
+                <span className="nav-group-label">{group}</span>
+                {NEXUS_NAV_ITEMS.filter((item) => item.group === group).map((item) => (
+                  <button
+                    key={item.id}
+                    className={`nav-item ${cockpitView === item.id ? 'active' : ''}`}
+                    onClick={() => openNexusView(item.id)}
+                    title={item.label}
+                  >
+                    <span className="nav-sig">{item.sig}</span>
+                    <span className="nav-label">{item.label}</span>
+                    {cockpitView === item.id && <span className="nav-live-dot" />}
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
         </nav>
 
         <SidebarRouteDecoration />
@@ -414,7 +481,7 @@ function App() {
           {[1, 2, 3, 4, 5, 6, 7].map((s, i) => {
             const labels = ['Workload', 'Storage', 'Networking', 'Security', 'Monitoring', 'GitOps', 'Review'];
             return (
-              <button key={s} className={`step-rail-btn ${step === s ? 'active' : ''}`} onClick={() => { setStep(s); setCockpitView('setup'); }}>
+              <button key={s} className={`step-rail-btn ${step === s ? 'active' : ''}`} onClick={() => { setStep(s); setCockpitSurface('nexus'); setCockpitView('setup'); }}>
                 <span className="step-num">{s}</span>
                 <span>{labels[i]}</span>
               </button>
@@ -432,10 +499,25 @@ function App() {
           telemetry={telemetryState}
           onTelemetryModeChange={setRequestedMode}
         />
-        {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'storage' && (
+        {cockpitSurface === 'harvester' && harvesterResource === HCI.DASHBOARD && (
+          <HarvesterDashboardView
+            telemetry={telemetry}
+            telemetryState={telemetryState}
+            onNavigate={openHarvesterResource}
+          />
+        )}
+        {cockpitSurface === 'harvester' && harvesterResource !== HCI.DASHBOARD && (
+          <HarvesterResourceView
+            resourceType={harvesterResource}
+            telemetry={telemetry}
+            telemetryState={telemetryState}
+            onOpenNexusView={(view) => openNexusView(view as CockpitView)}
+          />
+        )}
+        {cockpitSurface === 'nexus' && cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitSurface === 'nexus' && cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitSurface === 'nexus' && cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitSurface === 'nexus' && cockpitView === 'storage' && (
           <StorageDashboardView
             telemetry={telemetry}
             dataSource={dataSource}
@@ -443,10 +525,10 @@ function App() {
             onConfigureStorage={goToStorageProvision}
           />
         )}
-        {cockpitView === 'storage-provision' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'storage-provision' && (
           <StorageProvisionWizard dataSource={dataSource} onClose={() => setCockpitView('storage')} />
         )}
-        {cockpitView === 'machines' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'machines' && (
           <MachinesDashboardView
             telemetry={telemetry}
             dataSource={dataSource}
@@ -455,21 +537,21 @@ function App() {
             onCreateWorkload={openCreateWorkload}
           />
         )}
-        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'environment' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitSurface === 'nexus' && cockpitView === 'environment' && (
           <EnvironmentIntelHudView
             telemetry={telemetry}
             dataSource={dataSource}
             machinesDashboard={clusterDashboards.machines}
           />
         )}
-        {cockpitView === 'activity' && <ActivityDashboardView dataSource={dataSource} />}
-        {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'operations' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'activity' && <ActivityDashboardView dataSource={dataSource} />}
+        {cockpitSurface === 'nexus' && cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitSurface === 'nexus' && cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitSurface === 'nexus' && cockpitView === 'operations' && (
           <OperationsDashboardView telemetry={telemetry} dataSource={dataSource} operationsLinks={clusterDashboards.operations} />
         )}
-        {cockpitView === 'resource-monitoring' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'resource-monitoring' && (
           <ResourceMonitorHudView
             telemetry={telemetry}
             dataSource={dataSource}
@@ -477,15 +559,15 @@ function App() {
             machinesDashboard={clusterDashboards.machines}
           />
         )}
-        {cockpitView === 'xdr-operations' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'xdr-operations' && (
           <XdrOperationsCenter
             telemetry={telemetryState}
             xdrLive={clusterDashboards.xdr}
             fleet={clusterDashboards.machines.fleet}
           />
         )}
-        {cockpitView === 'security-posture' && <SecurityPostureWizard />}
-        {cockpitView === 'cluster' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'security-posture' && <SecurityPostureWizard />}
+        {cockpitSurface === 'nexus' && cockpitView === 'cluster' && (
           <ClusterIntegrationPanel
             validation={validation}
             livePreview={livePreview}
@@ -506,7 +588,7 @@ function App() {
             onOpenSetup={goToSetupWizard}
           />
         )}
-        {cockpitView === 'setup' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'setup' && (
           <UnifiedSetupWizard
             machineConfig={machineConfig}
             machinePlan={machinePlan}
@@ -545,7 +627,7 @@ function App() {
             reviewSlot={setupReviewSlot}
           />
         )}
-        {cockpitView === 'create-workload' && (
+        {cockpitSurface === 'nexus' && cockpitView === 'create-workload' && (
           <WorkloadCreateWizard
             config={workloadCreateConfig}
             onChange={(next) => {
