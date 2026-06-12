@@ -73,8 +73,8 @@ verify-iso-builder:
 	  'export PATH=$(ISO_BUILDER_PATH); \
 	   go version | grep -qE "go1\\.(2[6-9]|[3-9][0-9])" || { echo "FATAL: iso-builder Go too old: $$(go version)"; exit 1; }; \
 	   command -v mkfs.vfat >/dev/null || { echo "FATAL: mkfs.vfat missing from iso-builder (run: make iso-rebuild)"; exit 1; }; \
-	   yq --version && helm version --short && docker --version && go version && mkfs.vfat --help >/dev/null 2>&1 || true'
-	  || (echo ">> iso-builder image missing or toolchain incomplete — run: make iso-rebuild" && exit 1)
+	   yq --version && helm version --short && docker --version && go version' \
+	  || { echo ">> iso-builder image missing or toolchain incomplete — run: make iso-rebuild"; exit 1; }
 
 .PHONY: iso
 iso: iso-builder
