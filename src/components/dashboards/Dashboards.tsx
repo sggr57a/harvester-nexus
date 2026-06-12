@@ -14,7 +14,10 @@ import {
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 import type { LiveOperationsSlice } from '../../lib/telemetry/dashboardTypes';
 import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters';
-import type { MachinesDashboard, StorageDashboard } from '../../lib/dashboards';
+import type { MachinesDashboard, StorageDashboard, ConsoleChip } from '../../lib/dashboards';
+import { consoleChipsFromFleet } from '../../lib/machineConsole';
+import { MachineDetailPanel } from '../MachineDetailPanel';
+import { ConsoleSession } from '../ConsoleSession';
 import { DemoCatalogPlaceholder, LiveEmptyPanel } from './LiveEmptyPanel';
 import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
 import {
@@ -649,9 +652,17 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard, 
   );
 }
 
-export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard, onCreateWorkload }: DashboardViewProps = {}) {
+export function MachinesDashboardView({
+  telemetry,
+  dataSource,
+  machinesDashboard,
+  storageDashboard,
+  onCreateWorkload,
+}: DashboardViewProps = {}) {
   const machinesData = machinesDashboard ?? machines;
-  const { fleet, migrations, affinityRules, ha, consoleChips } = machinesData;
+  const { fleet, migrations, affinityRules, ha } = machinesData;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeConsole, setActiveConsole] = useState<{ machine: (typeof fleet)[0]; chip: ConsoleChip } | null>(null);
   const isLive = dataSource === 'live';
   const liveMigrations = useMemo(() => {
     if (isLive || !telemetry) return migrations;
@@ -669,6 +680,9 @@ export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard
       cpuPercent: Math.max(4, Math.min(99, Math.round(row.cpuPercent * cpuFactor))),
     }));
   }, [isLive, fleet, telemetry]);
+  const selectedMachine = liveFleet.find((row) => row.id === selectedId) ?? null;
+  const fleetConsoleChips = useMemo(() => consoleChipsFromFleet(liveFleet), [liveFleet]);
+
   return (
     <section className="dash dash-machines" aria-label="Machines and containers dashboard">
       <RouteDecoration />
@@ -676,7 +690,7 @@ export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard
         <div>
           <span className="dash-kicker">FLEET // COMPUTE</span>
           <h2>{machinesData.title}</h2>
-          <p>{isLive ? 'User VMs and pods in tenant namespaces (platform pods excluded).' : 'VM / LXC / Docker / Pod fleet with live migration, HA, affinity, console launch.'}</p>
+          <p>{isLive ? 'Click a workload for CPU, RAM, storage, network, and console. User VMs and pods only.' : 'Click any workload for resource detail and console (graphical VNC for Windows/desktop Linux, terminal for shell-only).'}</p>
         </div>
         <div className="dash-totals">
           <div><span>Workloads</span><strong>{liveFleet.length}</strong></div>
@@ -718,6 +732,25 @@ export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard
         </LiveEmptyPanel>
       )}
 
+      {selectedMachine && (
+        <MachineDetailPanel
+          machine={selectedMachine}
+          pvcs={storageDashboard?.pvcs}
+          dataSource={dataSource}
+          onOpenConsole={(chip) => setActiveConsole({ machine: selectedMachine, chip })}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
+
+      {activeConsole && (
+        <ConsoleSession
+          machine={activeConsole.machine}
+          chip={activeConsole.chip}
+          dataSource={dataSource}
+          onClose={() => setActiveConsole(null)}
+        />
+      )}
+
       {liveMigrations.length > 0 && (
       <article className="dash-panel migration-panel">
         <div className="panel-title"><span>Live migration arcs</span><strong>vMotion-style · memory state preserved</strong></div>
@@ -751,7 +784,20 @@ export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard
             <thead><tr><th>name</th><th>kind</th><th>host</th><th>cpu</th><th>ram</th><th>aff</th><th>ha</th><th>status</th></tr></thead>
             <tbody>
               {liveFleet.map((row) => (
-                <tr key={row.id}>
+                <tr
+                  key={row.id}
+                  className={selectedId === row.id ? 'machine-row-selected' : 'machine-row-clickable'}
+                  onClick={() => setSelectedId(row.id === selectedId ? null : row.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedId(row.id === selectedId ? null : row.id);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={selectedId === row.id}
+                >
                   <td><strong>{row.name}</strong></td>
                   <td><span className={`kind-chip kind-${row.kind}`}>{row.kind}</span></td>
                   <td>{row.host}</td>
@@ -792,14 +838,26 @@ export function MachinesDashboardView({ telemetry, dataSource, machinesDashboard
             </ul>
           </article>
           <article className="dash-panel">
-            <div className="panel-title"><span>Console chips</span><strong>{consoleChips.length}</strong></div>
+            <div className="panel-title"><span>Console chips</span><strong>{fleetConsoleChips.length}</strong></div>
             <div className="console-chips">
-              {consoleChips.map((chip) => (
-                <button key={chip.id} type="button" className={`console-chip type-${chip.type} state-${chip.state}`}>
+              {fleetConsoleChips.map((chip) => {
+                const row = liveFleet.find((r) => r.id === chip.machineId);
+                if (!row) return null;
+                return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  className={`console-chip type-${chip.type} state-${chip.state}`}
+                  onClick={() => {
+                    setSelectedId(row.id);
+                    setActiveConsole({ machine: row, chip });
+                  }}
+                >
                   <span>{chip.type}</span>
                   <strong>{chip.target}</strong>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </article>
         </div>

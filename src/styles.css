@@ -14875,3 +14875,60 @@ select option {
     width: 100%;
   }
 }
+
+/* Machine detail + console session */
+.machine-row-clickable { cursor: pointer; }
+.machine-row-clickable:hover { background: color-mix(in srgb, var(--theme-accent) 8%, transparent); }
+.machine-row-selected { background: color-mix(in srgb, var(--theme-accent) 14%, transparent); outline: 1px solid var(--theme-accent); }
+
+.machine-detail-panel { margin-bottom: 1rem; }
+.machine-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.machine-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.machine-detail-dl { display: grid; gap: 0.35rem; font-size: 0.85rem; }
+.machine-detail-dl div { display: flex; justify-content: space-between; gap: 0.5rem; }
+.machine-detail-dl dt { color: var(--theme-text-dim); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.65rem; }
+.machine-detail-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; font-size: 0.85rem; }
+.machine-detail-list li { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
+.machine-detail-muted { color: var(--theme-text-dim); font-size: 0.82rem; margin: 0; }
+.machine-console-section { border-top: 1px solid var(--theme-border); padding-top: 0.75rem; }
+
+.console-session-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: color-mix(in srgb, #000 55%, transparent);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.console-session-panel {
+  width: min(960px, 96vw); max-height: 90vh;
+  background: var(--theme-panel); border: 1px solid var(--theme-border);
+  border-radius: 8px; display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: var(--theme-route-glow);
+}
+.console-session-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 0.75rem 1rem; border-bottom: 1px solid var(--theme-border);
+}
+.console-terminal-host { flex: 1; min-height: 360px; padding: 0.25rem; background: #0a0f14; }
+
+.graphical-console-mock { flex: 1; display: flex; flex-direction: column; min-height: 360px; }
+.graphical-console-bar { padding: 0.5rem 0.75rem; background: var(--theme-panel-2); border-bottom: 1px solid var(--theme-border); display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.8rem; }
+.graphical-console-desktop { flex: 1; position: relative; overflow: hidden; }
+.graphical-console-footer { padding: 0.35rem 0.75rem; font-size: 0.7rem; color: var(--theme-text-dim); border-top: 1px solid var(--theme-border); }
+
+.mock-windows-desktop { background: linear-gradient(135deg, #0078d4 0%, #1e3a5f 100%); height: 100%; position: relative; }
+.mock-windows-taskbar { position: absolute; bottom: 0; left: 0; right: 0; height: 28px; background: #1f1f1f; color: #fff; display: flex; align-items: center; gap: 1rem; padding: 0 0.5rem; font-size: 0.75rem; }
+.mock-windows-taskbar .mock-clock { margin-left: auto; }
+.mock-windows-desktop .mock-icon { position: absolute; top: 12px; left: 12px; color: #fff; font-size: 0.7rem; text-align: center; width: 48px; }
+.mock-window { position: absolute; top: 28%; left: 22%; width: 240px; background: #fff; color: #222; border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); font-size: 0.75rem; }
+.mock-window header { background: #e5e5e5; padding: 0.25rem 0.5rem; font-weight: 600; }
+.mock-window p { padding: 0.5rem; margin: 0; }
+
+.mock-linux-desktop { background: linear-gradient(160deg, #2d4a3e 0%, #1a2830 100%); height: 100%; position: relative; }
+.mock-linux-panel { position: absolute; top: 0; left: 0; right: 0; height: 24px; background: rgba(0,0,0,0.45); color: #eee; display: flex; gap: 1rem; padding: 0 0.5rem; align-items: center; font-size: 0.7rem; }
+.mock-linux-panel.de-kde { background: rgba(30,60,120,0.85); }
+.mock-terminal-icon, .mock-file-icon { position: absolute; top: 40px; color: #cde; font-size: 0.65rem; width: 52px; text-align: center; }
+.mock-file-icon { left: 64px; }
+.mock-window.linux { top: 30%; left: 18%; background: #1e1e1e; color: #b8f0c8; border: 1px solid #3a5; }
+.mock-window.linux header { background: #2a2a2a; color: #ccc; }
+
+.dash-action-btn { margin-left: auto; align-self: center; }
+
