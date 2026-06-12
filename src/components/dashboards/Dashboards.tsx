@@ -199,7 +199,6 @@ export function NetworkingDashboardView({
     virtualBridges = [],
     portGroups = [],
     sdnZones = [],
-    tenants = [],
     diagnostics = [],
     topology,
   } = net;
