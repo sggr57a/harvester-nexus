@@ -120,7 +120,7 @@ describe('buildClusterDashboardBundle', () => {
     expect(bundle.machines.fleet.filter((row) => row.kind === 'node')).toHaveLength(3);
   });
 
-  it('includes simulated workloads in live mode', () => {
+  it('does not merge simulated workloads into live mode', () => {
     recordPolyComputeDeploy({
       kind: 'kubevirt-vm',
       name: 'edge-vm',
@@ -132,7 +132,7 @@ describe('buildClusterDashboardBundle', () => {
       hostAffinity: 'any',
     });
     const bundle = buildClusterDashboardBundle(null, 'live');
-    expect(bundle.machines.fleet.some((row) => row.name === 'edge-vm')).toBe(true);
-    expect(bundle.resourceMonitoring.workItems.length).toBeGreaterThan(0);
+    expect(bundle.machines.fleet.some((row) => row.name === 'edge-vm')).toBe(false);
+    expect(bundle.resourceMonitoring.workItems.length).toBe(0);
   });
 });

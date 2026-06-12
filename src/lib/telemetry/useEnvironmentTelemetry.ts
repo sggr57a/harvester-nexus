@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { nextSnapshot, type EnvironmentSnapshot } from '../liveTelemetry';
 import { payloadToEnvironmentSnapshot } from './environmentAdapter';
+import { emptyEnvironmentSnapshot } from './emptySnapshot';
 import { fetchEnvironmentTelemetry, fetchLiveHealth } from './harvesterClient';
 import {
   readStoredTelemetryMode,
@@ -9,6 +10,7 @@ import {
   type TelemetryState,
   writeStoredTelemetryMode,
 } from './mode';
+import { clearSimulationState } from '../simulationStore';
 
 const DEFAULT_INTERVAL_MS = 1600;
 
@@ -70,6 +72,7 @@ export function useEnvironmentTelemetry(intervalMs: number = DEFAULT_INTERVAL_MS
     const useLive = requestedMode === 'live' ? available : available && requestedMode === 'auto';
 
     if (useLive) {
+      clearSimulationState();
       const ok = await pullLive();
       if (!ok && requestedMode === 'auto') {
         demoSnapshotRef.current = nextSnapshot(demoSnapshotRef.current);
@@ -79,10 +82,10 @@ export function useEnvironmentTelemetry(intervalMs: number = DEFAULT_INTERVAL_MS
     }
 
     if (requestedMode === 'live' && !available) {
-      setMessage('Live mode requested but cluster API unreachable — showing demo data');
+      setMessage('Live mode requested but cluster API unreachable — metrics show zero until the cluster is reachable.');
     }
-    demoSnapshotRef.current = nextSnapshot(demoSnapshotRef.current);
-    setSnapshot(demoSnapshotRef.current);
+    liveSnapshotRef.current = emptyEnvironmentSnapshot((liveSnapshotRef.current?.tick ?? 0) + 1);
+    setSnapshot(liveSnapshotRef.current);
   }, [probeLive, pullLive, requestedMode]);
 
   useEffect(() => {

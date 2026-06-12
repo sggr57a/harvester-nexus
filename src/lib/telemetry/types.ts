@@ -25,3 +25,10 @@ export interface LiveHealthPayload {
   monitoringEnabled: boolean;
   message?: string;
 }
+
+export interface ApplyManifestResult {
+  success: boolean;
+  error?: string | null;
+  output?: string;
+  dryRun?: boolean;
+}

@@ -190,6 +190,62 @@ function generatePVCManifest(config: ApplicationConfig): string {
   return YAML.stringify(pvc);
 }
 
+/** Standalone PVC manifest (storage wizard — not tied to an app workload). */
+export function generateStandalonePVCManifest(input: {
+  name: string;
+  namespace: string;
+  storageClass: string;
+  storageSize: string;
+  accessMode: ApplicationConfig['storage']['accessMode'];
+}): string {
+  return YAML.stringify({
+    apiVersion: 'v1',
+    kind: 'PersistentVolumeClaim',
+    metadata: { name: input.name, namespace: input.namespace },
+    spec: {
+      accessModes: [input.accessMode],
+      resources: { requests: { storage: input.storageSize } },
+      storageClassName: input.storageClass,
+    },
+  });
+}
+
+/** Static PV for local/NFS backends when no dynamic provisioner is used. */
+export function generateStaticPVManifest(input: {
+  name: string;
+  storageClass: string;
+  storageSize: string;
+  accessMode: ApplicationConfig['storage']['accessMode'];
+  hostPath?: string;
+  nfsServer?: string;
+  nfsPath?: string;
+}): string {
+  const spec: Record<string, unknown> = {
+    capacity: { storage: input.storageSize },
+    accessModes: [input.accessMode],
+    persistentVolumeReclaimPolicy: 'Retain',
+    storageClassName: input.storageClass,
+  };
+  if (input.nfsServer && input.nfsPath) {
+    spec.nfs = { server: input.nfsServer, path: input.nfsPath };
+  } else {
+    spec.hostPath = {
+      path: input.hostPath || `/var/lib/nexus/volumes/${input.name}`,
+      type: 'DirectoryOrCreate',
+    };
+  }
+  return YAML.stringify({
+    apiVersion: 'v1',
+    kind: 'PersistentVolume',
+    metadata: { name: input.name },
+    spec,
+  });
+}
+
+export function generatePVCManifestFromConfig(config: ApplicationConfig): string {
+  return generatePVCManifest(config);
+}
+
 function generateServiceManifest(config: ApplicationConfig): string {
   const service = {
     apiVersion: 'v1',

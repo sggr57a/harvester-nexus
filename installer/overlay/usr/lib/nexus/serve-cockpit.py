@@ -21,6 +21,7 @@ TLS_CRT = os.environ.get("NEXUS_COCKPIT_TLS_CRT", "/etc/nexus/tls/cockpit.crt")
 TLS_KEY = os.environ.get("NEXUS_COCKPIT_TLS_KEY", "/etc/nexus/tls/cockpit.key")
 METRICS_MODULE = os.path.join(os.path.dirname(__file__), "cluster_metrics.py")
 DASHBOARDS_MODULE = os.path.join(os.path.dirname(__file__), "dashboard_collectors.py")
+RESOURCES_MODULE = os.path.join(os.path.dirname(__file__), "cluster_resources.py")
 
 
 def _load_module(path: str, name: str):
@@ -40,10 +41,15 @@ def _load_dashboards():
     return _load_module(DASHBOARDS_MODULE, "nexus_dashboard_collectors")
 
 
+def _load_resources():
+    return _load_module(RESOURCES_MODULE, "nexus_cluster_resources")
+
+
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, metrics=None, dashboards=None, **kwargs):
+    def __init__(self, *args, metrics=None, dashboards=None, resources=None, **kwargs):
         self._metrics = metrics
         self._dashboards = dashboards
+        self._resources = resources
         super().__init__(*args, directory=ROOT, **kwargs)
 
     def do_GET(self):
@@ -70,6 +76,16 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         if not os.path.exists(requested) or os.path.isdir(requested):
             self.path = "/index.html"
         return super().do_GET()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+
+        if path == "/api/v1/resources/apply":
+            self._json_api(self._handle_apply_manifest)
+            return
+
+        self._plain(404, b"not found")
 
     def _plain(self, code: int, body: bytes, content_type: str = "text/plain") -> None:
         self.send_response(code)
@@ -107,16 +123,29 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             raise RuntimeError("dashboard collector unavailable")
         return self._dashboards.collect_dashboards_live()
 
+    def _handle_apply_manifest(self) -> dict:
+        if self._resources is None:
+            raise RuntimeError("resource apply unavailable")
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        raw = self.rfile.read(length) if length > 0 else b"{}"
+        try:
+            body = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            return {"success": False, "error": "invalid JSON: %s" % exc, "output": ""}
+        manifest = body.get("manifest") or ""
+        dry_run = bool(body.get("dryRun"))
+        return self._resources.apply_manifest_yaml(manifest, dry_run=dry_run)
+
     def log_message(self, fmt, *args):
         sys.stderr.write("[nexus-cockpit] %s - %s\n" % (self.address_string(), fmt % args))
 
 
-def bind_server(port: int, metrics, dashboards) -> socketserver.TCPServer:
+def bind_server(port: int, metrics, dashboards, resources) -> socketserver.TCPServer:
     class ReuseTCPServer(socketserver.TCPServer):
         allow_reuse_address = True
 
     def handler(*args, **kwargs):
-        SPAHandler(*args, metrics=metrics, dashboards=dashboards, **kwargs)
+        SPAHandler(*args, metrics=metrics, dashboards=dashboards, resources=resources, **kwargs)
 
     try:
         return ReuseTCPServer(("0.0.0.0", port), handler)
@@ -125,9 +154,9 @@ def bind_server(port: int, metrics, dashboards) -> socketserver.TCPServer:
         raise
 
 
-def serve_http_background(metrics, dashboards) -> None:
+def serve_http_background(metrics, dashboards, resources) -> None:
     try:
-        with bind_server(HTTP_PORT, metrics, dashboards) as httpd:
+        with bind_server(HTTP_PORT, metrics, dashboards, resources) as httpd:
             httpd.serve_forever()
     except OSError:
         sys.stderr.write("nexus-cockpit: HTTP listener on %d unavailable\n" % HTTP_PORT)
@@ -150,14 +179,20 @@ def main() -> int:
         sys.stderr.write("nexus-cockpit: dashboard collector disabled: %s\n" % exc)
         dashboards = None
 
+    try:
+        resources = _load_resources()
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write("nexus-cockpit: resource apply disabled: %s\n" % exc)
+        resources = None
+
     if os.path.isfile(TLS_CRT) and os.path.isfile(TLS_KEY):
         threading.Thread(
-            target=serve_http_background, args=(metrics, dashboards), daemon=True
+            target=serve_http_background, args=(metrics, dashboards, resources), daemon=True
         ).start()
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(certfile=TLS_CRT, keyfile=TLS_KEY)
         try:
-            with bind_server(HTTPS_PORT, metrics, dashboards) as httpd:
+            with bind_server(HTTPS_PORT, metrics, dashboards, resources) as httpd:
                 httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
                 sys.stderr.write(
                     "nexus-cockpit listening on https://0.0.0.0:%d (http://0.0.0.0:%d)\n"
@@ -171,7 +206,7 @@ def main() -> int:
             "nexus-cockpit listening on http://0.0.0.0:%d (no TLS certs)\n" % HTTP_PORT
         )
         try:
-            with bind_server(HTTP_PORT, metrics, dashboards) as httpd:
+            with bind_server(HTTP_PORT, metrics, dashboards, resources) as httpd:
                 httpd.serve_forever()
         except OSError:
             return 1

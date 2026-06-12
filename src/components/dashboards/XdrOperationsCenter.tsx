@@ -1,3 +1,4 @@
+import type { MachineRow } from '../../lib/dashboards';
 import { useClusterXdrEngine } from '../../lib/telemetry/useClusterXdrEngine';
 import type { LiveXdrSlice } from '../../lib/telemetry/dashboardTypes';
 import type { TelemetryState } from '../../lib/telemetry/mode';
@@ -9,14 +10,16 @@ import { ThreatSurface3D } from './ThreatSurface3D';
 interface XdrOperationsCenterProps {
   telemetry?: TelemetryState;
   xdrLive?: LiveXdrSlice;
+  fleet?: MachineRow[];
 }
 
-/** XDR Operations Center — live SOC view from the XDR engine (simulator in demo, cluster sensors in live). */
-export function XdrOperationsCenter({ telemetry, xdrLive }: XdrOperationsCenterProps = {}) {
+/** XDR Operations Center — demo uses synthetic APT scenario; live uses real cluster inventory only. */
+export function XdrOperationsCenter({ telemetry, xdrLive, fleet }: XdrOperationsCenterProps = {}) {
   const mode = telemetry?.mode ?? 'demo';
-  const { snap, simulate, sensorsLive } = useClusterXdrEngine(
+  const { snap, simulate, sensorsLive, isDemo } = useClusterXdrEngine(
     telemetry ?? { mode: 'demo', requested: 'auto', liveAvailable: false, clusterReady: false },
     xdrLive,
+    fleet,
   );
 
   return (
@@ -27,13 +30,15 @@ export function XdrOperationsCenter({ telemetry, xdrLive }: XdrOperationsCenterP
           <h2>XDR / MDR operations center</h2>
           <p>
             {simulate
-              ? 'Demo mode — deterministic attack simulator feeds the in-app Nexus XDR engine.'
-              : 'Live mode — Nexus XDR sensors deployed on cluster; k8s warning events ingested.'}
+              ? 'Demo mode — synthetic endpoints (payments-vm, fraud-lxc, edge-a) and a scripted attack scenario. Not shown in live mode.'
+              : 'Live mode — endpoints from your Harvester cluster only. Deploy Nexus XDR sensors to ingest Falco/Tetragon/Wazuh events.'}
             {' '}
-            {RULES.length} Sigma-style rules; {INTEL_FEEDS.length} intel feeds.
+            {RULES.length} detection rules; {INTEL_FEEDS.length} intel feeds.
             {sensorsLive && xdrLive
               ? ` Sensors ${xdrLive.sensorsHealthy}/${xdrLive.sensorsTotal} healthy.`
-              : ''}
+              : !isDemo && !sensorsLive
+                ? ' No XDR sensor pods detected in nexus-xdr namespace yet.'
+                : ''}
           </p>
         </div>
         <div className="dash-totals">
@@ -46,6 +51,16 @@ export function XdrOperationsCenter({ telemetry, xdrLive }: XdrOperationsCenterP
       </header>
 
       <ThreatSurface3D snapshot={snap} />
+
+      {!isDemo && snap.endpoints.length === 0 && (
+        <article className="dash-panel live-empty-panel">
+          <p><strong>No cluster endpoints registered</strong></p>
+          <small>
+            Create VMs or deploy workloads to tenant namespaces — they appear here for XDR correlation.
+            Demo names like edge-a, payments-vm-01, and fraud-lxc-01 are never shown in live mode.
+          </small>
+        </article>
+      )}
 
       <div className="xdr-soc-grid">
         <article className="dash-panel">

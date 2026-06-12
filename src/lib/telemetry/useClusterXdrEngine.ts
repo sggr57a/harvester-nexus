@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useLiveXdrEngine } from '../xdr/hooks';
+import type { MachineRow } from '../dashboards';
+import { endpointsFromMachineFleet } from '../xdr/engine';
 import type { SensorEvent } from '../xdr/types';
 import type { LiveXdrSlice } from './dashboardTypes';
 import type { TelemetryState } from './mode';
@@ -17,22 +19,35 @@ function k8sEventsToSensorEvents(events: LiveXdrSlice['events']): SensorEvent[] 
   }));
 }
 
-export function useClusterXdrEngine(telemetry: TelemetryState, xdrLive?: LiveXdrSlice) {
+export function useClusterXdrEngine(
+  telemetry: TelemetryState,
+  xdrLive?: LiveXdrSlice,
+  fleet?: MachineRow[],
+) {
+  const isDemo = telemetry.mode === 'demo';
   const sensorsLive =
-    telemetry.mode === 'live' && xdrLive?.deployed === true && (xdrLive.sensorsHealthy ?? 0) > 0;
-  const simulate = !sensorsLive;
+    !isDemo && xdrLive?.deployed === true && (xdrLive.sensorsHealthy ?? 0) > 0;
+  const simulate = isDemo;
+
+  const seedEndpoints = useMemo(
+    () => (isDemo ? undefined : endpointsFromMachineFleet(fleet ?? [])),
+    [isDemo, fleet],
+  );
 
   const ingestEvents = useMemo(
-    () => (sensorsLive && xdrLive?.events?.length ? k8sEventsToSensorEvents(xdrLive.events) : undefined),
-    [sensorsLive, xdrLive?.events],
+    () =>
+      !isDemo && xdrLive?.events?.length ? k8sEventsToSensorEvents(xdrLive.events) : undefined,
+    [isDemo, xdrLive?.events],
   );
 
   const snap = useLiveXdrEngine({
     intervalMs: 1600,
     simulate,
-    loop: !sensorsLive,
+    loop: isDemo,
+    useDemoInventory: isDemo,
+    seedEndpoints,
     ingestEvents,
   });
 
-  return { snap, simulate, sensorsLive };
+  return { snap, simulate, sensorsLive, isDemo };
 }

@@ -50,12 +50,12 @@ export function ResourceMonitorHudView({
   const isLive = dataSource === 'live';
   const fleet = machinesDashboard?.fleet ?? [];
   const model = useMemo(
-    () => buildHudClusterModel(fleet, telemetry, resourceMonitoring),
-    [fleet, telemetry, resourceMonitoring],
+    () => buildHudClusterModel(fleet, telemetry, resourceMonitoring, { liveMode: isLive }),
+    [fleet, telemetry, resourceMonitoring, isLive],
   );
   const effectiveTelemetry = useMemo(
-    () => withTelemetryFallbacks(telemetry, model),
-    [telemetry, model],
+    () => withTelemetryFallbacks(telemetry, model, { liveMode: isLive }),
+    [telemetry, model, isLive],
   );
 
   const cpuSeries = useRollingSeries(effectiveTelemetry?.cpuPercent ?? model.nodes[0]?.cpu ?? 58, 48, effectiveTelemetry?.tick);
@@ -114,6 +114,16 @@ export function ResourceMonitorHudView({
           <div><span>Active ops</span><strong>{resourceMonitoring?.workItems.length ?? effectiveTelemetry?.activeMigrations ?? 0}</strong></div>
         </div>
       </header>
+
+      {isLive && model.nodes.length === 0 && (
+        <article className="dash-panel live-empty-panel">
+          <p><strong>No cluster nodes in telemetry yet</strong></p>
+          <small>
+            Live mode shows Harvester nodes and user workloads only — not demo hosts like edge-a, compute-02, or payments-vm-01.
+            Join or create a cluster, then deploy VMs or pods to tenant namespaces.
+          </small>
+        </article>
+      )}
 
       <div className="holo-grid">
         <HudTile label="CPU" className="holo-gauge">

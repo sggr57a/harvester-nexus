@@ -1,17 +1,14 @@
 /**
  * React hook layer for the XDR engine.
  *
- * `useLiveXdrEngine` spins up an `XdrEngine`, registers the default endpoint
- * inventory, kicks off the deterministic attack-scenario simulator, and
- * re-renders subscribers whenever the engine's snapshot changes. The hook is
- * the single integration point between the engine and every React widget
- * that wants live MDR/XDR data.
+ * Demo mode registers the synthetic fintech fleet and runs the attack simulator.
+ * Live mode uses real cluster inventory and ingests k8s / sensor events only.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { XdrEngine, sampleEndpointInventory } from './engine';
 import { startLiveSimulation } from './simulator';
-import type { SensorEvent, XdrSnapshot } from './types';
+import type { Endpoint, SensorEvent, XdrSnapshot } from './types';
 
 export interface LiveXdrOptions {
   intervalMs?: number;
@@ -21,16 +18,42 @@ export interface LiveXdrOptions {
   loop?: boolean;
   /** External events to ingest (e.g. from cluster BFF). Re-ingested when reference changes. */
   ingestEvents?: SensorEvent[];
+  /** Endpoints to register (live fleet). Ignored when useDemoInventory is true. */
+  seedEndpoints?: Endpoint[];
+  /** Register sampleEndpointInventory (payments-vm, fraud-lxc, edge-a, …). Demo only. */
+  useDemoInventory?: boolean;
 }
 
-export function useLiveXdrEngine({ intervalMs = 1600, simulate = true, loop = true, ingestEvents }: LiveXdrOptions = {}): XdrSnapshot {
+function seedEngine(engine: XdrEngine, useDemoInventory: boolean, seedEndpoints?: Endpoint[]) {
+  engine.reset();
+  if (useDemoInventory) {
+    for (const ep of sampleEndpointInventory()) engine.registerEndpoint(ep);
+    return;
+  }
+  for (const ep of seedEndpoints ?? []) engine.registerEndpoint(ep);
+}
+
+export function useLiveXdrEngine({
+  intervalMs = 1600,
+  simulate = true,
+  loop = true,
+  ingestEvents,
+  seedEndpoints,
+  useDemoInventory = false,
+}: LiveXdrOptions = {}): XdrSnapshot {
   const engineRef = useRef<XdrEngine | null>(null);
   const [snapshot, setSnapshot] = useState<XdrSnapshot>(() => {
     const engine = new XdrEngine();
-    for (const ep of sampleEndpointInventory()) engine.registerEndpoint(ep);
+    seedEngine(engine, useDemoInventory, seedEndpoints);
     engineRef.current = engine;
     return engine.snapshot();
   });
+
+  useEffect(() => {
+    if (!engineRef.current) return;
+    seedEngine(engineRef.current, useDemoInventory, seedEndpoints);
+    setSnapshot(engineRef.current.snapshot());
+  }, [useDemoInventory, seedEndpoints]);
 
   useEffect(() => {
     if (!engineRef.current || typeof window === 'undefined') return undefined;

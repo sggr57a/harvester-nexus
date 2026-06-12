@@ -54,6 +54,7 @@ interface DashboardViewProps {
   machinesDashboard?: MachinesDashboard;
   operationsLinks?: LiveOperationsSlice;
   onCreateWorkload?: (kind?: 'kubevirt-vm' | 'incus-lxc' | 'k8s-pod') => void;
+  onConfigureStorage?: () => void;
 }
 
 /**
@@ -454,7 +455,7 @@ const STORAGE_SCATTER = [
   { id: 's-8', x: 74, y: 58, label: 'longhorn-1', status: 'warn' as const, size: 1.4 },
 ];
 
-export function StorageDashboardView({ telemetry, dataSource, storageDashboard }: DashboardViewProps = {}) {
+export function StorageDashboardView({ telemetry, dataSource, storageDashboard, onConfigureStorage }: DashboardViewProps = {}) {
   const storageData = storageDashboard ?? storage;
   const { backends, pvcs, snapshots, replicationLinks } = storageData;
   const isLive = dataSource === 'live';
@@ -478,6 +479,11 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard }
         <div className="dash-totals">
           <div><span>Capacity</span><strong>{isLive ? '—' : `${backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB`}</strong></div>
           <div><span>IOPS</span><strong><LiveValue value={isLive ? (telemetry?.totalIops?.toLocaleString() ?? '0') : `${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
+          {onConfigureStorage && (
+            <button type="button" className="primary-btn dash-action-btn" onClick={onConfigureStorage}>
+              Configure storage
+            </button>
+          )}
         </div>
       </header>
 
@@ -546,8 +552,14 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard }
       {isLive && liveBackends.length === 0 && pvcs.length === 0 && (
         <LiveEmptyPanel
           title="No user storage volumes detected"
-          detail="Create a PVC or VM disk in a tenant namespace to see storage classes and claims here. Platform volumes in kube-system and cattle-* are excluded."
-        />
+          detail="Create a PVC, PV, or CSI backend in a tenant namespace. Platform volumes in kube-system and cattle-* are excluded."
+        >
+          {onConfigureStorage && (
+            <button type="button" className="primary-btn" onClick={onConfigureStorage}>
+              Open storage wizard
+            </button>
+          )}
+        </LiveEmptyPanel>
       )}
 
       {liveBackends.length > 0 && (

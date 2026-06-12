@@ -166,8 +166,9 @@ const EMPTY_RESOURCE: ResourceMonitoring = buildLiveResourceMonitoring({
 function mergeResourceMonitoring(
   base: ResourceMonitoring,
   payload: DashboardTelemetryPayload | null | undefined,
+  includeSimulation: boolean,
 ): ResourceMonitoring {
-  const simItems = simulationToWorkItems();
+  const simItems = includeSimulation ? simulationToWorkItems() : [];
   const mergedItems = [...base.workItems];
   for (const item of simItems) {
     if (!mergedItems.some((existing) => existing.id === item.id)) {
@@ -214,26 +215,6 @@ function mergeResourceMonitoring(
   };
 }
 
-function applySimulation(
-  bundle: ClusterDashboardBundle,
-  payload: DashboardTelemetryPayload | null | undefined,
-): ClusterDashboardBundle {
-  const simulatedFleet = simulationToFleet();
-  const infraRows = infrastructureRowsFromPayload(payload);
-  const workloadRows = bundle.machines.fleet.filter((row) => row.kind !== 'node');
-
-  const fleet = mergeFleetRows(infraRows, workloadRows, simulatedFleet);
-  const machines: MachinesDashboard = {
-    ...bundle.machines,
-    fleet,
-  };
-
-  return {
-    ...bundle,
-    machines,
-    resourceMonitoring: mergeResourceMonitoring(bundle.resourceMonitoring, payload),
-  };
-}
 
 export function buildClusterDashboardBundle(
   payload: DashboardTelemetryPayload | null | undefined,
@@ -253,6 +234,7 @@ export function buildClusterDashboardBundle(
         },
       },
       payload,
+      true,
     );
 
     return {
@@ -285,7 +267,18 @@ export function buildClusterDashboardBundle(
     operations: payload?.operations,
   };
 
-  return applySimulation(base, payload);
+  const infraRows = infrastructureRowsFromPayload(payload);
+  if (infraRows.length > 0 && base.machines.fleet.every((row) => row.kind !== 'node')) {
+    return {
+      ...base,
+      machines: {
+        ...base.machines,
+        fleet: mergeFleetRows(base.machines.fleet, infraRows),
+      },
+    };
+  }
+
+  return base;
 }
 
 export { EMPTY_STORAGE, EMPTY_MACHINES, EMPTY_RESOURCE };
