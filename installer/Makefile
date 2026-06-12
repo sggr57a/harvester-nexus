@@ -52,28 +52,29 @@ simulate: overlay
 iso-rebuild:
 	@echo ">> force-rebuilding iso-builder image $(ISO_BUILDER_IMG) (no cache)"
 	@docker build --pull --no-cache \
-	  --build-arg GO_TOOLCHAIN_REV=2 \
+	  --build-arg GO_TOOLCHAIN_REV=3 \
 	  -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
 	@$(MAKE) verify-iso-builder
+
+ISO_BUILDER_PATH := /usr/local/go/bin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin
 
 .PHONY: iso-builder
 iso-builder:
 	@echo ">> building iso-builder image $(ISO_BUILDER_IMG)"
 	@docker build --pull \
-	  --build-arg GO_TOOLCHAIN_REV=2 \
+	  --build-arg GO_TOOLCHAIN_REV=3 \
 	  -t $(ISO_BUILDER_IMG) -f $(INSTALLER_DIR)/Dockerfile $(REPO_ROOT)
-	@echo ">> verifying iso-builder toolchain (Go 1.26+ required)"
-	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
-	  'export PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin; \
-	   go version | grep -qE "go1\\.(2[6-9]|[3-9][0-9])" || { echo "FATAL: iso-builder Go too old: $(go version)"; exit 1; }; \
-	   yq --version && helm version --short && docker --version && go version'
+	@$(MAKE) verify-iso-builder
 
 .PHONY: verify-iso-builder
 verify-iso-builder:
+	@echo ">> verifying iso-builder toolchain (Go 1.26+, mkfs.vfat required)"
 	@docker run --rm --entrypoint /bin/bash $(ISO_BUILDER_IMG) -c \
-	  'export PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin; \
-	   go version | grep -qE "go1\\.(2[6-9]|[3-9][0-9])"' \
-	  || (echo ">> iso-builder image missing or Go < 1.26 — run: make iso-builder" && exit 1)
+	  'export PATH=$(ISO_BUILDER_PATH); \
+	   go version | grep -qE "go1\\.(2[6-9]|[3-9][0-9])" || { echo "FATAL: iso-builder Go too old: $$(go version)"; exit 1; }; \
+	   command -v mkfs.vfat >/dev/null || { echo "FATAL: mkfs.vfat missing from iso-builder (run: make iso-rebuild)"; exit 1; }; \
+	   yq --version && helm version --short && docker --version && go version' \
+	  || { echo ">> iso-builder image missing or toolchain incomplete — run: make iso-rebuild"; exit 1; }
 
 .PHONY: iso
 iso: iso-builder
