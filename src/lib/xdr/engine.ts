@@ -332,7 +332,29 @@ export function defaultEngine(): XdrEngine {
   return new XdrEngine();
 }
 
-/** Convenience: synthesise a baseline endpoint inventory used by demos. */
+/** Map live fleet rows (Harvester/KubeVirt) to XDR endpoint inventory — no demo names. */
+export function endpointsFromMachineFleet(
+  rows: Array<{ id: string; name: string; kind: string; host: string; status?: string }>,
+): Endpoint[] {
+  const kindMap: Record<string, Endpoint['kind']> = {
+    node: 'host',
+    vm: 'vm',
+    lxc: 'lxc',
+    pod: 'pod',
+    docker: 'docker',
+  };
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    kind: kindMap[row.kind] ?? 'host',
+    host: row.host,
+    ip: '—',
+    sensors: [],
+    status: row.status === 'running' ? 'online' : row.status === 'migrating' ? 'draining' : 'unknown',
+  }));
+}
+
+/** Convenience: synthesise a baseline endpoint inventory used by demos only. */
 export function sampleEndpointInventory(): Endpoint[] {
   const sensorIds: SensorId[] = ['falco', 'tetragon', 'wazuh-agent', 'hubble'];
   return [

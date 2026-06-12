@@ -83,11 +83,13 @@ export function buildHudClusterModel(
   fleet: MachineRow[],
   telemetry: EnvironmentSnapshot | undefined,
   resourceMonitoring?: ResourceMonitoring,
+  options?: { liveMode?: boolean },
 ): HudClusterModel {
   const infraHosts = fleet.filter((row) => row.kind === 'node').map((row) => row.host);
   const workloadHosts = fleet.filter((row) => row.kind !== 'node').map((row) => row.host);
   const hosts = [...new Set([...infraHosts, ...workloadHosts])];
-  const nodes = (hosts.length ? hosts : ['compute-01', 'compute-02', 'compute-03']).map((host) =>
+  const fallbackHosts = options?.liveMode ? [] : ['compute-01', 'compute-02', 'compute-03'];
+  const nodes = (hosts.length ? hosts : fallbackHosts).map((host) =>
     aggregateHost(host, fleet, telemetry),
   );
 

@@ -75,4 +75,36 @@ describe('withTelemetryFallbacks', () => {
     expect(result?.cpuPercent).toBe(33);
     expect(result?.totalIops).toBe(9000);
   });
+
+  it('skips synthetic fallbacks in live mode', () => {
+    const result = withTelemetryFallbacks(
+      {
+        totalWorkloads: 0,
+        totalIops: 0,
+        ingressMbps: 0,
+        egressMbps: 0,
+        cpuPercent: 0,
+        ramPercent: 0,
+        watts: 0,
+        activeMigrations: 0,
+        openCves: 0,
+        trustScore: 0,
+        tick: 1,
+        deltas: {
+          totalWorkloads: 0,
+          totalIops: 0,
+          ingressMbps: 0,
+          egressMbps: 0,
+          cpuPercent: 0,
+          ramPercent: 0,
+          watts: 0,
+          activeMigrations: 0,
+        },
+      },
+      model,
+      { liveMode: true },
+    );
+    expect(result?.cpuPercent).toBe(0);
+    expect(result?.totalIops).toBe(0);
+  });
 });

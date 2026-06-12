@@ -53,6 +53,7 @@ import { MissionControlView } from './components/dashboards/MissionControl';
 import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
 import { XdrOperationsCenter } from './components/dashboards/XdrOperationsCenter';
 import { SecurityPostureWizard } from './components/SecurityPostureWizard';
+import { StorageProvisionWizard } from './components/StorageProvisionWizard';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -87,6 +88,7 @@ type CockpitView =
   | 'xdr-operations'
   | 'security-posture'
   | 'setup'
+  | 'storage-provision'
   | 'create-workload';
 
 function readStoredTheme(): ThemeId {
@@ -192,18 +194,20 @@ function App() {
           kubectlCommands: commands,
           completedAt: new Date().toISOString(),
         });
-        if (target === 'cluster' || target === 'join-cluster') {
-          recordClusterDeploy(machineConfig);
-        } else if (target === 'workload') {
-          recordWorkloadDeploy(config);
-        } else if (target === 'vm' || target === 'lxc' || target === 'pod') {
-          recordPolyComputeDeploy(workloadCreateConfig);
+        if (dataSource === 'demo') {
+          if (target === 'cluster' || target === 'join-cluster') {
+            recordClusterDeploy(machineConfig);
+          } else if (target === 'workload') {
+            recordWorkloadDeploy(config);
+          } else if (target === 'vm' || target === 'lxc' || target === 'pod') {
+            recordPolyComputeDeploy(workloadCreateConfig);
+          }
         }
       } finally {
         setDeploying(false);
       }
     },
-    [config, machineConfig, workloadCreateConfig],
+    [config, machineConfig, workloadCreateConfig, dataSource],
   );
 
   const handleDeployCluster = useCallback(async () => {
@@ -268,6 +272,10 @@ function App() {
 
   const goToClusterConsole = useCallback(() => {
     setCockpitView('cluster');
+  }, []);
+
+  const goToStorageProvision = useCallback(() => {
+    setCockpitView('storage-provision');
   }, []);
 
   const goToSetupWizard = useCallback(() => {
@@ -428,7 +436,15 @@ function App() {
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} dataSource={dataSource} />}
         {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} dataSource={dataSource} />}
         {cockpitView === 'storage' && (
-          <StorageDashboardView telemetry={telemetry} dataSource={dataSource} storageDashboard={clusterDashboards.storage} />
+          <StorageDashboardView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            storageDashboard={clusterDashboards.storage}
+            onConfigureStorage={goToStorageProvision}
+          />
+        )}
+        {cockpitView === 'storage-provision' && (
+          <StorageProvisionWizard dataSource={dataSource} onClose={() => setCockpitView('storage')} />
         )}
         {cockpitView === 'machines' && (
           <MachinesDashboardView
@@ -461,7 +477,11 @@ function App() {
           />
         )}
         {cockpitView === 'xdr-operations' && (
-          <XdrOperationsCenter telemetry={telemetryState} xdrLive={clusterDashboards.xdr} />
+          <XdrOperationsCenter
+            telemetry={telemetryState}
+            xdrLive={clusterDashboards.xdr}
+            fleet={clusterDashboards.machines.fleet}
+          />
         )}
         {cockpitView === 'security-posture' && <SecurityPostureWizard />}
         {cockpitView === 'cluster' && (

@@ -50,10 +50,10 @@ export function EnvironmentIntelHudView({
 }: EnvironmentIntelHudViewProps) {
   const isLive = dataSource === 'live';
   const fleet = machinesDashboard?.fleet ?? [];
-  const model = useMemo(() => buildHudClusterModel(fleet, telemetry), [fleet, telemetry]);
+  const model = useMemo(() => buildHudClusterModel(fleet, telemetry, undefined, { liveMode: isLive }), [fleet, telemetry, isLive]);
   const effectiveTelemetry = useMemo(
-    () => withTelemetryFallbacks(telemetry, model),
-    [telemetry, model],
+    () => withTelemetryFallbacks(telemetry, model, { liveMode: isLive }),
+    [telemetry, model, isLive],
   );
 
   const thermalSeries = useRollingSeries(model.nodes[0]?.cpu ?? effectiveTelemetry?.cpuPercent ?? 50, 48, effectiveTelemetry?.tick);

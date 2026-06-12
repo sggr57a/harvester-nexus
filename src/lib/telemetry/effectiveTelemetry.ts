@@ -6,12 +6,13 @@ function avg(values: number[], fallback: number): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-/** Fill sparse live telemetry (zeros) with HUD node aggregates so dashboards stay readable. */
+/** Fill sparse live telemetry with HUD node aggregates — demo mode only. Live mode returns real values as-is. */
 export function withTelemetryFallbacks(
   telemetry: EnvironmentSnapshot | undefined,
   model: HudClusterModel,
+  options?: { liveMode?: boolean },
 ): EnvironmentSnapshot | undefined {
-  if (!telemetry) return telemetry;
+  if (!telemetry || options?.liveMode) return telemetry;
 
   const avgCpu = avg(
     model.nodes.map((node) => node.cpu),
