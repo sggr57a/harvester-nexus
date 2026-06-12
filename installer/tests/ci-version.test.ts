@@ -17,7 +17,7 @@ describe('installer · ci-version.sh', () => {
       GITHUB_SHA: '',
       GITHUB_REF_NAME: 'main',
     });
-    expect(version).toMatch(/^1\.0\.0\+nexus\.1\.local\.[0-9a-f]{7}$/);
+    expect(version).toMatch(/^2\.1\.0\+nexus\.unified\.1\.local\.[0-9a-f]{7}$/);
   });
 
   it('includes branch slug for local feature-branch builds', () => {
@@ -26,7 +26,7 @@ describe('installer · ci-version.sh', () => {
       GITHUB_SHA: 'cadca0b1234567890',
       GITHUB_REF_NAME: 'cursor/harvester-nexus-unified-5878',
     });
-    expect(version).toBe('1.0.0+nexus.1.cursor-harvester-nexus-unified-5878.local.cadca0b');
+    expect(version).toBe('2.1.0+nexus.unified.1.cursor-harvester-nexus-unified-5878.local.cadca0b');
   });
 
   it('includes run number and sha for main CI builds', () => {
@@ -35,7 +35,7 @@ describe('installer · ci-version.sh', () => {
       GITHUB_SHA: 'abcdef1234567890',
       GITHUB_REF_NAME: 'main',
     });
-    expect(version).toBe('1.0.0+nexus.1.main.42.abcdef1');
+    expect(version).toBe('2.1.0+nexus.unified.1.main.42.abcdef1');
   });
 
   it('includes branch slug for feature-branch CI builds', () => {
@@ -44,6 +44,6 @@ describe('installer · ci-version.sh', () => {
       GITHUB_SHA: 'abcdef1234567890',
       GITHUB_REF_NAME: 'cursor/harvester-nexus-unified-5878',
     });
-    expect(version).toBe('1.0.0+nexus.1.cursor-harvester-nexus-unified-5878.7.abcdef1');
+    expect(version).toBe('2.1.0+nexus.unified.1.cursor-harvester-nexus-unified-5878.7.abcdef1');
   });
 });

@@ -71,4 +71,4 @@ data:
 
   # Versioning so the cockpit knows which contract it's talking to
   config.version:          "1.0.0"
-  installer.build:         "harvester-nexus-1.0.0+nexus.1"
+  installer.build:         "harvester-nexus-unified-2.1.0"

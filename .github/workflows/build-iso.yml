@@ -3,8 +3,7 @@ name: Build install ISO
 on:
   push:
     branches:
-      - main
-      - 'cursor/**'
+      - harvester-nexus-unified
   workflow_dispatch:
 
 concurrency:
@@ -114,6 +113,11 @@ jobs:
             echo "name=Main ISO build #${GITHUB_RUN_NUMBER} (${{ steps.version.outputs.nexus_version }})" >> "$GITHUB_OUTPUT"
             echo "update_latest=true" >> "$GITHUB_OUTPUT"
             echo "branch_label=main" >> "$GITHUB_OUTPUT"
+          elif [[ "${BRANCH}" == "harvester-nexus-unified" ]]; then
+            echo "tag=iso-unified-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "name=Unified ISO build #${GITHUB_RUN_NUMBER} (${{ steps.version.outputs.nexus_version }})" >> "$GITHUB_OUTPUT"
+            echo "update_latest=true" >> "$GITHUB_OUTPUT"
+            echo "branch_label=harvester-nexus-unified" >> "$GITHUB_OUTPUT"
           else
             echo "tag=iso-${SLUG}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
             echo "name=Branch ISO ${BRANCH} #${GITHUB_RUN_NUMBER} (${{ steps.version.outputs.nexus_version }})" >> "$GITHUB_OUTPUT"
@@ -204,11 +208,11 @@ jobs:
           prerelease: true
           generate_release_notes: true
           body: |
-            Automated ISO build from [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on `${{ steps.release.outputs.branch_label }}`.
+            Automated ISO build from [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on branch **`harvester-nexus-unified`**.
+
+            This is the **standalone unified edition** — not merged into `main`. See [docs/HARVESTER-NEXUS-UNIFIED.md](${{ github.server_url }}/${{ github.repository }}/blob/harvester-nexus-unified/docs/HARVESTER-NEXUS-UNIFIED.md).
 
             **Version:** `${{ steps.version.outputs.nexus_version }}`
-
-            Includes the unified Harvester + Nexus cockpit (Harvester native controls with Nexus theming).
 
             ## Download
 
@@ -232,21 +236,21 @@ jobs:
 
             After install: **https://127.0.0.1:8443** (`admin` / `admin`). Use the **Harvester** sidebar surface for native VM controls.
 
-            Full guide: [docs/TESTING-ISO-VM.md](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/TESTING-ISO-VM.md)
+            Full guide: [docs/HARVESTER-NEXUS-UNIFIED.md](${{ github.server_url }}/${{ github.repository }}/blob/harvester-nexus-unified/docs/HARVESTER-NEXUS-UNIFIED.md)
           files: release-assets/*
 
       - name: Point iso-latest at this build
-        if: steps.release.outputs.update_latest == 'true'
+        if: steps.release.outputs.update_latest == 'true' && github.ref_name == 'harvester-nexus-unified'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: iso-latest
-          name: Latest main ISO (build #${{ github.run_number }})
+          name: Latest unified ISO (build #${{ github.run_number }})
           prerelease: true
           body: |
-            Rolling pointer to the most recent successful ISO build from `main`.
+            Rolling pointer to the most recent successful ISO build from **`harvester-nexus-unified`**.
 
             **Version:** `${{ steps.version.outputs.nexus_version }}`
             **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
 
-            For the numbered release with full VM instructions, see **`iso-main-${{ github.run_number }}`**.
+            For the numbered release with full VM instructions, see **`iso-unified-${{ github.run_number }}`**.
           files: release-assets/*
