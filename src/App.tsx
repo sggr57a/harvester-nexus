@@ -54,6 +54,7 @@ import { TelemetryWaveView } from './components/dashboards/TelemetryWave';
 import { XdrOperationsCenter } from './components/dashboards/XdrOperationsCenter';
 import { SecurityPostureWizard } from './components/SecurityPostureWizard';
 import { StorageProvisionWizard } from './components/StorageProvisionWizard';
+import { NetworkProvisionWizard } from './components/NetworkProvisionWizard';
 
 const STORAGE_TEMPLATES: Record<StorageType, string> = {
   local: 'Local path provisioning with hostPath / local-path-provisioner',
@@ -89,6 +90,7 @@ type CockpitView =
   | 'security-posture'
   | 'setup'
   | 'storage-provision'
+  | 'network-provision'
   | 'create-workload';
 
 function readStoredTheme(): ThemeId {
@@ -140,7 +142,7 @@ function App() {
   const [polyDeployResult, setPolyDeployResult] = useState<DeployResult | null>(null);
 
   const { snapshot: telemetry, telemetry: telemetryState, setRequestedMode } = useEnvironmentTelemetry(1600);
-  const clusterDashboards = useClusterDashboards(telemetryState, 1600);
+  const { refresh: refreshDashboards, ...clusterDashboards } = useClusterDashboards(telemetryState, 1600);
   const dataSource = clusterDashboards.dataSource;
 
   useEffect(() => {
@@ -276,6 +278,10 @@ function App() {
 
   const goToStorageProvision = useCallback(() => {
     setCockpitView('storage-provision');
+  }, []);
+
+  const goToNetworkProvision = useCallback(() => {
+    setCockpitView('network-provision');
   }, []);
 
   const goToSetupWizard = useCallback(() => {
@@ -434,7 +440,21 @@ function App() {
         />
         {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} dataSource={dataSource} />}
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'networking' && <NetworkingDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'networking' && (
+          <NetworkingDashboardView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            networkingDashboard={clusterDashboards.networking}
+            onConfigureNetwork={goToNetworkProvision}
+          />
+        )}
+        {cockpitView === 'network-provision' && (
+          <NetworkProvisionWizard
+            dataSource={dataSource}
+            onClose={() => setCockpitView('networking')}
+            onApplied={() => void refreshDashboards()}
+          />
+        )}
         {cockpitView === 'storage' && (
           <StorageDashboardView
             telemetry={telemetry}
@@ -452,7 +472,9 @@ function App() {
             dataSource={dataSource}
             machinesDashboard={clusterDashboards.machines}
             storageDashboard={clusterDashboards.storage}
+            networkingDashboard={clusterDashboards.networking}
             onCreateWorkload={openCreateWorkload}
+            onFleetRefresh={() => void refreshDashboards()}
           />
         )}
         {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} dataSource={dataSource} />}

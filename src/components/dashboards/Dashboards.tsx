@@ -55,9 +55,12 @@ interface DashboardViewProps {
   dataSource?: TelemetryDataSource;
   storageDashboard?: StorageDashboard;
   machinesDashboard?: MachinesDashboard;
+  networkingDashboard?: import('../../lib/dashboards').NetworkingDashboard;
   operationsLinks?: LiveOperationsSlice;
   onCreateWorkload?: (kind?: 'kubevirt-vm' | 'incus-lxc' | 'k8s-pod') => void;
   onConfigureStorage?: () => void;
+  onConfigureNetwork?: () => void;
+  onFleetRefresh?: () => void;
 }
 
 /**
@@ -164,13 +167,46 @@ const VLAN_CHORD_LINKS: ChordTrafficLink[] = [
   { source: 5, target: 0, value: 11, rate: '212 Mb/s', label: 'edge-dmz → mgmt' },
 ];
 
-export function NetworkingDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
-  if (dataSource === 'live') {
-    return <DemoCatalogPlaceholder viewName="Networking & Service Mesh" dataSource={dataSource} />;
+export function NetworkingDashboardView({
+  telemetry,
+  dataSource,
+  networkingDashboard,
+  onConfigureNetwork,
+}: DashboardViewProps = {}) {
+  const isLive = dataSource === 'live';
+  const net = networkingDashboard ?? (isLive ? undefined : networking);
+  if (isLive && !net) {
+    return (
+      <section className="dash dash-networking" aria-label="Networking dashboard">
+        <RouteDecoration />
+        <LiveEmptyPanel
+          title="Networking telemetry unavailable"
+          detail="Cluster network collectors could not load. Ensure the Nexus BFF is running on the Harvester node."
+        />
+      </section>
+    );
   }
-  const { topology, vlans, ingressRoutes, policyMatrix, nicBonds, vip } = networking;
+  if (!net) return null;
+
+  const {
+    vlans,
+    ingressRoutes,
+    policyMatrix,
+    nicBonds,
+    vip,
+    virtualSwitches = [],
+    ovsPorts = [],
+    ovsFlows = [],
+    virtualBridges = [],
+    portGroups = [],
+    sdnZones = [],
+    tenants = [],
+    diagnostics = [],
+    topology,
+  } = net;
+
   const liveBonds = useMemo(() => {
-    if (!telemetry) return nicBonds;
+    if (isLive || !telemetry) return nicBonds;
     const ingressFactor = telemetry.ingressMbps / 78_420;
     const egressFactor = telemetry.egressMbps / 74_840;
     return nicBonds.map((bond) => ({
@@ -178,8 +214,58 @@ export function NetworkingDashboardView({ telemetry, dataSource }: DashboardView
       rxMbps: Math.round(bond.rxMbps * ingressFactor),
       txMbps: Math.round(bond.txMbps * egressFactor),
     }));
-  }, [telemetry]);
-  const nodeMap = new Map(topology.nodes.map((node) => [node.id, node]));
+  }, [isLive, nicBonds, telemetry]);
+
+  const hasLiveInventory =
+    vlans.length > 0 ||
+    virtualSwitches.length > 0 ||
+    virtualBridges.length > 0 ||
+    portGroups.length > 0 ||
+    ingressRoutes.length > 0;
+
+  if (isLive && !hasLiveInventory) {
+    return (
+      <section className="dash dash-networking" aria-label="Networking dashboard">
+        <RouteDecoration />
+        <header className="dash-header">
+          <div>
+            <span className="dash-kicker">CHANNEL // NETWORK</span>
+            <h2>{net.title}</h2>
+            <p>Live cluster networking — virtual bridges, OVS, VLANs, SDN zones, and policies from your Harvester node.</p>
+          </div>
+          {onConfigureNetwork && (
+            <button type="button" className="machines-create-btn" onClick={onConfigureNetwork}>
+              Configure networking
+            </button>
+          )}
+        </header>
+        <LiveEmptyPanel
+          title="No user networking configured yet"
+          detail="Create virtual bridges, VLAN port groups, OVS overlays, tenant namespaces, or zero-trust policies using the network wizard."
+        >
+          {onConfigureNetwork && (
+            <button type="button" className="machines-create-btn" onClick={onConfigureNetwork}>
+              Open network wizard
+            </button>
+          )}
+        </LiveEmptyPanel>
+        {diagnostics.length > 0 && (
+          <article className="dash-panel network-diagnostics-panel">
+            <div className="panel-title"><span>Diagnostics</span><strong>{diagnostics.length} checks</strong></div>
+            <ul className="network-diagnostics-list">
+              {diagnostics.map((check) => (
+                <li key={check.id} className={`diag-${check.severity}`}>
+                  <strong>{check.label}</strong>
+                  <span>{check.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        )}
+      </section>
+    );
+  }
+
   const sources = Array.from(new Set(policyMatrix.map((cell) => cell.source)));
   const targets = Array.from(new Set(policyMatrix.map((cell) => cell.target)));
 
@@ -202,16 +288,183 @@ export function NetworkingDashboardView({ telemetry, dataSource }: DashboardView
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CHANNEL // NETWORK</span>
-          <h2>{networking.title}</h2>
-          <p>Geo-traffic globe, vector route topology, ingress mesh, VLAN lanes, NIC bonds, and policy fabric.</p>
+          <h2>{net.title}</h2>
+          <p>
+            {isLive
+              ? 'Virtual bridges, OVS switches, VLAN port groups, SDN zones, overlays, tenants, and zero-trust policies from the cluster.'
+              : 'Geo-traffic globe, vector route topology, ingress mesh, VLAN lanes, NIC bonds, and policy fabric.'}
+          </p>
         </div>
         <div className="dash-vip">
           <span>VIP</span>
           <strong>{vip.address}</strong>
           <small>{vip.mode} · {vip.floating ? 'floating' : 'pinned'}</small>
         </div>
+        {isLive && onConfigureNetwork && (
+          <button type="button" className="machines-create-btn" onClick={onConfigureNetwork}>
+            Configure networking
+          </button>
+        )}
       </header>
 
+      {isLive && diagnostics.length > 0 && (
+        <article className="dash-panel network-diagnostics-panel">
+          <div className="panel-title"><span>Network diagnostics</span><strong>{diagnostics.length} checks</strong></div>
+          <ul className="network-diagnostics-list">
+            {diagnostics.map((check) => (
+              <li key={check.id} className={`diag-${check.severity}`}>
+                <strong>{check.label}</strong>
+                <span>{check.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+      )}
+
+      {isLive ? (
+        <>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title"><span>Virtual bridges</span><strong>{virtualBridges.length}</strong></div>
+              <table className="dash-table">
+                <thead><tr><th>name</th><th>kind</th><th>ports</th><th>status</th></tr></thead>
+                <tbody>
+                  {virtualBridges.map((br) => (
+                    <tr key={br.id}><td><strong>{br.name}</strong></td><td>{br.kind}</td><td>{br.portCount}</td><td>{br.status}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title"><span>OVS switches</span><strong>{virtualSwitches.length}</strong></div>
+              <table className="dash-table">
+                <thead><tr><th>bridge</th><th>fail mode</th><th>ports</th><th>flows</th></tr></thead>
+                <tbody>
+                  {virtualSwitches.map((sw) => (
+                    <tr key={sw.id}><td><strong>{sw.name}</strong></td><td>{sw.failMode}</td><td>{sw.portCount}</td><td>{sw.flowCount}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          </div>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title"><span>Port groups</span><strong>{portGroups.length}</strong></div>
+              <ul className="vlan-list">
+                {portGroups.map((pg) => (
+                  <li key={pg.id}>
+                    <div><span className="vlan-id">VLAN {pg.vlanId}</span><strong>{pg.name}</strong><small>{pg.bridge}</small></div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title"><span>SDN zones</span><strong>{sdnZones.length}</strong></div>
+              <table className="dash-table">
+                <thead><tr><th>zone</th><th>type</th><th>vni</th><th>tenant</th></tr></thead>
+                <tbody>
+                  {sdnZones.map((z) => (
+                    <tr key={z.id}><td><strong>{z.name}</strong></td><td>{z.zoneType}</td><td>{z.vni}</td><td>{z.tenant}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          </div>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>VLAN lanes</span>
+                <strong>{vlans.length} VLANs</strong>
+              </div>
+              <ul className="vlan-list">
+                {vlans.map((vlan) => (
+                  <li key={vlan.id}>
+                    <div>
+                      <span className="vlan-id">VLAN {vlan.vlanId}</span>
+                      <strong>{vlan.name}</strong>
+                      <small>{vlan.cidr}</small>
+                    </div>
+                    <div className="vlan-counts">
+                      <span>{vlan.pods} pods</span>
+                      <span>{vlan.vms} vms</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>Service-mesh ingress routes</span>
+                <strong>{ingressRoutes.length} routes</strong>
+              </div>
+              <table className="dash-table">
+                <thead>
+                  <tr><th>host</th><th>service</th><th>mesh</th><th>tls</th><th>rps</th><th>p95</th></tr>
+                </thead>
+                <tbody>
+                  {ingressRoutes.map((route) => (
+                    <tr key={route.id}>
+                      <td><strong>{route.host}</strong></td>
+                      <td>{route.service}</td>
+                      <td><span className={`mesh-chip mesh-${route.meshProvider}`}>{route.meshProvider}</span></td>
+                      <td><span className={`tls-chip tls-${route.tls}`}>{route.tls}</span></td>
+                      <td><b>{route.rps}</b></td>
+                      <td>{route.p95Latency}ms</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          </div>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>NIC bonds</span>
+                <strong>{nicBonds.length} bonds</strong>
+              </div>
+              <ul className="nic-list">
+                {liveBonds.map((bond) => (
+                  <li key={bond.name} className={`nic-state-${bond.state}`}>
+                    <div>
+                      <strong>{bond.name}</strong>
+                      <small>{bond.speedGbps} Gbps · {bond.state}</small>
+                    </div>
+                    <div className="nic-flow">
+                      <span>RX {bond.rxMbps.toLocaleString()} Mb/s</span>
+                      <span>TX {bond.txMbps.toLocaleString()} Mb/s</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>NetworkPolicy matrix</span>
+                <strong>{policyMatrix.filter((cell) => cell.allow).length} allow · {policyMatrix.filter((cell) => !cell.allow).length} deny</strong>
+              </div>
+              <div className="policy-grid" style={{ gridTemplateColumns: `auto repeat(${targets.length}, 1fr)` }}>
+                <span />
+                {targets.map((target) => <span key={target} className="policy-col">{target}</span>)}
+                {sources.map((source) => (
+                  <Fragment key={`row-${source}`}>
+                    <span className="policy-row">{source}</span>
+                    {targets.map((target) => {
+                      const cell = policyMatrix.find((entry) => entry.source === source && entry.target === target);
+                      if (!cell || source === target) return <span key={`${source}-${target}`} className="policy-cell policy-na" />;
+                      return (
+                        <span key={`${source}-${target}`} className={`policy-cell policy-${cell.allow ? 'allow' : 'deny'}`} title={`${source} -> ${target} ${cell.allow ? 'allow' : 'deny'} ${cell.protocol}`}>
+                          {cell.allow ? '+' : '-'}
+                        </span>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+              </div>
+            </article>
+          </div>
+        </>
+      ) : (
+        <>
       <article className="dash-panel threat-intel-panel">
         <WidgetTitle
           kicker="MDR // XDR · GEO-INTEL"
@@ -378,6 +631,8 @@ export function NetworkingDashboardView({ telemetry, dataSource }: DashboardView
           </div>
         </article>
       </div>
+        </>
+      )}
     </section>
   );
 }
@@ -657,7 +912,9 @@ export function MachinesDashboardView({
   dataSource,
   machinesDashboard,
   storageDashboard,
+  networkingDashboard,
   onCreateWorkload,
+  onFleetRefresh,
 }: DashboardViewProps = {}) {
   const machinesData = machinesDashboard ?? machines;
   const { fleet, migrations, affinityRules, ha } = machinesData;
@@ -737,8 +994,10 @@ export function MachinesDashboardView({
           machine={selectedMachine}
           pvcs={storageDashboard?.pvcs}
           dataSource={dataSource}
+          networkingDashboard={networkingDashboard}
           onOpenConsole={(chip) => setActiveConsole({ machine: selectedMachine, chip })}
           onClose={() => setSelectedId(null)}
+          onNetworkChanged={onFleetRefresh}
         />
       )}
 

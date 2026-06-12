@@ -75,6 +75,18 @@ const samplePayload: DashboardTelemetryPayload = {
     ramSeries: [50, 52, 54, 55],
     memoryPressurePercent: 55,
   },
+  networking: {
+    available: true,
+    virtualSwitches: [],
+    ovsPorts: [],
+    ovsFlows: [],
+    vlans: [],
+    overlays: [],
+    ingressRoutes: [],
+    policyMatrix: [],
+    tenants: [],
+    nads: [],
+  },
   xdr: {
     sensorsHealthy: 0,
     sensorsTotal: 0,
@@ -118,6 +130,14 @@ describe('buildClusterDashboardBundle', () => {
     };
     const bundle = buildClusterDashboardBundle(sparse, 'live');
     expect(bundle.machines.fleet.filter((row) => row.kind === 'node')).toHaveLength(3);
+  });
+
+  it('uses live networking inventory without demo catalog merge', () => {
+    const bundle = buildClusterDashboardBundle(samplePayload, 'live');
+    expect(bundle.networking.vlans).toEqual([]);
+    expect(bundle.networking.topology.nodes).toEqual([]);
+    expect(bundle.networking.nads).toEqual([]);
+    expect(bundle.networking.diagnostics?.length).toBeGreaterThan(0);
   });
 
   it('does not merge simulated workloads into live mode', () => {

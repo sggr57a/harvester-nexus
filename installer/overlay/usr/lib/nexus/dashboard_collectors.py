@@ -19,6 +19,11 @@ from cluster_metrics import (
     _save_state,
 )
 
+try:
+    from network_collectors import collect_networking_slice
+except ImportError:
+    collect_networking_slice = None  # type: ignore[assignment,misc]
+
 
 def _parse_gi(value: str) -> float:
     if value.endswith("Ti"):
@@ -216,18 +221,25 @@ def _vm_fleet(kubeconfig: str) -> list[dict[str, Any]]:
         resources = domain.get("resources") or {}
         requests = resources.get("requests") or {}
         mem = _parse_bytes(str(requests.get("memory", "0Gi")))
+        networks = []
+        tpl_spec = (template.get("spec") or {})
+        for idx, net in enumerate(tpl_spec.get("networks") or []):
+            iface_name = net.get("name") or ("net%d" % idx)
+            networks.append({"name": iface_name, "type": "multus" if net.get("multus") else "pod"})
         rows.append(
             {
                 "id": meta.get("uid") or key,
                 "name": meta.get("name", ""),
                 "kind": "vm",
                 "host": node,
+                "namespace": namespace,
                 "cpuPercent": 0,
                 "ramGiB": round(mem / (1024**3), 1),
                 "ramAllocGiB": round(mem / (1024**3), 1),
                 "status": status,
                 "haEnabled": True,
                 "affinity": "none",
+                "networks": networks,
             }
         )
     return rows
@@ -251,12 +263,15 @@ def _pod_fleet(kubeconfig: str) -> list[dict[str, Any]]:
         mem = 0.0
         for c in containers:
             mem += _parse_bytes(str((c.get("resources") or {}).get("requests", {}).get("memory", "0")))
+        labels = meta.get("labels") or {}
+        pod_kind = "lxc" if labels.get("nexus.nexus.io/workload-kind") == "lxc" else "pod"
         rows.append(
             {
                 "id": meta.get("uid") or meta.get("name", ""),
                 "name": meta.get("name", ""),
-                "kind": "pod",
+                "kind": pod_kind,
                 "host": spec.get("nodeName") or "pending",
+                "namespace": namespace,
                 "cpuPercent": 0,
                 "ramGiB": round(max(mem, 512 * 1024 * 1024) / (1024**3), 2),
                 "ramAllocGiB": round(max(mem, 512 * 1024 * 1024) / (1024**3), 2),
@@ -462,6 +477,7 @@ def collect_dashboards_live() -> dict[str, Any]:
     migrations = _migration_rows(kubeconfig)
     xdr = _xdr_sensor_health(kubeconfig)
     events = _k8s_security_events(kubeconfig)
+    networking = collect_networking_slice(kubeconfig) if collect_networking_slice else {"available": False}
 
     work_items = []
     for mig in migrations[:6]:
@@ -533,6 +549,7 @@ def collect_dashboards_live() -> dict[str, Any]:
             "harvesterReadyZ": "/v1/harvester/readyz",
             "monitoringEnabled": monitoring,
         },
+        "networking": networking if isinstance(networking, dict) else {"available": False},
     }
 
 
