@@ -251,11 +251,13 @@ def _pod_fleet(kubeconfig: str) -> list[dict[str, Any]]:
         mem = 0.0
         for c in containers:
             mem += _parse_bytes(str((c.get("resources") or {}).get("requests", {}).get("memory", "0")))
+        labels = meta.get("labels") or {}
+        pod_kind = "lxc" if labels.get("nexus.nexus.io/workload-kind") == "lxc" else "pod"
         rows.append(
             {
                 "id": meta.get("uid") or meta.get("name", ""),
                 "name": meta.get("name", ""),
-                "kind": "pod",
+                "kind": pod_kind,
                 "host": spec.get("nodeName") or "pending",
                 "cpuPercent": 0,
                 "ramGiB": round(max(mem, 512 * 1024 * 1024) / (1024**3), 2),

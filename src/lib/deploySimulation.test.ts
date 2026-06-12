@@ -3,12 +3,16 @@ import {
   buildClusterDeployCommands,
   buildDefaultWorkloadCreateConfig,
   buildPolyComputeDeployCommands,
+  buildWorkloadApplyManifest,
   buildWorkloadDeployCommands,
   buildWorkloadManifest,
   canDeployCluster,
   canDeployWorkload,
   clusterDeployLabel,
   getDeployPhases,
+  isManifestApplyPhase,
+  normalizeLxcImageForCluster,
+  prependNamespaceToManifest,
   workloadCreateLabel,
 } from './deploySimulation';
 import { buildDefaultMachineConfig, buildHarvesterMachineInstallPlan } from './harvesterMachineWizard';
@@ -70,5 +74,31 @@ describe('deploySimulation', () => {
   it('returns human labels for deploy actions', () => {
     expect(clusterDeployLabel(buildDefaultMachineConfig())).toBe('Create cluster');
     expect(workloadCreateLabel('incus-lxc')).toBe('Create LXC container');
+  });
+
+  it('prepends namespace document for cluster apply', () => {
+    const config = buildDefaultWorkloadCreateConfig('k8s-pod');
+    const yaml = prependNamespaceToManifest(config.namespace, buildWorkloadManifest(config));
+    expect(yaml).toContain('kind: Namespace');
+    expect(yaml).toContain('kind: Pod');
+    expect(yaml).toContain('tenant-apps');
+  });
+
+  it('maps incus image references for live LXC deploy', () => {
+    expect(normalizeLxcImageForCluster('images:ubuntu/22.04')).toBe('ubuntu:22.04');
+    expect(normalizeLxcImageForCluster('nginx:1.25')).toBe('nginx:1.25');
+  });
+
+  it('builds live LXC apply manifest as a labeled pod', () => {
+    const config = buildDefaultWorkloadCreateConfig('incus-lxc');
+    const yaml = buildWorkloadApplyManifest(config, { live: true });
+    expect(yaml).toContain('kind: Pod');
+    expect(yaml).toContain('nexus.nexus.io/workload-kind');
+    expect(yaml).not.toContain('incus.nexus/v1');
+  });
+
+  it('detects kubectl apply deploy phases', () => {
+    const phases = getDeployPhases('vm', 'demo-vm');
+    expect(phases.some((phase) => isManifestApplyPhase(phase))).toBe(true);
   });
 });
