@@ -29,6 +29,8 @@ DIST=${HARVESTER_NEXUS_DIST:-${BUILD_DIR}/dist}
 VERSION=${NEXUS_VERSION:-$(cat "${REPO_ROOT}/installer/VERSION" 2>/dev/null || echo "1.0.0+nexus.1")}
 HARVESTER_INSTALLER_REPO=${HARVESTER_INSTALLER_REPO:-https://github.com/harvester/harvester-installer.git}
 HARVESTER_INSTALLER_REF=${HARVESTER_INSTALLER_REF:-master}
+ISO_HOST_PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin"
+YQ_VERSION=${YQ_VERSION:-v4.52.5}
 
 mkdir -p "${NEXUS_OVERLAY}" "${DIST}"
 
@@ -80,9 +82,6 @@ bootstrap_go_toolchain() {
 export DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
 export PATH="${ISO_HOST_PATH}:${PATH}"
 export GOTOOLCHAIN=${GOTOOLCHAIN:-local}
-
-YQ_VERSION=${YQ_VERSION:-v4.52.5}
-ISO_HOST_PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin"
 
 ensure_elemental_host_tools() {
   export PATH="${ISO_HOST_PATH}:${PATH}"
