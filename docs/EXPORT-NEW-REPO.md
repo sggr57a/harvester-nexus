@@ -2,6 +2,30 @@
 
 Use this when you want a **separate GitHub/GitLab repo** for the unified edition instead of a branch inside `harvester-nexus`.
 
+> **You do not need a new repo** if the branch `harvester-nexus-unified` in `sggr57a/harvester-nexus` is enough. Clone that branch and build the ISO — see [HARVESTER-NEXUS-UNIFIED.md](./HARVESTER-NEXUS-UNIFIED.md).
+
+## Step 0 — Create the empty GitHub repository first
+
+`git push` **cannot** create the remote repository. You must create it on GitHub **before** pushing.
+
+### Via GitHub website
+
+1. Open https://github.com/new
+2. **Owner:** `sggr57a`
+3. **Repository name:** `harvester-nexus-unified`
+4. **Visibility:** Public or Private
+5. **Do not** add a README, license, or `.gitignore` (leave the repo empty)
+6. Click **Create repository**
+
+### Via GitHub CLI (logged in as `sggr57a`)
+
+```bash
+gh auth login   # if needed — must be the sggr57a account
+gh repo create sggr57a/harvester-nexus-unified --public --description "Harvester Nexus Unified edition"
+```
+
+Only after the repo exists should you run `git push`.
+
 ## Option A — New repo from the unified branch (recommended)
 
 ```bash
@@ -12,15 +36,15 @@ git clone --branch harvester-nexus-unified --single-branch \
 
 cd harvester-nexus-unified
 
-# Point at your new empty repository
+# Point at your new empty repository (must exist — see Step 0)
 git remote remove origin
-git remote add origin https://github.com/YOUR_ORG/harvester-nexus-unified.git
+git remote add origin https://github.com/sggr57a/harvester-nexus-unified.git
 
 # Push as the default branch
 git push -u origin harvester-nexus-unified:main
 ```
 
-On GitHub: create an empty repo first (no README/license) at `https://github.com/YOUR_ORG/harvester-nexus-unified`.
+If you see `repository ... not found`, the repo was not created in Step 0, or the URL owner/name is wrong.
 
 ### After export — build ISO
 
@@ -57,7 +81,7 @@ git init
 git add -A
 git commit -m "Initial import: Harvester Nexus Unified edition"
 git branch -M main
-git remote add origin https://github.com/YOUR_ORG/harvester-nexus-unified.git
+git remote add origin https://github.com/sggr57a/harvester-nexus-unified.git
 git push -u origin main
 ```
 
