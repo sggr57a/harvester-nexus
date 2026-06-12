@@ -45,6 +45,91 @@ export interface NetworkPolicyCell {
   protocol: 'tcp' | 'udp' | 'sctp';
 }
 
+export interface OvsBridgeRow {
+  id: string;
+  name: string;
+  failMode: string;
+  datapathType: string;
+  portCount: number;
+  flowCount: number;
+  status: 'up' | 'degraded' | 'down';
+}
+
+export interface OvsPortRow {
+  id: string;
+  bridge: string;
+  name: string;
+  portType: string;
+  tag?: number;
+  rxMbps: number;
+  txMbps: number;
+  status: 'up' | 'down';
+}
+
+export interface OvsFlowRow {
+  id: string;
+  bridge: string;
+  table: number;
+  priority: number;
+  match: string;
+  actions: string;
+}
+
+export interface NetworkTenantRow {
+  id: string;
+  name: string;
+  namespace: string;
+  vlanIds: number[];
+  policyCount: number;
+  workloads: number;
+}
+
+export interface VirtualBridgeRow {
+  id: string;
+  name: string;
+  kind: 'linux-bridge' | 'openvswitch' | 'harvester-clusternetwork' | 'distributed-switch';
+  bridgeName: string;
+  vlanAware: boolean;
+  portCount: number;
+  status: 'up' | 'degraded' | 'down';
+}
+
+export interface PortGroupRow {
+  id: string;
+  name: string;
+  bridge: string;
+  vlanId: number;
+  cidr: string;
+  vms: number;
+  pods: number;
+}
+
+export interface SdnZoneRow {
+  id: string;
+  name: string;
+  zoneType: string;
+  vni: number;
+  tenant: string;
+  nodeCount: number;
+}
+
+export interface NetworkDiagnosticRow {
+  id: string;
+  label: string;
+  detail: string;
+  severity: 'ok' | 'warning' | 'critical' | 'info';
+}
+
+export interface NetworkAttachmentRow {
+  id: string;
+  name: string;
+  namespace: string;
+  clusterNetwork?: string;
+  vlanId?: number;
+  ovsBridge?: string;
+  networkType?: string;
+}
+
 export interface NetworkingDashboard {
   id: 'networking';
   title: 'Networking & Service Mesh';
@@ -54,6 +139,16 @@ export interface NetworkingDashboard {
   policyMatrix: NetworkPolicyCell[];
   nicBonds: { name: string; speedGbps: number; rxMbps: number; txMbps: number; state: 'up' | 'degraded' | 'down' }[];
   vip: { mode: 'static' | 'dhcp'; address: string; floating: boolean };
+  virtualSwitches?: OvsBridgeRow[];
+  ovsPorts?: OvsPortRow[];
+  ovsFlows?: OvsFlowRow[];
+  virtualBridges?: VirtualBridgeRow[];
+  portGroups?: PortGroupRow[];
+  sdnZones?: SdnZoneRow[];
+  overlays?: { id: string; name: string; protocol: string; vni: number; tenant: string }[];
+  tenants?: NetworkTenantRow[];
+  diagnostics?: NetworkDiagnosticRow[];
+  nads?: NetworkAttachmentRow[];
 }
 
 export interface StorageBackendCard {
@@ -518,6 +613,23 @@ export function buildNetworkingDashboard(): NetworkingDashboard {
       { name: 'rdma-bo', speedGbps: 200, rxMbps: 124820, txMbps: 121110, state: 'degraded' },
     ],
     vip: { mode: 'static', address: '10.10.40.20', floating: true },
+    virtualBridges: [
+      { id: 'vmbr0', name: 'vmbr0', kind: 'linux-bridge', bridgeName: 'vmbr0', vlanAware: true, portCount: 6, status: 'up' },
+      { id: 'br-tenant', name: 'br-tenant', kind: 'openvswitch', bridgeName: 'br-tenant', vlanAware: true, portCount: 12, status: 'up' },
+      { id: 'mgmt', name: 'mgmt', kind: 'harvester-clusternetwork', bridgeName: 'mgmt-br', vlanAware: false, portCount: 3, status: 'up' },
+    ],
+    portGroups: [
+      { id: 'pg-mgmt', name: 'Management', bridge: 'vmbr0', vlanId: 10, cidr: '10.10.10.0/24', vms: 12, pods: 0 },
+      { id: 'pg-tenant-a', name: 'Tenant A', bridge: 'br-tenant', vlanId: 40, cidr: '10.10.40.0/24', vms: 8, pods: 62 },
+      { id: 'pg-tenant-b', name: 'Tenant B', bridge: 'br-tenant', vlanId: 50, cidr: '10.10.50.0/24', vms: 6, pods: 44 },
+    ],
+    sdnZones: [
+      { id: 'sdn-a', name: 'tenant-a-vxlan', zoneType: 'vxlan', vni: 11001, tenant: 'tenant-a', nodeCount: 3 },
+      { id: 'sdn-b', name: 'tenant-b-evpn', zoneType: 'evpn', vni: 11002, tenant: 'tenant-b', nodeCount: 3 },
+    ],
+    virtualSwitches: [
+      { id: 'br-tenant', name: 'br-tenant', failMode: 'standalone', datapathType: 'system', portCount: 12, flowCount: 48, status: 'up' },
+    ],
   };
 }
 

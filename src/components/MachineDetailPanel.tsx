@@ -1,21 +1,26 @@
-import type { ConsoleChip, MachineRow, PvcRow } from '../lib/dashboards';
+import type { ConsoleChip, MachineRow, NetworkingDashboard, PvcRow } from '../lib/dashboards';
 import { consoleChipsForMachine, describeConsole, storageVolumesForMachine } from '../lib/machineConsole';
 import type { TelemetryDataSource } from '../lib/telemetry/dashboardAdapters';
+import { MachineNicAttachPanel } from './MachineNicAttachPanel';
 
 interface MachineDetailPanelProps {
   machine: MachineRow;
   pvcs?: PvcRow[];
   dataSource?: TelemetryDataSource;
+  networkingDashboard?: NetworkingDashboard;
   onOpenConsole: (chip: ConsoleChip) => void;
   onClose: () => void;
+  onNetworkChanged?: () => void;
 }
 
 export function MachineDetailPanel({
   machine,
   pvcs = [],
   dataSource,
+  networkingDashboard,
   onOpenConsole,
   onClose,
+  onNetworkChanged,
 }: MachineDetailPanelProps) {
   const volumes = storageVolumesForMachine(machine, pvcs);
   const chips = consoleChipsForMachine(machine);
@@ -82,6 +87,13 @@ export function MachineDetailPanel({
             </p>
           )}
         </section>
+
+        <MachineNicAttachPanel
+          machine={machine}
+          dataSource={dataSource}
+          networkingDashboard={networkingDashboard}
+          onAttached={onNetworkChanged}
+        />
 
         <section>
           <h4>Storage</h4>

@@ -22,6 +22,7 @@ TLS_KEY = os.environ.get("NEXUS_COCKPIT_TLS_KEY", "/etc/nexus/tls/cockpit.key")
 METRICS_MODULE = os.path.join(os.path.dirname(__file__), "cluster_metrics.py")
 DASHBOARDS_MODULE = os.path.join(os.path.dirname(__file__), "dashboard_collectors.py")
 RESOURCES_MODULE = os.path.join(os.path.dirname(__file__), "cluster_resources.py")
+OVS_MODULE = os.path.join(os.path.dirname(__file__), "ovs_operations.py")
 
 
 def _load_module(path: str, name: str):
@@ -45,11 +46,16 @@ def _load_resources():
     return _load_module(RESOURCES_MODULE, "nexus_cluster_resources")
 
 
+def _load_ovs():
+    return _load_module(OVS_MODULE, "nexus_ovs_operations")
+
+
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, metrics=None, dashboards=None, resources=None, **kwargs):
+    def __init__(self, *args, metrics=None, dashboards=None, resources=None, ovs=None, **kwargs):
         self._metrics = metrics
         self._dashboards = dashboards
         self._resources = resources
+        self._ovs = ovs
         super().__init__(*args, directory=ROOT, **kwargs)
 
     def do_GET(self):
@@ -83,6 +89,14 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == "/api/v1/resources/apply":
             self._json_api(self._handle_apply_manifest)
+            return
+
+        if path == "/api/v1/networking/ovs":
+            self._json_api(self._handle_ovs_apply)
+            return
+
+        if path == "/api/v1/machines/attach-network":
+            self._json_api(self._handle_attach_network)
             return
 
         self._plain(404, b"not found")
@@ -136,16 +150,39 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         dry_run = bool(body.get("dryRun"))
         return self._resources.apply_manifest_yaml(manifest, dry_run=dry_run)
 
+    def _read_json_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        raw = self.rfile.read(length) if length > 0 else b"{}"
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError("invalid JSON: %s" % exc) from exc
+
+    def _handle_ovs_apply(self) -> dict:
+        if self._ovs is None:
+            return {"success": False, "error": "OVS module unavailable", "output": ""}
+        body = self._read_json_body()
+        commands = body.get("commands") or []
+        if not isinstance(commands, list):
+            return {"success": False, "error": "commands must be an array", "output": ""}
+        return self._ovs.run_ovs_commands([str(c) for c in commands])
+
+    def _handle_attach_network(self) -> dict:
+        if self._resources is None:
+            return {"success": False, "error": "resource apply unavailable", "output": ""}
+        body = self._read_json_body()
+        return self._resources.attach_workload_network(body)
+
     def log_message(self, fmt, *args):
         sys.stderr.write("[nexus-cockpit] %s - %s\n" % (self.address_string(), fmt % args))
 
 
-def bind_server(port: int, metrics, dashboards, resources) -> socketserver.TCPServer:
+def bind_server(port: int, metrics, dashboards, resources, ovs) -> socketserver.TCPServer:
     class ReuseTCPServer(socketserver.TCPServer):
         allow_reuse_address = True
 
     def handler(*args, **kwargs):
-        SPAHandler(*args, metrics=metrics, dashboards=dashboards, resources=resources, **kwargs)
+        SPAHandler(*args, metrics=metrics, dashboards=dashboards, resources=resources, ovs=ovs, **kwargs)
 
     try:
         return ReuseTCPServer(("0.0.0.0", port), handler)
@@ -154,9 +191,9 @@ def bind_server(port: int, metrics, dashboards, resources) -> socketserver.TCPSe
         raise
 
 
-def serve_http_background(metrics, dashboards, resources) -> None:
+def serve_http_background(metrics, dashboards, resources, ovs) -> None:
     try:
-        with bind_server(HTTP_PORT, metrics, dashboards, resources) as httpd:
+        with bind_server(HTTP_PORT, metrics, dashboards, resources, ovs) as httpd:
             httpd.serve_forever()
     except OSError:
         sys.stderr.write("nexus-cockpit: HTTP listener on %d unavailable\n" % HTTP_PORT)
@@ -185,14 +222,20 @@ def main() -> int:
         sys.stderr.write("nexus-cockpit: resource apply disabled: %s\n" % exc)
         resources = None
 
+    try:
+        ovs = _load_ovs()
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write("nexus-cockpit: OVS module disabled: %s\n" % exc)
+        ovs = None
+
     if os.path.isfile(TLS_CRT) and os.path.isfile(TLS_KEY):
         threading.Thread(
-            target=serve_http_background, args=(metrics, dashboards, resources), daemon=True
+            target=serve_http_background, args=(metrics, dashboards, resources, ovs), daemon=True
         ).start()
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(certfile=TLS_CRT, keyfile=TLS_KEY)
         try:
-            with bind_server(HTTPS_PORT, metrics, dashboards, resources) as httpd:
+            with bind_server(HTTPS_PORT, metrics, dashboards, resources, ovs) as httpd:
                 httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
                 sys.stderr.write(
                     "nexus-cockpit listening on https://0.0.0.0:%d (http://0.0.0.0:%d)\n"
@@ -206,7 +249,7 @@ def main() -> int:
             "nexus-cockpit listening on http://0.0.0.0:%d (no TLS certs)\n" % HTTP_PORT
         )
         try:
-            with bind_server(HTTP_PORT, metrics, dashboards, resources) as httpd:
+            with bind_server(HTTP_PORT, metrics, dashboards, resources, ovs) as httpd:
                 httpd.serve_forever()
         except OSError:
             return 1

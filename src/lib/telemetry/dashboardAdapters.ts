@@ -1,12 +1,16 @@
 import {
   buildMachinesDashboard,
+  buildNetworkingDashboard,
   buildStorageDashboard,
   type MachineRow,
   type MachinesDashboard,
+  type NetworkingDashboard,
   type StorageDashboard,
 } from '../dashboards';
 import { buildResourceMonitoring, type ResourceMonitoring } from '../activeOperations';
 import { consoleChipsFromFleet } from '../machineConsole';
+import { mergeAttachmentsOntoNetworks } from '../machineNetworkStore';
+import { diagnosticsFromNetworkingDashboard, runNetworkDiagnostics } from '../networkDiagnostics';
 import {
   simulationToFleet,
   simulationToWorkItems,
@@ -14,6 +18,7 @@ import {
 import type {
   DashboardTelemetryPayload,
   LiveMachinesSlice,
+  LiveNetworkingSlice,
   LiveResourceMonitoringSlice,
   LiveStorageSlice,
 } from './dashboardTypes';
@@ -24,6 +29,7 @@ export interface ClusterDashboardBundle {
   dataSource: TelemetryDataSource;
   storage: StorageDashboard;
   machines: MachinesDashboard;
+  networking: NetworkingDashboard;
   resourceMonitoring: ResourceMonitoring;
   xdr?: DashboardTelemetryPayload['xdr'];
   operations?: DashboardTelemetryPayload['operations'];
@@ -47,6 +53,74 @@ const EMPTY_MACHINES: MachinesDashboard = {
   ha: [],
   consoleChips: [],
 };
+
+function mergeMachineNetworkAttachments(fleet: MachineRow[], includeLocalAttachments: boolean): MachineRow[] {
+  if (!includeLocalAttachments) return fleet;
+  return fleet.map((row) => ({
+    ...row,
+    networks: mergeAttachmentsOntoNetworks(row.id, row.networks),
+  }));
+}
+
+const EMPTY_NETWORKING: NetworkingDashboard = {
+  id: 'networking',
+  title: 'Networking & Service Mesh',
+  topology: { nodes: [], edges: [] },
+  vlans: [],
+  ingressRoutes: [],
+  policyMatrix: [],
+  nicBonds: [],
+  vip: { mode: 'static', address: '—', floating: false },
+  virtualSwitches: [],
+  ovsPorts: [],
+  ovsFlows: [],
+  virtualBridges: [],
+  portGroups: [],
+  sdnZones: [],
+  overlays: [],
+  tenants: [],
+  diagnostics: [],
+  nads: [],
+};
+
+function buildLiveNetworking(live: LiveNetworkingSlice): NetworkingDashboard {
+  const policyAllow = live.policyMatrix.filter((c) => c.allow).length;
+  const policyDeny = live.policyMatrix.filter((c) => !c.allow).length;
+  const diagnostics = runNetworkDiagnostics({
+    virtualSwitchCount: live.virtualSwitches.length,
+    readySwitchCount: live.virtualSwitches.filter((b) => b.status === 'up').length,
+    vlanCount: live.vlans.length,
+    readyVlanCount: live.vlans.length,
+    overlayCount: live.overlays.length,
+    tenantCount: live.tenants.length,
+    policyAllowCount: policyAllow,
+    policyDenyCount: policyDeny,
+    ingressCount: live.ingressRoutes.length,
+    nadReadyCount: live.vlans.length,
+    nadTotal: live.vlans.length,
+    ciliumEnabled: live.ingressRoutes.some((r) => r.meshProvider === 'cilium'),
+    multusEnabled: true,
+    ovsAvailable: live.ovsAvailable,
+    ovsBridgeCount: live.virtualSwitches.length,
+    ovsFlowCount: live.ovsFlows.length,
+  });
+  return {
+    ...EMPTY_NETWORKING,
+    vlans: live.vlans,
+    ingressRoutes: live.ingressRoutes,
+    policyMatrix: live.policyMatrix,
+    virtualSwitches: live.virtualSwitches,
+    ovsPorts: live.ovsPorts,
+    ovsFlows: live.ovsFlows,
+    virtualBridges: live.virtualBridges ?? [],
+    portGroups: live.portGroups ?? [],
+    sdnZones: live.sdnZones ?? [],
+    overlays: live.overlays,
+    tenants: live.tenants,
+    diagnostics,
+    nads: live.nads ?? [],
+  };
+}
 
 function mergeFleetRows(...groups: MachineRow[][]): MachineRow[] {
   const byId = new Map<string, MachineRow>();
@@ -224,7 +298,9 @@ export function buildClusterDashboardBundle(
 ): ClusterDashboardBundle {
   if (dataSource === 'demo') {
     const demoMachines = buildMachinesDashboard();
-    const demoFleet = mergeFleetRows(demoMachines.fleet, simulationToFleet());
+    const demoFleet = mergeMachineNetworkAttachments(mergeFleetRows(demoMachines.fleet, simulationToFleet()), true);
+    const demoNetworking = buildNetworkingDashboard();
+    demoNetworking.diagnostics = diagnosticsFromNetworkingDashboard(demoNetworking);
     const demoResource = buildResourceMonitoring();
     const mergedResource = mergeResourceMonitoring(
       {
@@ -242,6 +318,7 @@ export function buildClusterDashboardBundle(
     return {
       dataSource: 'demo',
       storage: buildStorageDashboard(),
+      networking: demoNetworking,
       machines: {
         ...demoMachines,
         fleet: demoFleet,
@@ -262,12 +339,43 @@ export function buildClusterDashboardBundle(
       ramSeries: [],
       memoryPressurePercent: 0,
     },
+    networking: {
+      available: false,
+      virtualSwitches: [],
+      ovsPorts: [],
+      ovsFlows: [],
+      vlans: [],
+      overlays: [],
+      ingressRoutes: [],
+      policyMatrix: [],
+      tenants: [],
+    },
   };
+
+  const liveFleet = mergeMachineNetworkAttachments(live.machines.fleet, false);
+  const networkingSlice = live.networking?.available
+    ? live.networking
+    : {
+        available: false,
+        virtualSwitches: [],
+        ovsPorts: [],
+        ovsFlows: [],
+        vlans: [],
+        overlays: [],
+        ingressRoutes: [],
+        policyMatrix: [],
+        tenants: [],
+      };
 
   const base: ClusterDashboardBundle = {
     dataSource: 'live',
     storage: buildLiveStorage(live.storage),
-    machines: buildLiveMachines(live.machines),
+    machines: {
+      ...buildLiveMachines({ ...live.machines, fleet: liveFleet }),
+      fleet: liveFleet,
+      consoleChips: consoleChipsFromFleet(liveFleet),
+    },
+    networking: buildLiveNetworking(networkingSlice),
     resourceMonitoring: buildLiveResourceMonitoring(live.resourceMonitoring),
     xdr: payload?.xdr,
     operations: payload?.operations,
