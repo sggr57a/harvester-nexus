@@ -195,7 +195,6 @@ export function NetworkingDashboardView({
     nicBonds,
     vip,
     virtualSwitches = [],
-    ovsPorts = [],
     ovsFlows = [],
     virtualBridges = [],
     portGroups = [],
