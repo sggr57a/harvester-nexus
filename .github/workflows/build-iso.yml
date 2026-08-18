@@ -57,11 +57,14 @@ jobs:
     timeout-minutes: 180
     steps:
       # Expand Docker + ISO build storage (~60 GB LVM volume).
+      # root-reserve-mb must leave room on / for the repo checkout (~600 MB
+      # working tree plus history), npm install, and the Go build caches. At
+      # 512 MB the runner reached 100% on / and the checkout could not fit.
       - name: Maximize Docker disk space
         uses: easimon/maximize-build-space@v10
         with:
           build-mount-path: /var/lib/docker
-          root-reserve-mb: 512
+          root-reserve-mb: 24576
           temp-reserve-mb: 100
           swap-size-mb: 4096
           remove-dotnet: true
@@ -73,22 +76,27 @@ jobs:
       - name: Restart Docker
         run: sudo service docker restart
 
+      # Checkout must precede the symlink step: actions/checkout cleans the
+      # workspace by default, which would delete build/ and dist/.
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Prepare build directories on expanded volume
         run: |
           set -euo pipefail
           BUILD_ROOT=/var/lib/docker/nexus-ci
           sudo mkdir -p "${BUILD_ROOT}/build" "${BUILD_ROOT}/dist"
           sudo chown -R "$(id -u):$(id -g)" "${BUILD_ROOT}"
+          # /var/lib/docker is mode 0710 root:root, so an unprivileged df on
+          # anything beneath it exits non-zero and would fail the whole step.
+          sudo chmod o+x /var/lib/docker
           echo "BUILD_DIR=${BUILD_ROOT}/build" >> "$GITHUB_ENV"
           echo "DIST_DIR=${BUILD_ROOT}/dist" >> "$GITHUB_ENV"
           rm -rf "${GITHUB_WORKSPACE}/build" "${GITHUB_WORKSPACE}/dist"
           ln -sfn "${BUILD_ROOT}/build" "${GITHUB_WORKSPACE}/build"
           ln -sfn "${BUILD_ROOT}/dist" "${GITHUB_WORKSPACE}/dist"
           echo "Disk layout:"
-          df -h / /var/lib/docker "${BUILD_ROOT}"
-
-      - name: Checkout
-        uses: actions/checkout@v4
+          sudo df -h / /var/lib/docker "${BUILD_ROOT}"
 
       - name: Resolve ISO version
         id: version
@@ -110,7 +118,7 @@ jobs:
           docker image prune -f
 
       - name: Show disk before ISO build
-        run: df -h / /var/lib/docker "${BUILD_DIR}" "${DIST_DIR}"
+        run: sudo df -h / /var/lib/docker "${BUILD_DIR}" "${DIST_DIR}"
 
       - name: Build ISO
         env:
