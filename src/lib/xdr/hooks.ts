@@ -2,7 +2,8 @@
  * React hook layer for the XDR engine.
  *
  * Demo mode registers the synthetic fintech fleet and runs the attack simulator.
- * Live mode uses real cluster inventory and ingests k8s / sensor events only.
+ * Live mode uses real cluster inventory and ingests sensor events from the
+ * cockpit BFF (Falco / Tetragon / Suricata / Wazuh, plus Kubernetes warnings).
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +43,7 @@ export function useLiveXdrEngine({
   useDemoInventory = false,
 }: LiveXdrOptions = {}): XdrSnapshot {
   const engineRef = useRef<XdrEngine | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
   const [snapshot, setSnapshot] = useState<XdrSnapshot>(() => {
     const engine = new XdrEngine();
     seedEngine(engine, useDemoInventory, seedEndpoints);
@@ -52,6 +54,7 @@ export function useLiveXdrEngine({
   useEffect(() => {
     if (!engineRef.current) return;
     seedEngine(engineRef.current, useDemoInventory, seedEndpoints);
+    seenIdsRef.current.clear();
     setSnapshot(engineRef.current.snapshot());
   }, [useDemoInventory, seedEndpoints]);
 
@@ -72,7 +75,10 @@ export function useLiveXdrEngine({
 
   useEffect(() => {
     if (!engineRef.current || !ingestEvents?.length) return;
-    engineRef.current.ingestMany(ingestEvents);
+    const fresh = ingestEvents.filter((event) => !seenIdsRef.current.has(event.id));
+    for (const event of fresh) seenIdsRef.current.add(event.id);
+    if (!fresh.length) return;
+    engineRef.current.ingestMany(fresh);
     setSnapshot(engineRef.current.snapshot());
   }, [ingestEvents]);
 

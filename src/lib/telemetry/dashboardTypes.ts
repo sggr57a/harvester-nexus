@@ -52,11 +52,35 @@ export interface LiveResourceMonitoringSlice {
   memoryPressurePercent: number;
 }
 
+export interface LiveXdrEvent {
+  id?: string;
+  source?: string;
+  endpointId?: string;
+  kind?: string;
+  timestampMs?: number;
+  payload?: Record<string, string | number | boolean | string[]>;
+  process?: string;
+  remoteIp?: string;
+  remoteHost?: string;
+  hash?: string;
+  sensorSeverity?: 'info' | 'low' | 'medium' | 'high' | 'critical';
+  message?: string;
+  namespace?: string;
+  name?: string;
+}
+
+export interface LiveXdrSensorHealth {
+  healthy: number;
+  total: number;
+  ingesting?: boolean;
+}
+
 export interface LiveXdrSlice {
   sensorsHealthy: number;
   sensorsTotal: number;
   deployed: boolean;
-  events: { message: string; namespace: string; name: string }[];
+  events: LiveXdrEvent[];
+  bySensor?: Record<string, LiveXdrSensorHealth>;
 }
 
 export interface LiveOperationsSlice {
