@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import type { ConsoleChip, MachineRow } from '../lib/dashboards';
 import { createDemoGraphicalSession, createDemoShellSession } from '../lib/demoConsole';
+import { consoleWebSocketUrl, liveConsoleKind } from '../lib/liveConsole';
 import { describeConsole } from '../lib/machineConsole';
 import type { TelemetryDataSource } from '../lib/telemetry/dashboardAdapters';
 
@@ -66,48 +67,137 @@ function GraphicalConsoleMock({ machine }: { machine: MachineRow }) {
   );
 }
 
-export function ConsoleSession({ machine, chip, dataSource, onClose }: ConsoleSessionProps) {
-  const info = describeConsole(machine, chip.type);
-  const isLive = dataSource === 'live';
-  const termRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<Terminal | null>(null);
-  const lineBufferRef = useRef('');
-  const sessionRef = useRef(createDemoShellSession(machine));
+function LiveVncConsole({ url }: { url: string }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState('Connecting to KubeVirt VNC…');
 
   useEffect(() => {
-    if (info.presentation === 'graphical' || !termRef.current) return undefined;
+    const host = hostRef.current;
+    if (!host) return undefined;
+    let disconnected = false;
+    let rfb: { disconnect: () => void } | null = null;
 
+    void import('@novnc/novnc').then((mod) => {
+      if (disconnected || !hostRef.current) return;
+      const RFB = mod.default;
+      const session = new RFB(hostRef.current, url, { wsProtocols: [] });
+      session.scaleViewport = true;
+      session.resizeSession = true;
+      session.addEventListener('connect', () => setStatus('KubeVirt VNC connected'));
+      session.addEventListener('disconnect', () => setStatus('VNC disconnected'));
+      session.addEventListener('securityfailure', () => setStatus('VNC authentication failed'));
+      rfb = session;
+    }).catch(() => {
+      setStatus('noVNC is not available in this build');
+    });
+
+    return () => {
+      disconnected = true;
+      rfb?.disconnect();
+    };
+  }, [url]);
+
+  return (
+    <div className="live-vnc-console">
+      <div className="live-vnc-status">{status}</div>
+      <div className="live-vnc-host" ref={hostRef} />
+    </div>
+  );
+}
+
+function useLiveTerminal(url: string | null, banner: string, enabled: boolean) {
+  const termRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !url || !termRef.current) return undefined;
     const term = new Terminal({
       cursorBlink: true,
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       fontSize: 13,
-      theme: {
-        background: '#0a0f14',
-        foreground: '#c8e6ff',
-        cursor: '#5eead4',
-      },
+      theme: { background: '#0a0f14', foreground: '#c8e6ff', cursor: '#5eead4' },
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(termRef.current);
     fit.fit();
-    xtermRef.current = term;
+    term.writeln(banner);
 
+    const socket = new WebSocket(url);
+    socket.binaryType = 'arraybuffer';
+    socket.onopen = () => {
+      setStatus('connected');
+      term.writeln('\r\n[live] attached to cluster console websocket');
+    };
+    socket.onerror = () => {
+      setStatus('error');
+      term.writeln('\r\n[live] websocket error — is the cockpit BFF serving /api/v1/console/* ?');
+    };
+    socket.onclose = () => {
+      setStatus('closed');
+      term.writeln('\r\n[live] console disconnected');
+    };
+    socket.onmessage = (event) => {
+      if (typeof event.data === 'string') {
+        term.write(event.data);
+        return;
+      }
+      term.write(new Uint8Array(event.data as ArrayBuffer));
+    };
+    term.onData((data) => {
+      if (socket.readyState === WebSocket.OPEN) socket.send(data);
+    });
+
+    const onResize = () => fit.fit();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      socket.close();
+      term.dispose();
+    };
+  }, [banner, enabled, url]);
+
+  return { termRef, status };
+}
+
+export function ConsoleSession({ machine, chip, dataSource, onClose }: ConsoleSessionProps) {
+  const info = describeConsole(machine, chip.type);
+  const isLive = dataSource === 'live';
+  const liveKind = isLive ? liveConsoleKind(machine, chip) : null;
+  const resolvedUrl = isLive && liveKind
+    ? consoleWebSocketUrl(liveKind, machine.namespace || 'default', machine.name)
+    : null;
+
+  const demoTermRef = useRef<HTMLDivElement>(null);
+  const sessionRef = useRef(createDemoShellSession(machine));
+  const lineBufferRef = useRef('');
+  const liveTerminal = useLiveTerminal(
+    resolvedUrl,
+    `Nexus live console — ${machine.kind} · ${machine.name}`,
+    Boolean(isLive && liveKind && liveKind !== 'vnc' && info.presentation !== 'graphical'),
+  );
+
+  useEffect(() => {
+    if (isLive || info.presentation === 'graphical' || !demoTermRef.current) return undefined;
+    const term = new Terminal({
+      cursorBlink: true,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontSize: 13,
+      theme: { background: '#0a0f14', foreground: '#c8e6ff', cursor: '#5eead4' },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(demoTermRef.current);
+    fit.fit();
     const session = sessionRef.current;
     lineBufferRef.current = '';
     term.writeln(session.banner);
     term.write(session.prompt);
-
-    if (isLive) {
-      term.writeln('\r\n[live] kubectl exec / virtctl console would attach here on Harvester node.');
-      term.writeln('[live] Demo terminal shown until console BFF WebSocket is connected.');
-    }
-
     term.onData((data) => {
       if (data === '\r') {
         term.write('\r\n');
         const lines = session.handleLine(lineBufferRef.current);
-        lines.forEach((l) => term.writeln(l));
+        lines.forEach((line) => term.writeln(line));
         lineBufferRef.current = '';
         term.write(session.prompt);
         return;
@@ -122,15 +212,20 @@ export function ConsoleSession({ machine, chip, dataSource, onClose }: ConsoleSe
       lineBufferRef.current += data;
       term.write(data);
     });
-
     const onResize = () => fit.fit();
     window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('resize', onResize);
       term.dispose();
-      xtermRef.current = null;
     };
   }, [info.presentation, isLive, machine.id]);
+
+  const showLiveVnc = isLive && liveKind === 'vnc';
+  const showLiveSerial = isLive && liveKind !== null && liveKind !== 'vnc' && info.presentation !== 'graphical';
+  const showDemoGraphical = !isLive && info.presentation === 'graphical';
+  const showLiveGraphicalFallback = isLive && info.presentation === 'graphical' && liveKind !== 'vnc';
+  const showDemoShell = !isLive && info.presentation !== 'graphical';
+  const showLiveUnavailable = isLive && liveKind === null;
 
   return (
     <div className="console-session-overlay" role="dialog" aria-label={`Console ${machine.name}`}>
@@ -139,16 +234,30 @@ export function ConsoleSession({ machine, chip, dataSource, onClose }: ConsoleSe
           <div>
             <span className="dash-kicker">CONSOLE // {info.presentation.toUpperCase()}</span>
             <h3>{machine.name}</h3>
-            <p>{info.hint}</p>
+            <p>
+              {isLive && liveKind
+                ? `Live ${liveKind} attach via cockpit /api/v1/console/${liveKind}`
+                : info.hint}
+            </p>
           </div>
           <button type="button" className="ghost-btn" onClick={onClose}>
             Disconnect
           </button>
         </header>
-        {info.presentation === 'graphical' ? (
-          <GraphicalConsoleMock machine={machine} />
-        ) : (
-          <div className="console-terminal-host" ref={termRef} />
+        {showLiveVnc && resolvedUrl && <LiveVncConsole url={resolvedUrl} />}
+        {showLiveSerial && <div className="console-terminal-host" ref={liveTerminal.termRef} />}
+        {showDemoGraphical && <GraphicalConsoleMock machine={machine} />}
+        {showLiveGraphicalFallback && (
+          <div className="console-live-unavailable">
+            Graphical consoles attach through KubeVirt VNC. This {machine.kind} has no VMI subresource.
+          </div>
+        )}
+        {showDemoShell && <div className="console-terminal-host" ref={demoTermRef} />}
+        {showLiveUnavailable && (
+          <div className="console-live-unavailable">
+            No KubeVirt VNC/serial or kubectl exec target for {machine.kind} {machine.name}.
+            Nodes do not expose a guest console through this API.
+          </div>
         )}
       </div>
     </div>

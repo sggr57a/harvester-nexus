@@ -27,6 +27,7 @@ RESOURCES_MODULE = os.path.join(os.path.dirname(__file__), "cluster_resources.py
 OVS_MODULE = os.path.join(os.path.dirname(__file__), "ovs_operations.py")
 AUTH_MODULE = os.path.join(os.path.dirname(__file__), "cockpit_auth.py")
 ANYRAID_MODULE = os.path.join(os.path.dirname(__file__), "anyraid_provisioner.py")
+CONSOLE_MODULE = os.path.join(os.path.dirname(__file__), "console_proxy.py")
 
 # Endpoints reachable without a session. Everything else under /api/v1
 # requires a valid bearer token or session cookie.
@@ -66,6 +67,10 @@ def _load_anyraid():
     return _load_module(ANYRAID_MODULE, "nexus_anyraid_provisioner")
 
 
+def _load_console():
+    return _load_module(CONSOLE_MODULE, "nexus_console_proxy")
+
+
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(
         self,
@@ -78,6 +83,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         credentials=None,
         sessions=None,
         anyraid=None,
+        console=None,
         tls_enabled=False,
         **kwargs,
     ):
@@ -89,6 +95,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         self._credentials = credentials
         self._sessions = sessions
         self._anyraid = anyraid
+        self._console = console
         self._tls_enabled = tls_enabled
         self._pending_cookie = None
         self._clear_cookie = False
@@ -136,6 +143,11 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
         if path.startswith("/api/v1/"):
             if path not in PUBLIC_PATHS and not self._require_auth():
+                return
+
+        if path.startswith("/api/v1/console/") and self._console is not None:
+            if self._console.is_websocket_request(self.headers):
+                self._handle_console_upgrade(path)
                 return
 
         if path == "/api/v1/health/live":
@@ -348,6 +360,22 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             return {"exists": False, "error": "AnyRAID provisioner unavailable"}
         return self._anyraid.pool_status()
 
+    def _handle_console_upgrade(self, path: str) -> None:
+        if self._console is None:
+            self._plain(503, b"console proxy unavailable")
+            return
+        try:
+            kind, namespace, name = self._console.parse_console_request(path)
+            self._console.handle_browser_upgrade(self, kind, namespace, name)
+        except ValueError as exc:
+            self._plain(400, str(exc).encode("utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            if not self.wfile.closed:
+                try:
+                    self._plain(503, str(exc).encode("utf-8"))
+                except Exception:  # noqa: BLE001
+                    return
+
     def _handle_apply_manifest(self) -> dict:
         if self._resources is None:
             raise RuntimeError("resource apply unavailable")
@@ -471,6 +499,12 @@ def main() -> int:
         sys.stderr.write("nexus-cockpit: AnyRAID provisioner disabled: %s\n" % exc)
         anyraid = None
 
+    try:
+        console = _load_console()
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write("nexus-cockpit: console proxy disabled: %s\n" % exc)
+        console = None
+
     # Authentication is mandatory: every /api/v1 route other than login and
     # session discovery mutates or exposes cluster state, so the cockpit
     # refuses to serve at all if the credential store cannot be initialised.
@@ -501,6 +535,7 @@ def main() -> int:
         "credentials": credentials,
         "sessions": sessions,
         "anyraid": anyraid,
+        "console": console,
     }
 
     if os.path.isfile(TLS_CRT) and os.path.isfile(TLS_KEY):

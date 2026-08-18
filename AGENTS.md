@@ -33,7 +33,7 @@ because it has no backend to authenticate against.
 | Install deps | `npm install` |
 | Dev server | `npm run dev` (serves on port **4173**) |
 | Type check | `npx tsc --noEmit` |
-| Unit tests | `npm run test` (Vitest, 328 tests) |
+| Unit tests | `npm run test` (Vitest) |
 | Production build | `npm run build` |
 
 ### Key notes
@@ -45,3 +45,5 @@ because it has no backend to authenticate against.
 - No ESLint/Prettier is configured; the only lint gate is `tsc --noEmit`.
 - Playwright scripts under `scripts/` (smoke-shot, record-mockups) are optional and require `npx playwright install chromium` before first use.
 - **ISO builds on `main`:** every push to `main` runs `.github/workflows/build-iso.yml` and publishes a pre-release ISO under GitHub Releases (`iso-main-<run>`). See `installer/README.md` for download instructions.
+- Live XDR events come from Falco / Tetragon / Suricata / Wazuh pod logs via `xdr_ingest.py`; Kubernetes Warning events keep a derived severity instead of a hardcoded `medium`.
+- Live consoles attach through `console_proxy.py` (`/api/v1/console/{vnc,serial,exec}`) onto KubeVirt subresources or `kubectl exec`. `src/lib/demoConsole.ts` is demo-mode only.
