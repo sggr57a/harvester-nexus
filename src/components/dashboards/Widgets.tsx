@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
+import {
+  SCOPE_CHANNELS,
+  channelValue,
+  fftMagnitudes,
+  formatChannelReadout,
+} from '../../lib/telemetry/scopeWaveform';
 
 /* ============================================================
    Advanced reusable widgets used by Mission Control and
@@ -274,22 +280,36 @@ function buildWaveSeries(seed: number, length: number, amp: number, base: number
   const out: number[] = [];
   for (let i = 0; i < length; i += 1) {
     const phase = (seed + i) / 6;
-    const value = base + Math.sin(phase) * amp + Math.sin(phase * 1.7 + seed * 0.3) * (amp * 0.4) + (Math.random() * 4 - 2);
+    const value = base + Math.sin(phase) * amp + Math.sin(phase * 1.7 + seed * 0.3) * (amp * 0.4);
     out.push(value);
   }
   return out;
 }
 
 export function Oscilloscope({ series, snapshot, channels = 3, height = 180, label }: OscilloscopeProps) {
-  const seed = snapshot?.tick ?? 0;
+  const cpuNow = channelValue(snapshot, SCOPE_CHANNELS[0]);
+  const ramNow = channelValue(snapshot, SCOPE_CHANNELS[1]);
+  const nicNow = channelValue(snapshot, SCOPE_CHANNELS[2]);
+  const cpuSeries = useRollingSeries(cpuNow ?? 0, 100, snapshot?.tick);
+  const ramSeries = useRollingSeries(ramNow ?? 0, 100, snapshot?.tick);
+  const nicSeries = useRollingSeries(nicNow ?? 0, 100, snapshot?.tick);
 
   const channelSeries = useMemo(() => {
     if (series) return [series];
-    const base = snapshot ? [snapshot.cpuPercent, snapshot.ramPercent, Math.min(95, snapshot.ingressMbps / 1100)] : [60, 55, 50];
+    if (snapshot) {
+      const measured = [cpuSeries, ramSeries, nicSeries].slice(0, channels);
+      return measured;
+    }
+    const seed = 0;
+    const base = [60, 55, 50];
     const amps = [16, 12, 22];
-    return Array.from({ length: channels }, (_, idx) => buildWaveSeries(seed * 4 + idx * 9, 100, amps[idx % amps.length], base[idx % base.length]));
-  }, [series, snapshot, channels, seed]);
+    return Array.from({ length: channels }, (_, idx) =>
+      buildWaveSeries(seed * 4 + idx * 9, 100, amps[idx % amps.length], base[idx % base.length]),
+    );
+  }, [series, snapshot, channels, cpuSeries, ramSeries, nicSeries]);
 
+  const readouts = [cpuNow, ramNow, nicNow];
+  const readoutLabels = SCOPE_CHANNELS.map((channel) => channel.label);
   const colors = ['var(--theme-accent)', 'var(--theme-accent-2)', 'var(--theme-good)'];
 
   return (
@@ -333,9 +353,19 @@ export function Oscilloscope({ series, snapshot, channels = 3, height = 180, lab
       </svg>
       {label && <span className="osc-label">{label}</span>}
       <div className="osc-readout">
-        <span style={{ color: colors[0] }}>CH1 {channelSeries[0]?.[channelSeries[0].length - 1].toFixed(1)}</span>
-        {channelSeries[1] && <span style={{ color: colors[1] }}>CH2 {channelSeries[1]?.[channelSeries[1].length - 1].toFixed(1)}</span>}
-        {channelSeries[2] && <span style={{ color: colors[2] }}>CH3 {channelSeries[2]?.[channelSeries[2].length - 1].toFixed(1)}</span>}
+        <span style={{ color: colors[0] }}>
+          CH1 {readoutLabels[0]} {series ? channelSeries[0]?.[channelSeries[0].length - 1].toFixed(1) : formatChannelReadout(readouts[0])}
+        </span>
+        {channelSeries[1] && (
+          <span style={{ color: colors[1] }}>
+            CH2 {readoutLabels[1]} {series ? channelSeries[1]?.[channelSeries[1].length - 1].toFixed(1) : formatChannelReadout(readouts[1])}
+          </span>
+        )}
+        {channelSeries[2] && (
+          <span style={{ color: colors[2] }}>
+            CH3 {readoutLabels[2]} {series ? channelSeries[2]?.[channelSeries[2].length - 1].toFixed(1) : formatChannelReadout(readouts[2])}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -350,16 +380,20 @@ interface FftBarsProps {
 }
 
 export function FftBars({ snapshot, bars = 48, height = 140 }: FftBarsProps) {
-  const seed = snapshot?.tick ?? 0;
+  const cpuNow = channelValue(snapshot, SCOPE_CHANNELS[0]);
+  const ramNow = channelValue(snapshot, SCOPE_CHANNELS[1]);
+  const nicNow = channelValue(snapshot, SCOPE_CHANNELS[2]);
+  const cpuSeries = useRollingSeries(cpuNow ?? 0, 64, snapshot?.tick);
+  const ramSeries = useRollingSeries(ramNow ?? 0, 64, snapshot?.tick);
+  const nicSeries = useRollingSeries(nicNow ?? 0, 64, snapshot?.tick);
   const values = useMemo(() => {
-    return Array.from({ length: bars }, (_, idx) => {
-      const phase = (seed + idx) / 4;
-      const decay = 1 - idx / bars;
-      const v = (Math.sin(phase * 1.4 + idx * 0.3) * 0.4 + Math.sin(phase * 0.7 + idx * 0.12) * 0.5 + 0.5) * decay * 100;
-      return Math.max(8, Math.min(98, Math.round(v + (Math.random() * 8 - 4))));
-    });
-  }, [seed, bars]);
-  const max = Math.max(...values);
+    const samples = cpuSeries.map((value, idx) => value + (ramSeries[idx] ?? 0) * 0.4 + (nicSeries[idx] ?? 0) * 0.3);
+    if (!snapshot || (cpuNow === null && ramNow === null && nicNow === null)) {
+      return Array.from({ length: bars }, () => 0);
+    }
+    return fftMagnitudes(samples, bars);
+  }, [snapshot, bars, cpuSeries, ramSeries, nicSeries, cpuNow, ramNow, nicNow]);
+  const max = Math.max(...values, 1);
   return (
     <div className="fft-bars" style={{ height }}>
       {values.map((value, idx) => {
@@ -2797,22 +2831,36 @@ export function AnnotatedOscilloscope({
 
 interface AnnotatedFftProps {
   snapshot?: EnvironmentSnapshot;
+  series?: number[];
   bars?: number;
   height?: number;
   freqLabels?: string[];
 }
 
-export function AnnotatedFft({ snapshot, bars = 64, height = 160, freqLabels = ['0', '125 MHz', '250 MHz', '500 MHz', '1 GHz', '2 GHz', '4 GHz'] }: AnnotatedFftProps) {
-  const seed = snapshot?.tick ?? 0;
+export function AnnotatedFft({
+  snapshot,
+  series,
+  bars = 64,
+  height = 160,
+  freqLabels = ['0', '125 MHz', '250 MHz', '500 MHz', '1 GHz', '2 GHz', '4 GHz'],
+}: AnnotatedFftProps) {
+  const cpuNow = channelValue(snapshot, SCOPE_CHANNELS[0]);
+  const ramNow = channelValue(snapshot, SCOPE_CHANNELS[1]);
+  const nicNow = channelValue(snapshot, SCOPE_CHANNELS[2]);
+  const cpuSeries = useRollingSeries(cpuNow ?? 0, 64, snapshot?.tick);
+  const ramSeries = useRollingSeries(ramNow ?? 0, 64, snapshot?.tick);
+  const nicSeries = useRollingSeries(nicNow ?? 0, 64, snapshot?.tick);
   const values = useMemo(() => {
-    return Array.from({ length: bars }, (_, idx) => {
-      const phase = (seed + idx) / 4;
-      const decay = 1 - Math.pow(idx / bars, 1.3);
-      const peakBoost = idx === Math.floor(bars * 0.18) || idx === Math.floor(bars * 0.42) ? 1.4 : 1;
-      const v = (Math.sin(phase * 1.4 + idx * 0.3) * 0.4 + Math.sin(phase * 0.7 + idx * 0.12) * 0.5 + 0.5) * decay * peakBoost * 100;
-      return Math.max(6, Math.min(98, Math.round(v + (Math.random() * 8 - 4))));
-    });
-  }, [seed, bars]);
+    if (series?.length) return fftMagnitudes(series, bars);
+    const samples = cpuSeries.map((value, idx) => value + (ramSeries[idx] ?? 0) * 0.4 + (nicSeries[idx] ?? 0) * 0.3);
+    if (!snapshot) {
+      return fftMagnitudes(
+        Array.from({ length: 64 }, (_, idx) => 50 + Math.sin(idx / 4) * 16 + Math.sin(idx / 9) * 8),
+        bars,
+      );
+    }
+    return fftMagnitudes(samples, bars);
+  }, [series, snapshot, bars, cpuSeries, ramSeries, nicSeries]);
   const peak = Math.max(...values);
   const peakIdx = values.indexOf(peak);
   return (
