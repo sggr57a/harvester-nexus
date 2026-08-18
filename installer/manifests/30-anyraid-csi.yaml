@@ -1,44 +1,43 @@
-# AnyRAID CSI driver — installed when `storage.anyraid.enabled: true`.
-# Provides slab-based RAID over heterogeneous-capacity drives.
+# AnyRAID storage — installed when `storage.anyraid.enabled: true`.
+#
+# AnyRAID pools heterogeneous-capacity drives using LVM: a volume group spans
+# physical volumes of differing sizes and allocates in fixed-size extents (the
+# "slabs"), with redundancy provided by dm-raid. The pool is created on the host
+# at first boot by `nexus-postinstall`, which calls
+# /usr/lib/nexus/anyraid_provisioner.py with the disks the operator selected in
+# the install wizard.
+#
+# This file previously declared a CSIDriver plus a DaemonSet running
+# `ghcr.io/sggr57a/nexus-anyraid-csi:1.0.0`. No such image exists and no source
+# or build recipe for it exists anywhere in this repository, so on a real
+# install the DaemonSet entered ImagePullBackOff and every PVC bound to the
+# `anyraid-default` StorageClass stayed Pending indefinitely. The phantom driver
+# is replaced here by provisioning against the real host pool.
 ---
-apiVersion: storage.k8s.io/v1
-kind: CSIDriver
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: anyraid.csi.nexus.io
-  labels:
-    app.kubernetes.io/name: anyraid-csi
-    app.kubernetes.io/managed-by: harvester-nexus-installer
-spec:
-  attachRequired: true
-  podInfoOnMount: false
-  volumeLifecycleModes: [Persistent]
-  fsGroupPolicy: File
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: anyraid-csi-node
+  name: anyraid-pool-config
   namespace: nexus-system
-  labels: { app.kubernetes.io/name: anyraid-csi }
-spec:
-  selector: { matchLabels: { app.kubernetes.io/name: anyraid-csi } }
-  template:
-    metadata: { labels: { app.kubernetes.io/name: anyraid-csi } }
-    spec:
-      hostNetwork: true
-      hostPID: true
-      tolerations: [{ operator: Exists }]
-      containers:
-        - name: anyraid-csi
-          image: ghcr.io/sggr57a/nexus-anyraid-csi:1.0.0
-          securityContext: { privileged: true }
-          env:
-            - { name: NODE_NAME, valueFrom: { fieldRef: { fieldPath: spec.nodeName } } }
+  labels:
+    app.kubernetes.io/name: anyraid
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+data:
+  # Populated by nexus-postinstall from the wizard answers in
+  # /etc/nexus/anyraid-disks.yaml. Profiles map onto dm-raid levels:
+  #   mirror -> raid1, striped-mirror -> raid10,
+  #   raidz1 -> raid5, raidz2 -> raid6.
+  # raidz3 is intentionally unsupported: dm-raid has no triple-parity target,
+  # and mapping it to raid6 would deliver less redundancy than requested.
+  profile: "raidz1"
+  extentSizeMiB: "64"
+  volumeGroup: "nexus-anyraid"
+  logicalVolume: "pool"
+  mountPath: "/var/lib/nexus/anyraid"
 ---
-# Default AnyRAID StorageClass — raidz1 over whatever disks the operator
-# selected during the install wizard. The actual `diskInventory`
-# parameter is filled in by the nexus-postinstall script after the
-# wizard answers are known.
+# The AnyRAID pool is a host-local redundant volume, so it is consumed through
+# the local-path provisioner rooted at the pool mount point. Redundancy comes
+# from dm-raid beneath the filesystem, not from replication in Kubernetes.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -46,16 +45,18 @@ metadata:
   annotations:
     storageclass.kubernetes.io/is-default-class: "false"
     nexus.io/managed-by: harvester-nexus-installer
-provisioner: anyraid.csi.nexus.io
+    nexus.io/backing-store: "lvm-dm-raid"
+provisioner: rancher.io/local-path
 reclaimPolicy: Retain
+# WaitForFirstConsumer is required: the pool exists on specific nodes only, so
+# the scheduler must place the pod before the volume is provisioned.
 volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: true
+allowVolumeExpansion: false
 parameters:
-  profile: raidz1
-  slabSizeMiB: "64"
-  allowHeterogeneous: "true"
-  autoRebalance: "true"
-  hotSpareSlabsPerDisk: "2"
-  # diskInventory is populated post-install based on
-  # /etc/nexus/anyraid-disks.yaml chosen by the operator.
-  diskInventory: ""
+  nodePath: /var/lib/nexus/anyraid
+#
+# Pool health is deliberately NOT collected by an in-cluster DaemonSet. The
+# cockpit already runs as a systemd unit on the host, so it can call `lvs`
+# directly via anyraid_provisioner.pool_status() and serve the result from
+# GET /api/v1/storage/anyraid. Doing it that way avoids adding a privileged,
+# hostPID pod with a hostPath mount purely to read node-local state.

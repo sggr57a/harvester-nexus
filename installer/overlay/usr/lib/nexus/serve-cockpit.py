@@ -26,6 +26,7 @@ DASHBOARDS_MODULE = os.path.join(os.path.dirname(__file__), "dashboard_collector
 RESOURCES_MODULE = os.path.join(os.path.dirname(__file__), "cluster_resources.py")
 OVS_MODULE = os.path.join(os.path.dirname(__file__), "ovs_operations.py")
 AUTH_MODULE = os.path.join(os.path.dirname(__file__), "cockpit_auth.py")
+ANYRAID_MODULE = os.path.join(os.path.dirname(__file__), "anyraid_provisioner.py")
 
 # Endpoints reachable without a session. Everything else under /api/v1
 # requires a valid bearer token or session cookie.
@@ -61,6 +62,10 @@ def _load_auth():
     return _load_module(AUTH_MODULE, "nexus_cockpit_auth")
 
 
+def _load_anyraid():
+    return _load_module(ANYRAID_MODULE, "nexus_anyraid_provisioner")
+
+
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(
         self,
@@ -72,6 +77,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         auth=None,
         credentials=None,
         sessions=None,
+        anyraid=None,
         tls_enabled=False,
         **kwargs,
     ):
@@ -82,6 +88,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         self._auth = auth
         self._credentials = credentials
         self._sessions = sessions
+        self._anyraid = anyraid
         self._tls_enabled = tls_enabled
         self._pending_cookie = None
         self._clear_cookie = False
@@ -141,6 +148,10 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == "/api/v1/telemetry/dashboards":
             self._json_api(self._handle_dashboards)
+            return
+
+        if path == "/api/v1/storage/anyraid":
+            self._json_api(self._handle_anyraid_status)
             return
 
         if path.startswith("/api/v1/"):
@@ -331,6 +342,12 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             raise RuntimeError("dashboard collector unavailable")
         return self._dashboards.collect_dashboards_live()
 
+    def _handle_anyraid_status(self) -> dict:
+        """Real AnyRAID pool state from LVM on this node."""
+        if self._anyraid is None:
+            return {"exists": False, "error": "AnyRAID provisioner unavailable"}
+        return self._anyraid.pool_status()
+
     def _handle_apply_manifest(self) -> dict:
         if self._resources is None:
             raise RuntimeError("resource apply unavailable")
@@ -448,6 +465,12 @@ def main() -> int:
         sys.stderr.write("nexus-cockpit: OVS module disabled: %s\n" % exc)
         ovs = None
 
+    try:
+        anyraid = _load_anyraid()
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write("nexus-cockpit: AnyRAID provisioner disabled: %s\n" % exc)
+        anyraid = None
+
     # Authentication is mandatory: every /api/v1 route other than login and
     # session discovery mutates or exposes cluster state, so the cockpit
     # refuses to serve at all if the credential store cannot be initialised.
@@ -477,6 +500,7 @@ def main() -> int:
         "auth": auth,
         "credentials": credentials,
         "sessions": sessions,
+        "anyraid": anyraid,
     }
 
     if os.path.isfile(TLS_CRT) and os.path.isfile(TLS_KEY):
