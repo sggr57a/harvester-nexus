@@ -8,6 +8,8 @@ This directory holds everything needed to produce **`harvester-nexus-<version>.i
 - **The full Nexus cockpit** — every dashboard, widget, theme, wizard, and view documented in the top-level `README.md`.
 - **Built-in XDR / MDR platform** — 12 FOSS sensors (Falco, Tetragon, Wazuh, Suricata, Hubble, Trivy, Polaris, kube-bench, OpenSearch, Grype, Syft) + 18 Sigma detection rules + 10 free intel feeds + 10 automated response actions.
 - **AnyRAID CSI driver** — slab-based RAID over heterogeneous-capacity drives.
+- **Memory tiering agent** — CXL / PMem DAX kmem / zswap / NVMe swap file, with
+  live Processor & Memory metrics (`docs/memory-tiering.md`).
 - **First-boot wizard** with Nexus-specific questions on top of Harvester's mandatory mode / network / VIP / NTP set.
 - **Default cockpit credentials of `admin` / `admin`** with **forced password change on first login** so unattended installs work out of the box without leaving the cluster with weak credentials.
 
@@ -16,15 +18,15 @@ This directory holds everything needed to produce **`harvester-nexus-<version>.i
 ```
 installer/
 ├── README.md                         (this file)
-├── VERSION                           "1.0.0+nexus.1"
+├── VERSION                           "3.0.0+nexus.1"
 ├── Dockerfile                        ISO builder image (BCI golang + Dapper toolchain + Node 20)
 ├── Makefile                          overlay / simulate / iso-builder / iso / clean / tests
 ├── build-iso.sh                      6-stage build pipeline
 │
 ├── overlay/                          files merged into the squashfs root
 │   ├── etc/nexus/config.yaml         install-time config (admin/admin, themes, XDR profile, ...)
-│   ├── etc/systemd/system/           nexus-bootstrap.service + nexus-cockpit.service
-│   ├── usr/bin/                      nexus-bootstrap, nexus-cockpit, nexus-postinstall
+│   ├── etc/systemd/system/           nexus-bootstrap + cockpit + memory-tiering units
+│   ├── usr/bin/                      nexus-bootstrap, nexus-cockpit, nexus-postinstall, nexus-memory-tiering
 │   ├── usr/share/nexus-cockpit/      cockpit bundle + bootstrap manifests
 │   └── usr/lib/nexus/                serve-cockpit.py
 │
@@ -122,7 +124,7 @@ CI stores heavy ISO build artifacts under `/var/lib/docker/nexus-ci/` on the exp
 qemu-system-x86_64 \
   -enable-kvm -m 16384 -smp 8 -cpu host \
   -drive file=harvester-nexus.qcow2,if=virtio,size=200G \
-  -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
+  -cdrom dist/harvester-nexus-3.0.0+nexus.1.iso \
   -boot d \
   -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 -device virtio-net,netdev=net0
 ```

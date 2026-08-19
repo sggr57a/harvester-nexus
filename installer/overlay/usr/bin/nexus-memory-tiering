@@ -1,0 +1,11 @@
+#!/bin/bash
+# nexus-memory-tiering — enable Linux memory tiers that the hardware actually
+# provides (CXL, PMem/DAX, HBM NUMA, zswap, NVMe swap) and wait for the rest.
+set -euo pipefail
+export NEXUS_CONFIG="${NEXUS_CONFIG:-/etc/nexus/config.yaml}"
+export NEXUS_PROC_ROOT="${NEXUS_PROC_ROOT:-/proc}"
+export NEXUS_SYS_ROOT="${NEXUS_SYS_ROOT:-/sys}"
+export NEXUS_RUN_ROOT="${NEXUS_RUN_ROOT:-/run/nexus}"
+export NEXUS_VAR_ROOT="${NEXUS_VAR_ROOT:-/var/lib/nexus}"
+mkdir -p "${NEXUS_RUN_ROOT}" "${NEXUS_VAR_ROOT}/memory-tiering" /var/log/nexus
+exec /usr/bin/python3 /usr/lib/nexus/memory_tiering.py "$@"

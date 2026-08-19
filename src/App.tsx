@@ -531,7 +531,13 @@ function App() {
           telemetry={telemetryState}
           onTelemetryModeChange={setRequestedMode}
         />
-        {cockpitView === 'mission-control' && <MissionControlView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'mission-control' && (
+          <MissionControlView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            acceleration={clusterDashboards.acceleration}
+          />
+        )}
         {cockpitView === 'telemetry-wave' && <TelemetryWaveView telemetry={telemetry} dataSource={dataSource} />}
         {cockpitView === 'networking' && (
           <NetworkingDashboardView
@@ -570,7 +576,13 @@ function App() {
             onFleetRefresh={() => void refreshDashboards()}
           />
         )}
-        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'processor-memory' && (
+          <ProcessorMemoryDashboardView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            processorMemory={clusterDashboards.processorMemory}
+          />
+        )}
         {cockpitView === 'environment' && (
           <EnvironmentIntelHudView
             telemetry={telemetry}
@@ -580,7 +592,13 @@ function App() {
         )}
         {cockpitView === 'activity' && <ActivityDashboardView dataSource={dataSource} />}
         {cockpitView === 'poly-compute' && <PolyComputeDashboardView telemetry={telemetry} dataSource={dataSource} />}
-        {cockpitView === 'acceleration' && <AccelerationDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'acceleration' && (
+          <AccelerationDashboardView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            acceleration={clusterDashboards.acceleration}
+          />
+        )}
         {cockpitView === 'operations' && (
           <OperationsDashboardView telemetry={telemetry} dataSource={dataSource} operationsLinks={clusterDashboards.operations} />
         )}

@@ -25,6 +25,9 @@ import {
   WorldTrafficGlobe,
 } from './Widgets';
 import { HologramHudShell } from './HologramHudShell';
+import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
+import { StorageIopsPanel, StorageIopsTotals } from './StorageIopsMetrics';
+import { formatMetric } from '../../lib/telemetry/environmentAdapter';
 import {
   ConnectedColumnChart,
   HudEventStrip,
@@ -117,6 +120,8 @@ export function EnvironmentIntelHudView({
           <div><span>Avg °C</span><strong>{model.nodes.length ? Math.round(model.nodes.reduce((s, n) => s + n.thermalC, 0) / model.nodes.length) : 0}°</strong></div>
           <div><span>Power</span><strong>{Math.round(effectiveTelemetry?.watts ?? 0)}W</strong></div>
           <div><span>Airflow</span><strong>{fmtMb(effectiveTelemetry?.ingressMbps ?? 0)}</strong></div>
+          <HardwareAddOnTotals summary={effectiveTelemetry?.accelerators} />
+          <StorageIopsTotals summary={effectiveTelemetry?.storageIops} />
         </div>
       </header>
 
@@ -137,10 +142,18 @@ export function EnvironmentIntelHudView({
           <KpiTile label="AIR" value={fmtMb(effectiveTelemetry?.ingressMbps ?? 0)} size="sm" series={airSeries} status="warn" />
         </HudTile>
         <HudTile label="DISK" className="holo-gauge">
-          <KpiTile label="DSK" value={fmtK(effectiveTelemetry?.totalIops ?? 0)} unit="IOPS" size="sm" series={diskSeries} />
+          <KpiTile label="DSK" value={formatMetric(effectiveTelemetry, 'totalIops', fmtK)} unit="IOPS" size="sm" series={diskSeries} />
         </HudTile>
         <HudTile label="HUMIDITY" className="holo-gauge-sm">
           <KpiTile label="HUM" value={fmtPct(effectiveTelemetry?.ramPercent ?? 43)} size="sm" series={humSeries} />
+        </HudTile>
+        <HudTile label="ACCEL" className="holo-gauge-sm">
+          <KpiTile
+            label="ACCEL"
+            value={effectiveTelemetry?.accelerators?.hottestC == null ? '—' : `${effectiveTelemetry.accelerators.hottestC}°`}
+            size="sm"
+            status={(effectiveTelemetry?.accelerators?.issues ?? 0) > 0 ? 'warn' : 'good'}
+          />
         </HudTile>
         <HudTile label="Facility event" className="holo-event" burst={burst}>
           <HudEventStrip title="FACILITY EVENT" detail={eventDetail} />
@@ -281,6 +294,12 @@ export function EnvironmentIntelHudView({
               ],
             }))}
           />
+        </HudTile>
+        <HudTile label="Add-in cards" className="holo-table wide">
+          <HardwareAddOnPanel summary={effectiveTelemetry?.accelerators} />
+        </HudTile>
+        <HudTile label="Disk IOPS" className="holo-table wide">
+          <StorageIopsPanel summary={effectiveTelemetry?.storageIops} />
         </HudTile>
       </div>
       </HologramHudShell>

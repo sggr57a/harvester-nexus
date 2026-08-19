@@ -85,6 +85,33 @@ describe('payloadToEnvironmentSnapshot', () => {
     );
     expect(snap.metricSources?.cpu).toBe('metrics-server');
   });
+
+  it('folds accelerator summary onto the same snapshot as CPU and DRAM', () => {
+    const snap = payloadToEnvironmentSnapshot(
+      payload({
+        accelerators: {
+          cards: 2,
+          issues: 1,
+          hottestC: 62,
+          byKind: { npu: 1, fpga: 1 },
+          waitingForHardware: ['tpu-coral'],
+          devices: [
+            { id: '0000:3d:00.0', kind: 'npu', model: 'Intel Gaudi 3 PCIe', temperatureC: 62, issues: ['pcie-link-downshifted'] },
+          ],
+        },
+      }),
+    );
+    expect(snap.accelerators?.cards).toBe(2);
+    expect(snap.accelerators?.hottestC).toBe(62);
+    expect(snap.accelerators?.devices[0].kind).toBe('npu');
+    expect(snap.cpuPercent).toBe(22);
+    expect(snap.ramPercent).toBe(51);
+  });
+
+  it('does not invent an accelerator summary when the BFF omitted the field', () => {
+    const snap = payloadToEnvironmentSnapshot(payload());
+    expect(snap.accelerators).toBeUndefined();
+  });
 });
 
 describe('formatMetric', () => {

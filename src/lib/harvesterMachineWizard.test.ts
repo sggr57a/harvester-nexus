@@ -122,6 +122,7 @@ describe('harvester machine wizard', () => {
       memoryTiering: {
         enabled: true,
         mode: 'nvme',
+        policy: 'capacity',
         device: '/dev/nvme1n1',
         ratio: 0.25,
       },
@@ -133,5 +134,6 @@ describe('harvester machine wizard', () => {
     expect(plan.configYaml).toContain('device: /dev/nvme1n1');
     expect(plan.bootParameters).toContain('nexus.features.nvme_over_rdma=true');
     expect(plan.bootParameters).toContain('nexus.features.memory_tiering=nvme');
+    expect(plan.bootParameters).toContain('zswap.enabled=1');
   });
 });

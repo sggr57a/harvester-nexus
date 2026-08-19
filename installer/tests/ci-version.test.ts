@@ -9,7 +9,7 @@ describe('installer · ci-version.sh', () => {
       encoding: 'utf8',
       env: { ...process.env, GITHUB_RUN_NUMBER: '', GITHUB_SHA: '' },
     }).trim();
-    expect(version).toMatch(/^1\.0\.0\+nexus\.1\.local\.[0-9a-f]{7}$/);
+    expect(version).toMatch(/^3\.0\.0\+nexus\.1\.local\.[0-9a-f]{7}$/);
   });
 
   it('includes run number and sha when CI env vars are set', () => {
@@ -22,6 +22,6 @@ describe('installer · ci-version.sh', () => {
         GITHUB_SHA: 'abcdef1234567890',
       },
     }).trim();
-    expect(version).toBe('1.0.0+nexus.1.main.42.abcdef1');
+    expect(version).toBe('3.0.0+nexus.1.main.42.abcdef1');
   });
 });

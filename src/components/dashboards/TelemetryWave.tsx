@@ -19,6 +19,9 @@ import {
 
 import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters';
 import { DemoCatalogPlaceholder } from './LiveEmptyPanel';
+import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
+import { StorageIopsPanel, StorageIopsTotals } from './StorageIopsMetrics';
+import { formatMetric } from '../../lib/telemetry/environmentAdapter';
 
 const accel = buildAccelerationDashboard();
 
@@ -127,20 +130,23 @@ export function TelemetryWaveView({ telemetry, dataSource }: TelemetryWaveProps 
         <div className="dash-totals">
           <div><span>SPDK lanes</span><strong>{accel.spdkLanes.length}</strong></div>
           <div><span>DPDK ports</span><strong>{accel.dpdkPorts.length}</strong></div>
-          <div><span>Pass-thru</span><strong>{accel.passThrough.length}</strong></div>
+          <div><span>Pass-thru</span><strong>{telemetry?.accelerators?.cards ?? accel.passThrough.length}</strong></div>
           <div><span>Sample rate</span><strong>1.6 s/div</strong></div>
+          <HardwareAddOnTotals summary={telemetry?.accelerators} />
+          <StorageIopsTotals summary={telemetry?.storageIops} />
         </div>
       </header>
 
       <div className="wave-stat-strip">
         <StatGrid
-          columns={8}
+          columns={9}
           items={[
             { label: 'NIC RX', value: telemetry ? (telemetry.ingressMbps / 1000).toFixed(1) : '78.4', unit: 'Gb/s', delta: telemetry ? telemetry.deltas.ingressMbps / 1000 : 0, status: 'good' },
             { label: 'NIC TX', value: telemetry ? (telemetry.egressMbps / 1000).toFixed(1) : '74.8', unit: 'Gb/s', delta: telemetry ? telemetry.deltas.egressMbps / 1000 : 0, status: 'good' },
-            { label: 'IOPS', value: telemetry ? (telemetry.totalIops / 1000).toFixed(0) : '1120', unit: 'K', delta: telemetry ? telemetry.deltas.totalIops / 1000 : 0, status: 'good' },
+            { label: 'IOPS', value: formatMetric(telemetry, 'totalIops', (v) => (v / 1000).toFixed(0), '1120'), unit: 'K', delta: telemetry && !telemetry.unavailableMetrics?.includes('totalIops') ? telemetry.deltas.totalIops / 1000 : 0, status: 'good' },
             { label: 'CPU', value: `${telemetry?.cpuPercent ?? 58}`, unit: '%', delta: telemetry?.deltas.cpuPercent, status: 'neutral' },
             { label: 'DRAM', value: `${telemetry?.ramPercent ?? 64}`, unit: '%', delta: telemetry?.deltas.ramPercent, status: 'neutral' },
+            { label: 'ACCEL', value: `${telemetry?.accelerators?.cards ?? accel.passThrough.length}`, unit: 'cards', status: (telemetry?.accelerators?.issues ?? 0) > 0 ? 'warn' : 'good' },
             { label: 'PWR', value: `${telemetry?.watts ?? 1592}`, unit: 'W', delta: telemetry?.deltas.watts },
             { label: 'MIG', value: `${telemetry?.activeMigrations ?? 3}`, hint: 'in-flight' },
             { label: 'TICK', value: telemetry?.tick ?? 0, hint: '1.6s sweep' },
@@ -154,7 +160,7 @@ export function TelemetryWaveView({ telemetry, dataSource }: TelemetryWaveProps 
           <AnnotatedOscilloscope channels={dpdkChannels} snapshot={telemetry} height={210} divisionsX={10} divisionsY={8} timeScale="1.6 s / div" voltScale="12.5 % / div" />
         </article>
         <article className="dash-panel wave-osc-panel">
-          <WidgetTitle kicker="SPDK" title="Userspace NVMe-oF queues" trailing={<span className="osc-readout">{telemetry ? `${(telemetry.totalIops / 1000).toFixed(0)}K` : '1120K'} IOPS</span>} />
+          <WidgetTitle kicker="SPDK" title="Userspace NVMe-oF queues" trailing={<span className="osc-readout">{formatMetric(telemetry, 'totalIops', (v) => `${(v / 1000).toFixed(0)}K`, '1120K')} IOPS</span>} />
           <AnnotatedOscilloscope channels={spdkChannels} snapshot={telemetry} height={210} divisionsX={10} divisionsY={8} timeScale="1.6 s / div" voltScale="queue-util" />
         </article>
         <article className="dash-panel wave-osc-panel">
@@ -254,6 +260,9 @@ export function TelemetryWaveView({ telemetry, dataSource }: TelemetryWaveProps 
           </div>
         </div>
       </article>
+
+      <HardwareAddOnPanel summary={telemetry?.accelerators} />
+      <StorageIopsPanel summary={telemetry?.storageIops} />
     </section>
   );
 }

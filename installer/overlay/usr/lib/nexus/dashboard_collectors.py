@@ -10,6 +10,8 @@ from typing import Any
 
 from cluster_filters import is_user_namespace
 from cluster_metrics import (
+    _collect_accelerator_summary,
+    _collect_host_metrics,
     _count_active_migrations,
     _find_kubeconfig,
     _kubectl_json,
@@ -18,13 +20,54 @@ from cluster_metrics import (
     _monitoring_addon_enabled,
     _node_capacity_usage,
     _parse_bytes,
+    _parse_cpu_cores,
     _save_state,
+    _storage_iops_from_host,
 )
 
 try:
     from network_collectors import collect_networking_slice
 except ImportError:
     collect_networking_slice = None  # type: ignore[assignment,misc]
+
+
+def _collect_acceleration() -> dict[str, Any]:
+    """Live NPU / TPU / FPGA / GPU PCI inventory. Never fabricates utilization."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "nexus_accelerator_inventory",
+            os.path.join(os.path.dirname(__file__), "accelerator_inventory.py"),
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("accelerator_inventory module missing")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.live_dashboard()
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "available": False,
+            "error": str(exc),
+            "devices": [],
+            "passThrough": [],
+            "issues": [],
+            "waitingForHardware": [],
+        }
+
+
+def _collect_processor_memory() -> dict[str, Any]:
+    """Live NUMA / tier / swap / zswap / PSI snapshot. Never applies sysctls."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "nexus_memory_tiering",
+            os.path.join(os.path.dirname(__file__), "memory_tiering.py"),
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("memory_tiering module missing")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.live_dashboard()
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "error": str(exc), "memoryTiers": [], "numaZones": [], "waitingForHardware": []}
 
 
 def _parse_gi(value: str) -> float:
@@ -503,6 +546,7 @@ def collect_dashboards_live() -> dict[str, Any]:
         if source in by_sensor and isinstance(by_sensor[source], dict):
             by_sensor[source]["ingesting"] = True
     networking = collect_networking_slice(kubeconfig) if collect_networking_slice else {"available": False}
+    host = _collect_host_metrics()
 
     work_items = []
     for mig in migrations[:6]:
@@ -529,18 +573,21 @@ def collect_dashboards_live() -> dict[str, Any]:
                 }
             )
 
+    host_iops = host.get("totalIops")
+    env_iops = host_iops if host_iops is not None else (int(total_iops) if monitoring and total_iops else None)
+
     return {
         "environment": {
             "totalWorkloads": pod_count + vm_count,
-            "totalIops": int(total_iops),
-            "ingressMbps": int(ingress_mbps),
-            "egressMbps": int(egress_mbps),
+            "totalIops": env_iops,
+            "ingressMbps": host.get("ingressMbps") if host.get("ingressMbps") is not None else (int(ingress_mbps) if monitoring and ingress_mbps else None),
+            "egressMbps": host.get("egressMbps") if host.get("egressMbps") is not None else (int(egress_mbps) if monitoring and egress_mbps else None),
             "cpuPercent": cpu_percent,
             "ramPercent": ram_percent,
-            "watts": node_count * 220,
+            "watts": host.get("watts"),
             "activeMigrations": migrations_count,
-            "openCves": int(state.get("openCves", 0)),
-            "trustScore": int(state.get("trustScore", 85)),
+            "openCves": int(state.get("openCves", 0)) if state.get("openCves") is not None else None,
+            "trustScore": int(state.get("trustScore", 0)) if state.get("trustScore") is not None else None,
             "tick": tick,
             "source": "mixed" if monitoring else "harvester",
             "clusterReady": True,
@@ -548,6 +595,9 @@ def collect_dashboards_live() -> dict[str, Any]:
             "nodeCount": node_count,
             "podCount": pod_count,
             "vmCount": vm_count,
+            "accelerators": _collect_accelerator_summary(),
+            "storageIops": _storage_iops_from_host(host),
+            "metricSources": host.get("sources") or {},
         },
         "storage": {
             "pvcs": pvcs,
@@ -575,6 +625,8 @@ def collect_dashboards_live() -> dict[str, Any]:
             "monitoringEnabled": monitoring,
         },
         "networking": networking if isinstance(networking, dict) else {"available": False},
+        "processorMemory": _collect_processor_memory(),
+        "acceleration": _collect_acceleration(),
     }
 
 

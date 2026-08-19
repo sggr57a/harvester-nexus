@@ -49,6 +49,12 @@ data:
   capability.compliance:  "true"
   capability.deception:   "true"
   capability.gitops:      "true"
+  capability.memory-tiering: "true"
+  capability.memory-tiering-cxl: "true"
+  capability.memory-tiering-pmem: "true"
+  capability.memory-tiering-nvme-swap: "true"
+  capability.memory-tiering-zswap: "true"
+  capability.memory-tiering-damon: "true"
 
   # Auto-response gates for the XDR engine
   response.isolate-endpoint:   "true"
@@ -67,5 +73,5 @@ data:
   default.launch-variant:  "concentric-boot"
 
   # Versioning so the cockpit knows which contract it's talking to
-  config.version:          "1.0.0"
-  installer.build:         "harvester-nexus-1.0.0+nexus.1"
+  config.version:          "3.0.0"
+  installer.build:         "harvester-nexus-3.0.0+nexus.1"

@@ -4,7 +4,25 @@ Nexus is a next-generation, high-performance, open-source hyperconverged infrast
 
 By unifying the bare-metal agility of Proxmox and Incus (LXC) with the massive cloud-native orchestration of Kubernetes (KubeVirt) and VMware vSphere class enterprise storage/scheduling, nexus represents the ultimate consolidation of computing, storage, and specialized hardware accelerators, including a HUD interface, wizard-driven machine provisioning, Kubernetes manifest generation, storage backend provisioning, and multi-cluster deployment workflows.
 
-> **Version 2.0** lands the features described in [`UPDATED.md`](./UPDATED.md): the Poly-Compute Engine, the Universal Storage Fabric (now including Vitastor with SPDK bypass), hyper-efficient data path acceleration (SPDK / DPDK / vhost-user / NUMA pinning / 1 GiB hugepages), advanced acceleration (GPU + FPGA + smart-NIC pass-through, nested virtualization for AI / ML), **and a built-in 100% open-source XDR / MDR platform** that detects, attributes, and auto-responds to threats across every host, VM, container, pod, and edge endpoint. See the [Nexus 2.0 release](#nexus-20-release) section.
+> **Version 3.0** is the current release. It keeps everything in [`UPDATED.md`](./UPDATED.md) (Poly-Compute, Universal Storage Fabric, XDR / MDR, acceleration) and adds ten-plus production features: authenticated cockpit APIs, a working signed ISO pipeline, measured host telemetry, live AnyRAID, live XDR ingest, Oscilloscope/FFT from real counters, KubeVirt VNC/serial consoles, and Linux CXL/PMem/zswap memory tiering. See [Nexus 3.0 release](#nexus-30-release). The [Nexus 2.0](#nexus-20-release) section is the historical baseline.
+
+## Nexus 3.0 release
+
+Harvester Nexus **3.0.0** (`installer/VERSION` `3.0.0+nexus.1`). ISO artifact: `dist/harvester-nexus-3.0.0+nexus.1.iso`.
+
+Production features added on top of 2.0:
+
+1. **Authenticated cockpit BFF** — every `/api/v1` route requires a session; lockout after failed logins; random bootstrap password instead of shipping `admin`/`admin` on the wire.
+2. **ISO CI that publishes** — root-disk and checkout-order faults fixed so `Build install ISO` can finish; CI stamps `3.0.0+nexus.1.main.<run>.<sha>`.
+3. **Measured host telemetry** — RAPL / IPMI watts, meminfo, vmstat, NIC counters; missing sensors are `null`, never invented.
+4. **Nullable metrics contract** — dashboards render gaps instead of fabricated IOPS, watts, or FFT.
+5. **AnyRAID on LVM** — heterogeneous-capacity slab pool with a real `lvcreate` path, not a catalog stub.
+6. **Live XDR ingest** — Falco, Tetragon, Suricata, and Wazuh alerts feed the SOC views instead of the demo simulator alone.
+7. **Oscilloscope and FFT from the host** — Telemetry Wave plots measured CPU / DRAM / NIC, not a canned waveform.
+8. **KubeVirt VNC and serial consoles** — cockpit attaches through the KubeVirt websocket proxy.
+9. **Linux memory tiering** — CXL Type-3 NUMA demotion, leftover Optane/PMem DAX kmem, zswap plus a bounded NVMe-backed swap file. Not vSphere NVMe-as-RAM. See [`docs/memory-tiering.md`](./docs/memory-tiering.md).
+10. **Live Processor & Memory dashboard** — NUMA, memory_tier nodelists, PSI, hugepages, demote/promote, zswap.
+11. **KubeVirt tiering hints** — `nexus.io/memory-tiering=auto` vs `dram-only`; 1 GiB hugepages pin DRAM-only guests.
 
 ## Nexus 2.0 release
 
@@ -12,7 +30,8 @@ Highlights:
 
 - **Poly-Compute Engine** — runs KubeVirt VMs, Incus / LXC system containers, and native Kubernetes pods on the same bare-metal loop, with NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, and cross-socket cost penalties on the scheduler.
 - **Universal Storage Fabric** — every storage backend in the catalog is wired into CSI / direct-host paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, **AnyRAID** with heterogeneous-capacity drive slabbing, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath driver for RWX shares.
-- **Hardware acceleration** — SPDK userspace NVMe-oF queues, DPDK polled-mode rings, vhost-user fast paths, NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
+- **Hardware acceleration** — SPDK userspace NVMe-oF queues, DPDK polled-mode rings, vhost-user fast paths, NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools. NPU / TPU / FPGA **add-in cards** are an allowlisted first-boot path (AMD Alveo, Intel DFL FPGA, Intel Gaudi 3 PCIe, Qualcomm Cloud AI 100, Google Coral Edge TPU) — see [`docs/accelerators.md`](./docs/accelerators.md). Live PCI inventory (link, AER, temp, driver, IOMMU) lands on the environment tick and is shown automatically next to CPU/RAM on Processor & Memory, Resource Monitor, Environment Intel, Mission Control, Operations, and the environment ticker. Utilization stays `null` unless a vendor runtime exports it.
+- **Memory tiering** — Linux NUMA demotion/promotion for CXL Type-3 and leftover Optane/PMem (DAX kmem), HBM when the kernel groups it as a faster node, zswap plus a bounded NVMe-backed swap file as the last safety net, DAMON/weighted-interleave/pghot/CXL-pooling hooks that activate when those sysfs trees appear. This is **not** vSphere NVMe-as-RAM; guests do not see extra DRAM. See [`docs/memory-tiering.md`](./docs/memory-tiering.md).
 - **Machine Wizard 2.0** — install YAML with `poly_compute` and `hardware_acceleration` blocks plus boot-parameter switches (`nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, `nexus.acceleration.gpu_passthrough=true`). Validation refuses configs that turn off every runtime or enable GPU pass-through without NUMA pinning.
 - **Built-in XDR / MDR platform (100% FOSS)** — every Nexus install ships with a complete detect-and-respond stack: 17 open-source sensors (Falco, Tetragon, Wazuh, Trivy, Grype, Syft, Suricata, Hubble, OpenSearch, MISP, kube-bench, kube-hunter, Polaris, OpenCanary, OpenSCAP, Lynis), 10 free threat-intel feeds (MISP, OTX, ThreatFox, URLhaus, Feodotracker, ETOpen, MITRE ATT&CK, NVD, OSV, internal allowlist), 18 Sigma-style detection rules covering all seven MITRE ATT&CK kill-chain phases, 10 automated response actions that emit real Kubernetes manifests (Cilium NetworkPolicy isolate, Harvester host cordon/drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot, Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback, Trivy image block, Cilium CCNP egress-domain block), and APT geo-attribution that maps sources to actors like APT28 / LAZARUS. No paid SKUs, no subscriptions.
 - **Themable cockpit** — four cool-tone switchable themes (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum). Theme selection persists in `localStorage`.
@@ -37,7 +56,7 @@ Nexus is the updated Harvester fork with:
 - **Environment Intelligence** and **Activity Command** — facility telemetry, automation queues, approval flows, in-flight migrations, backup status, and security-scan activity.
 - **Live Environment Ticker** — rolling cluster-wide stats (workloads, IOPS, ingress / egress Mb/s, CPU %, DRAM %, power, in-flight migrations, open CVEs, trust score) pinned above every dashboard.
 - **Four cool-tone cockpit themes** (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum) with persistent `localStorage` selection.
-- **Eight additional themed data dashboards**: Networking, Storage, Machines & Containers, Processor & Memory, Poly-Compute Engine, Acceleration, Operations & Compliance, Resource Monitoring.
+- **Eight additional themed data dashboards**: Networking, Storage, Machines & Containers, Processor & Memory (live NUMA / CXL / PMem / zswap / swap / PSI / vmstat), Poly-Compute Engine, Acceleration, Operations & Compliance, Resource Monitoring.
 
 ### Security · Detection &amp; response (XDR / MDR)
 - **Endpoint coverage** — every host, KubeVirt VM, Incus / LXC container, Docker container, Kubernetes pod, edge node, and third-party integration is enrolled and inventoried.
@@ -244,7 +263,7 @@ Nexus ships two install paths. **Production** installs the full HCI platform —
 | **Validate the installer without Docker** | Any Linux/macOS with Node 20+ | 4 GB RAM, git clone | [Validate before building](#2-validate-the-installer-without-docker) |
 | **Cockpit UI only** (mock data, no cluster) | Ubuntu 24.10+ dev laptop | 4 GB RAM, Node 20+ | [Development cockpit](#development-cockpit-only) |
 
-Current release version: **`1.0.0+nexus.1`** (see `installer/VERSION`). The ISO artifact is `dist/harvester-nexus-1.0.0+nexus.1.iso`.
+Current release version: **`3.0.0+nexus.1`** (see `installer/VERSION`). The ISO artifact is `dist/harvester-nexus-3.0.0+nexus.1.iso`.
 
 ---
 
@@ -393,8 +412,8 @@ Requires Docker, ~30 minutes, and ~25 GB free disk on a **native** (non-nested) 
 
 ```bash
 cd installer
-make iso-builder    # builds harvester-nexus-iso-builder:1.0.0-nexus.1 Docker image
-make iso            # produces dist/harvester-nexus-1.0.0+nexus.1.iso
+make iso-builder    # builds harvester-nexus-iso-builder:3.0.0-nexus.1 Docker image
+make iso            # produces dist/harvester-nexus-3.0.0+nexus.1.iso
 ```
 
 Verify the artifact:
@@ -417,7 +436,7 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
 1. **Write the ISO to USB** (replace `/dev/sdX` with your USB device):
 
    ```bash
-   sudo dd if=dist/harvester-nexus-1.0.0+nexus.1.iso of=/dev/sdX bs=4M status=progress conv=fsync
+   sudo dd if=dist/harvester-nexus-3.0.0+nexus.1.iso of=/dev/sdX bs=4M status=progress conv=fsync
    ```
 
 2. **Boot the target server** from the USB stick. Enter firmware setup and confirm:
@@ -465,7 +484,7 @@ qemu-system-x86_64 \
   -smp 8 \
   -cpu host \
   -drive file=$HOME/harvester-nexus.qcow2,if=virtio,format=qcow2 \
-  -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
+  -cdrom dist/harvester-nexus-3.0.0+nexus.1.iso \
   -boot d \
   -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 \
   -device virtio-net-pci,netdev=net0 \

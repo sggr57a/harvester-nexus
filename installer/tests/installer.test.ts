@@ -174,7 +174,7 @@ describe('installer · bootstrap manifests (installer/manifests/*.yaml)', () => 
     const cm = docs.find((d) => (d as { kind: string }).kind === 'ConfigMap') as
       { data: Record<string, string> } | undefined;
     expect(cm).toBeDefined();
-    for (const k of ['view.mission-control', 'view.xdr-operations', 'view.security-posture', 'view.launch-mockups', 'capability.xdr', 'capability.anyraid']) {
+    for (const k of ['view.mission-control', 'view.xdr-operations', 'view.security-posture', 'view.launch-mockups', 'capability.xdr', 'capability.anyraid', 'capability.memory-tiering']) {
       expect(cm!.data[k], k).toBe('true');
     }
   });
@@ -200,6 +200,8 @@ describe('installer · wizard questions cover every install-time setting', () =>
       'nexus.xdr.autoResponse.enabled',
       'nexus.gitops.enabled',
       'nexus.compliance.enabled',
+      'nexus.memoryTiering.enabled',
+      'nexus.memoryTiering.policy',
     ]) {
       expect(vars, `wizard missing variable ${v}`).toContain(v);
     }
@@ -215,7 +217,7 @@ describe('installer · wizard questions cover every install-time setting', () =>
 
 describe('installer · overlay scripts are present + executable', () => {
   const binDir = join(INSTALLER, 'overlay', 'usr', 'bin');
-  for (const script of ['nexus-bootstrap', 'nexus-cockpit', 'nexus-postinstall']) {
+  for (const script of ['nexus-bootstrap', 'nexus-cockpit', 'nexus-postinstall', 'nexus-memory-tiering']) {
     it(`${script} exists and starts with a bash shebang`, () => {
       const p = join(binDir, script);
       expect(existsSync(p), `${p} missing`).toBe(true);
@@ -389,5 +391,13 @@ describe('installer · overlay avoids Elemental /usr/local persistent mount', ()
     const serve = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'serve-cockpit.py'), 'utf8');
     expect(serve).toMatch(/\/api\/v1\/telemetry\/environment/);
     expect(serve).toMatch(/\/api\/v1\/health\/live/);
+    expect(serve).toMatch(/\/api\/v1\/telemetry\/accelerators/);
+    const metricsSrc = readFileSync(metrics, 'utf8');
+    expect(metricsSrc).toMatch(/"accelerators": accelerators/);
+    expect(metricsSrc).toMatch(/"storageIops": _storage_iops_from_host\(host\)/);
+    const dash = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'dashboard_collectors.py'), 'utf8');
+    expect(dash).toMatch(/"accelerators": _collect_accelerator_summary\(\)/);
+    expect(dash).toMatch(/"storageIops": _storage_iops_from_host\(host\)/);
+    expect(dash).toMatch(/_parse_cpu_cores/);
   });
 });

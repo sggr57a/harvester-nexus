@@ -18,13 +18,16 @@ stages:
         enable:
           - nexus-bootstrap.service
           - nexus-cockpit.service
+          - nexus-memory-tiering.service
+          - nexus-memory-tiering.timer
         start:
           - nexus-cockpit.service
+          - nexus-memory-tiering.service
   boot:
     - name: "ensure Nexus cockpit starts on installed system boot"
       if: 'grep -q root=LABEL=COS_STATE /proc/cmdline && [ -n "$(blkid -L COS_STATE)" ]'
       commands:
-        - mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls
+        - mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls /var/lib/nexus/memory-tiering
         - |
           if [ -f /usr/share/nexus-cockpit/dist.tar.gz ] \
              && [ ! -f /usr/share/nexus-cockpit/dist/index.html ] \
@@ -35,5 +38,8 @@ stages:
         enable:
           - nexus-bootstrap.service
           - nexus-cockpit.service
+          - nexus-memory-tiering.service
+          - nexus-memory-tiering.timer
         start:
           - nexus-cockpit.service
+          - nexus-memory-tiering.service

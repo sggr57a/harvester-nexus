@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatNumber, nextSnapshot } from './liveTelemetry';
+import { emptyEnvironmentSnapshot } from './telemetry/emptySnapshot';
 
 describe('nextSnapshot', () => {
   it('produces an initial snapshot with all required fields', () => {
@@ -12,6 +13,27 @@ describe('nextSnapshot', () => {
     expect(snap.cpuPercent).toBeGreaterThanOrEqual(38);
     expect(snap.cpuPercent).toBeLessThanOrEqual(86);
     expect(snap.deltas).toBeDefined();
+  });
+
+  it('includes demo add-in card counts on the same snapshot as CPU and DRAM', () => {
+    const snap = nextSnapshot();
+    expect(snap.accelerators?.cards).toBeGreaterThan(0);
+    expect(snap.accelerators?.byKind.gpu).toBeGreaterThan(0);
+    expect(snap.accelerators?.byKind.fpga).toBeGreaterThan(0);
+  });
+
+  it('includes demo per-disk IOPS on the same snapshot as CPU and DRAM', () => {
+    const snap = nextSnapshot();
+    expect(snap.storageIops?.totalIops).toBe(1_120_000);
+    expect(snap.storageIops?.devices.length).toBeGreaterThan(0);
+    expect(snap.storageIops?.source).toBe('demo');
+  });
+
+  it('keeps the same demo accelerator inventory across ticks', () => {
+    const first = nextSnapshot();
+    const second = nextSnapshot(first);
+    expect(second.accelerators?.cards).toBe(first.accelerators?.cards);
+    expect(second.accelerators?.byKind).toEqual(first.accelerators?.byKind);
   });
 
   it('advances tick and emits bounded deltas', () => {
@@ -34,6 +56,20 @@ describe('nextSnapshot', () => {
   });
 });
 
+describe('emptyEnvironmentSnapshot', () => {
+  it('reports zero add-in cards and null hottestC when live telemetry is unavailable', () => {
+    const snap = emptyEnvironmentSnapshot(3);
+    expect(snap.tick).toBe(3);
+    expect(snap.cpuPercent).toBe(0);
+    expect(snap.ramPercent).toBe(0);
+    expect(snap.accelerators?.cards).toBe(0);
+    expect(snap.accelerators?.hottestC).toBeNull();
+    expect(snap.accelerators?.devices).toEqual([]);
+    expect(snap.storageIops?.totalIops).toBeNull();
+    expect(snap.storageIops?.devices).toEqual([]);
+    expect(snap.unavailableMetrics).toContain('totalIops');
+  });
+});
 describe('formatNumber', () => {
   it('formats large numbers as compact when requested', () => {
     expect(formatNumber(1_200_000, { compact: true })).toBe('1.20M');

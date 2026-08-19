@@ -287,16 +287,17 @@ export interface NumaZone {
   id: string;
   cores: CpuCore[];
   localRamGiB: number;
-  remoteHitsPct: number;
+  remoteHitsPct: number | null;
 }
 
 export interface MemoryTier {
-  id: 'dram' | 'nvme' | 'phase-change' | 'swap';
+  id: 'dram' | 'hbm' | 'cxl' | 'nvme' | 'phase-change' | 'zswap' | 'swap';
   label: string;
   capacityGiB: number;
   usedGiB: number;
-  latencyNs: number;
-  throughputGiBs: number;
+  latencyNs: number | null;
+  throughputGiBs: number | null;
+  present?: boolean;
 }
 
 export interface PressureSample {
@@ -452,12 +453,20 @@ export interface NumaPinningEntry {
 
 export interface PassThroughDevice {
   id: string;
-  kind: 'gpu' | 'fpga' | 'smart-nic' | 'tpu';
+  kind: 'gpu' | 'fpga' | 'smart-nic' | 'tpu' | 'npu';
   model: string;
   boundTo: string;
-  driver: 'vfio-pci' | 'mdev' | 'sr-iov';
-  utilizationPercent: number;
-  memoryGiB: number;
+  driver: string;
+  utilizationPercent: number | null;
+  memoryGiB: number | null;
+  issues?: string[];
+  temperatureC?: number | null;
+  numaNode?: number | null;
+  linkDownshifted?: boolean;
+  currentLinkSpeed?: string | null;
+  aerCorrectable?: number | null;
+  aerUncorrectable?: number | null;
+  runtimeStatus?: string | null;
 }
 
 export interface NestedVirtCluster {
@@ -486,6 +495,10 @@ export interface AccelerationDashboard {
   nestedClusters: NestedVirtCluster[];
   dpdkPorts: DpdkRingBuffer[];
   spdkLanes: { lane: string; queueDepth: number; latencyMicros: number; throughputGiBs: number }[];
+  available?: boolean;
+  issues?: string[];
+  waitingForHardware?: string[];
+  error?: string;
 }
 
 export interface EnvironmentZone {
@@ -761,9 +774,12 @@ export function buildProcessorMemoryDashboard(): ProcessorMemoryDashboard {
     title: 'Processor & Memory',
     numaZones: [buildZone('numa-0', 32, 58, 256, 6), buildZone('numa-1', 32, 71, 256, 9)],
     memoryTiers: [
+      { id: 'hbm', label: 'HBM', capacityGiB: 128, usedGiB: 96, latencyNs: 40, throughputGiBs: 128 },
       { id: 'dram', label: 'DRAM DDR5', capacityGiB: 512, usedGiB: 388, latencyNs: 82, throughputGiBs: 64 },
-      { id: 'nvme', label: 'Memory-tier NVMe', capacityGiB: 4096, usedGiB: 1820, latencyNs: 410, throughputGiBs: 18 },
-      { id: 'phase-change', label: 'Phase-change tier', capacityGiB: 8192, usedGiB: 1240, latencyNs: 940, throughputGiBs: 9 },
+      { id: 'cxl', label: 'CXL Type-3', capacityGiB: 2048, usedGiB: 410, latencyNs: 180, throughputGiBs: 32 },
+      { id: 'nvme', label: 'Hypervisor NVMe page store', capacityGiB: 4096, usedGiB: 1820, latencyNs: 410, throughputGiBs: 18 },
+      { id: 'phase-change', label: 'Phase-change / PMem DAX', capacityGiB: 8192, usedGiB: 1240, latencyNs: 940, throughputGiBs: 9 },
+      { id: 'zswap', label: 'zswap (compressed DRAM)', capacityGiB: 128, usedGiB: 22, latencyNs: 200, throughputGiBs: 20 },
       { id: 'swap', label: 'Swap (NVMe)', capacityGiB: 1024, usedGiB: 184, latencyNs: 2400, throughputGiBs: 4 },
     ],
     pressureWaterfall: [

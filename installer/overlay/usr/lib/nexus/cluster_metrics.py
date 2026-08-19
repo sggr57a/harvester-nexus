@@ -235,6 +235,31 @@ def _harvester_ready(kubeconfig: str) -> bool:
     return True
 
 
+def _collect_accelerator_summary() -> dict[str, Any]:
+    """Add-in card pulse for the environment tick. Never invents utilization."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "nexus_accelerator_inventory",
+            os.path.join(os.path.dirname(__file__), "accelerator_inventory.py"),
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("accelerator_inventory module missing")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.environment_summary()
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "available": False,
+            "cards": 0,
+            "issues": 0,
+            "hottestC": None,
+            "byKind": {},
+            "waitingForHardware": [],
+            "devices": [],
+            "error": str(exc),
+        }
+
+
 def _collect_host_metrics() -> dict[str, Any]:
     """Real power / disk / network readings, or nulls when unavailable."""
     try:
@@ -250,6 +275,11 @@ def _collect_host_metrics() -> dict[str, Any]:
         return {
             "watts": None,
             "totalIops": None,
+            "readIops": None,
+            "writeIops": None,
+            "readMiBs": None,
+            "writeMiBs": None,
+            "disks": [],
             "ingressMbps": None,
             "egressMbps": None,
             "sources": {"host": "unavailable (host_metrics failed to load)"},
@@ -319,6 +349,19 @@ def _save_state(state: dict[str, Any]) -> None:
         sys.stderr.write("nexus-metrics: state persist failed (%s); continuing\n" % exc)
 
 
+def _storage_iops_from_host(host: dict[str, Any]) -> dict[str, Any]:
+    sources = host.get("sources") or {}
+    return {
+        "totalIops": host.get("totalIops"),
+        "readIops": host.get("readIops"),
+        "writeIops": host.get("writeIops"),
+        "readMiBs": host.get("readMiBs"),
+        "writeMiBs": host.get("writeMiBs"),
+        "devices": host.get("disks") or [],
+        "source": sources.get("totalIops"),
+    }
+
+
 def collect_environment() -> dict[str, Any]:
     kubeconfig = _find_kubeconfig()
     if not kubeconfig:
@@ -332,6 +375,7 @@ def collect_environment() -> dict[str, Any]:
     cluster_ready = _harvester_ready(kubeconfig)
     host = _collect_host_metrics()
     security = _security_posture(kubeconfig)
+    accelerators = _collect_accelerator_summary()
 
     state = _load_state()
     tick = int(state.get("tick", 0)) + 1
@@ -361,12 +405,17 @@ def collect_environment() -> dict[str, Any]:
         "nodeCount": node_count,
         "podCount": pod_count,
         "vmCount": vm_count,
+        # Same poll as CPU / RAM so every hardware dashboard can render
+        # FPGA / GPU / NPU / TPU without a second round trip.
+        "accelerators": accelerators,
+        "storageIops": _storage_iops_from_host(host),
         # Per-metric provenance so the cockpit can label partial coverage
         # rather than presenting every figure as equally authoritative.
         "metricSources": {
             **host.get("sources", {}),
             "cpu": "metrics-server" if cpu_percent is not None else "unavailable (metrics-server not installed)",
             "security": security.get("source", "unavailable"),
+            "accelerators": "sysfs-pci" if accelerators.get("available") else "unavailable",
         },
     }
 

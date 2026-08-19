@@ -24,12 +24,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
 from typing import Any
 
 SAMPLE_FILE = os.environ.get("NEXUS_HOST_SAMPLE_FILE", "/var/lib/nexus/host-sample.json")
+SAMPLE_FILE_FALLBACK = "/tmp/nexus-host-sample.json"
+PARTITION_RE = re.compile(r"p\d+$")
+SECTOR_BYTES = 512.0
 
 # Virtual and loopback devices would double-count traffic that already
 # traverses a physical NIC, so they are excluded from throughput totals.
@@ -113,26 +117,31 @@ def _ipmi_watts() -> float | None:
 # ---------------------------------------------------------------- disk
 
 
-def _diskstats() -> dict[str, tuple[int, int]] | None:
-    """Return {device: (reads_completed, writes_completed)} for real devices."""
+def _is_partition(name: str) -> bool:
+    """True for sda1 / nvme0n1p1 / mmcblk0p2 — not the parent device."""
+    if name.startswith(("nvme", "mmcblk")):
+        return bool(PARTITION_RE.search(name))
+    return bool(name) and name[-1].isdigit()
+
+
+def _diskstats(proc_root: str = "/proc") -> dict[str, tuple[int, int, int, int]] | None:
+    """Return {device: (reads, writes, sectors_read, sectors_written)}."""
+    path = os.path.join(proc_root, "diskstats")
     try:
-        with open("/proc/diskstats", "r", encoding="utf-8") as fh:
+        with open(path, "r", encoding="utf-8") as fh:
             lines = fh.readlines()
     except OSError:
         return None
-    out: dict[str, tuple[int, int]] = {}
+    out: dict[str, tuple[int, int, int, int]] = {}
     for line in lines:
         fields = line.split()
-        if len(fields) < 8:
+        if len(fields) < 10:
             continue
         name = fields[2]
-        if name.startswith(VIRTUAL_DISK_PREFIXES):
-            continue
-        # Skip partitions (sda1) in favour of their parent device (sda).
-        if name[-1].isdigit() and not name.startswith("nvme"):
+        if name.startswith(VIRTUAL_DISK_PREFIXES) or _is_partition(name):
             continue
         try:
-            out[name] = (int(fields[3]), int(fields[7]))
+            out[name] = (int(fields[3]), int(fields[7]), int(fields[5]), int(fields[9]))
         except ValueError:
             continue
     return out or None
@@ -141,10 +150,11 @@ def _diskstats() -> dict[str, tuple[int, int]] | None:
 # ---------------------------------------------------------------- network
 
 
-def _netdev() -> dict[str, tuple[int, int]] | None:
+def _netdev(proc_root: str = "/proc") -> dict[str, tuple[int, int]] | None:
     """Return {iface: (rx_bytes, tx_bytes)} for physical interfaces."""
+    path = os.path.join(proc_root, "net", "dev")
     try:
-        with open("/proc/net/dev", "r", encoding="utf-8") as fh:
+        with open(path, "r", encoding="utf-8") as fh:
             lines = fh.readlines()[2:]
     except OSError:
         return None
@@ -167,25 +177,45 @@ def _netdev() -> dict[str, tuple[int, int]] | None:
 # ---------------------------------------------------------------- sampling
 
 
-def _load_sample() -> dict[str, Any]:
+def _resolve_sample_file(explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    env = os.environ.get("NEXUS_HOST_SAMPLE_FILE")
+    if env:
+        return env
+    directory = os.path.dirname(SAMPLE_FILE)
+    if directory:
+        try:
+            os.makedirs(directory, exist_ok=True)
+            probe = SAMPLE_FILE + ".probe"
+            with open(probe, "w", encoding="utf-8") as handle:
+                handle.write("")
+            os.remove(probe)
+            return SAMPLE_FILE
+        except OSError:
+            return SAMPLE_FILE_FALLBACK
+    return SAMPLE_FILE
+
+
+def _load_sample(path: str) -> dict[str, Any]:
     try:
-        with open(SAMPLE_FILE, "r", encoding="utf-8") as fh:
+        with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         return data if isinstance(data, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
 
 
-def _save_sample(sample: dict[str, Any]) -> None:
+def _save_sample(path: str, sample: dict[str, Any]) -> None:
     """Best-effort persist; a read-only /var must not break metrics."""
     try:
-        directory = os.path.dirname(SAMPLE_FILE)
+        directory = os.path.dirname(path)
         if directory:
             os.makedirs(directory, exist_ok=True)
-        tmp = SAMPLE_FILE + ".tmp"
+        tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(sample, fh)
-        os.replace(tmp, SAMPLE_FILE)
+        os.replace(tmp, path)
     except OSError:
         pass
 
@@ -197,21 +227,23 @@ def _rate(current: int, previous: int, seconds: float) -> float | None:
     return (current - previous) / seconds
 
 
-def collect_host_metrics() -> dict[str, Any]:
+def collect_host_metrics(proc_root: str = "/proc", sample_file: str | None = None) -> dict[str, Any]:
     """Sample the host once and return real rates plus availability flags.
 
-    Returns keys ``watts``, ``totalIops``, ``ingressMbps``, ``egressMbps``,
-    each either a number or ``None``, and ``sources`` describing where each
-    figure came from so the UI can be explicit about partial coverage.
+    Returns keys ``watts``, ``totalIops``, ``readIops``, ``writeIops``,
+    ``readMiBs``, ``writeMiBs``, ``disks``, ``ingressMbps``, ``egressMbps``,
+    each either a number / list or ``None``, and ``sources`` describing where
+    each figure came from so the UI can be explicit about partial coverage.
     """
     now = time.time()
-    previous = _load_sample()
+    path = _resolve_sample_file(sample_file)
+    previous = _load_sample(path)
     prev_time = float(previous.get("timestamp") or 0.0)
     elapsed = now - prev_time if prev_time else 0.0
 
     rapl = _rapl_microjoules()
-    disks = _diskstats()
-    nets = _netdev()
+    disks = _diskstats(proc_root)
+    nets = _netdev(proc_root)
 
     sample: dict[str, Any] = {"timestamp": now}
     if rapl is not None:
@@ -235,23 +267,52 @@ def collect_host_metrics() -> dict[str, Any]:
     if watts is None:
         sources["watts"] = "unavailable"
 
-    # --- disk IOPS ---
+    # --- disk IOPS + throughput ---
     total_iops: float | None = None
+    read_iops: float | None = None
+    write_iops: float | None = None
+    read_mibs: float | None = None
+    write_mibs: float | None = None
+    disk_rows: list[dict[str, Any]] = []
     if disks and elapsed > 0 and isinstance(previous.get("disks"), dict):
-        accumulated = 0.0
+        acc_r = acc_w = acc_sr = acc_sw = 0.0
         matched = False
-        for device, (reads, writes) in disks.items():
+        for device, counters in disks.items():
+            reads, writes, sec_r, sec_w = counters
             prev_pair = previous["disks"].get(device)
-            if not isinstance(prev_pair, list) or len(prev_pair) != 2:
+            if not isinstance(prev_pair, list) or len(prev_pair) < 2:
                 continue
             r = _rate(reads, int(prev_pair[0]), elapsed)
             w = _rate(writes, int(prev_pair[1]), elapsed)
             if r is None or w is None:
                 continue
-            accumulated += r + w
+            sr = sw = None
+            if len(prev_pair) >= 4:
+                sr = _rate(sec_r, int(prev_pair[2]), elapsed)
+                sw = _rate(sec_w, int(prev_pair[3]), elapsed)
             matched = True
+            acc_r += r
+            acc_w += w
+            row: dict[str, Any] = {
+                "device": device,
+                "iops": round(r + w, 1),
+                "readIops": round(r, 1),
+                "writeIops": round(w, 1),
+                "readMiBs": None if sr is None else round(sr * SECTOR_BYTES / (1024.0 * 1024.0), 2),
+                "writeMiBs": None if sw is None else round(sw * SECTOR_BYTES / (1024.0 * 1024.0), 2),
+            }
+            disk_rows.append(row)
+            if sr is not None:
+                acc_sr += sr
+            if sw is not None:
+                acc_sw += sw
         if matched:
-            total_iops = round(accumulated, 1)
+            total_iops = round(acc_r + acc_w, 1)
+            read_iops = round(acc_r, 1)
+            write_iops = round(acc_w, 1)
+            if any(row.get("readMiBs") is not None for row in disk_rows):
+                read_mibs = round(acc_sr * SECTOR_BYTES / (1024.0 * 1024.0), 2)
+                write_mibs = round(acc_sw * SECTOR_BYTES / (1024.0 * 1024.0), 2)
             sources["totalIops"] = "/proc/diskstats"
     if total_iops is None:
         sources["totalIops"] = "unavailable (needs two samples)"
@@ -281,11 +342,16 @@ def collect_host_metrics() -> dict[str, Any]:
     if ingress_mbps is None:
         sources["network"] = "unavailable (needs two samples)"
 
-    _save_sample(sample)
+    _save_sample(path, sample)
 
     return {
         "watts": watts,
         "totalIops": total_iops,
+        "readIops": read_iops,
+        "writeIops": write_iops,
+        "readMiBs": read_mibs,
+        "writeMiBs": write_mibs,
+        "disks": disk_rows,
         "ingressMbps": ingress_mbps,
         "egressMbps": egress_mbps,
         "sources": sources,

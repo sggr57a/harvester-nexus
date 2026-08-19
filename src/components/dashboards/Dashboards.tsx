@@ -14,12 +14,15 @@ import {
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 import type { LiveOperationsSlice } from '../../lib/telemetry/dashboardTypes';
 import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters';
-import type { MachinesDashboard, StorageDashboard, ConsoleChip } from '../../lib/dashboards';
+import type { MachinesDashboard, StorageDashboard, ConsoleChip, ProcessorMemoryDashboard } from '../../lib/dashboards';
 import { consoleChipsFromFleet } from '../../lib/machineConsole';
 import { MachineDetailPanel } from '../MachineDetailPanel';
 import { ConsoleSession } from '../ConsoleSession';
 import { DemoCatalogPlaceholder, LiveEmptyPanel } from './LiveEmptyPanel';
 import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
+import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
+import { StorageIopsPanel, StorageIopsTotals } from './StorageIopsMetrics';
+import { formatMetric } from '../../lib/telemetry/environmentAdapter';
 import {
   ChordDiagram,
   ChordWithStats,
@@ -57,6 +60,21 @@ interface DashboardViewProps {
   machinesDashboard?: MachinesDashboard;
   networkingDashboard?: import('../../lib/dashboards').NetworkingDashboard;
   operationsLinks?: LiveOperationsSlice;
+  processorMemory?: ProcessorMemoryDashboard & {
+    available?: boolean;
+    policy?: string;
+    enabled?: boolean;
+    waitingForHardware?: string[];
+    vmstat?: Record<string, number | null>;
+    zswap?: import('../../lib/telemetry/dashboardTypes').LiveProcessorMemorySlice['zswap'];
+    meminfo?: Record<string, number | null>;
+    demotionEnabled?: boolean | null;
+    numaBalancing?: number | null;
+    capabilities?: Record<string, boolean>;
+    notes?: string[];
+    error?: string;
+  };
+  acceleration?: import('../../lib/dashboards').AccelerationDashboard;
   onCreateWorkload?: (kind?: 'kubevirt-vm' | 'incus-lxc' | 'k8s-pod') => void;
   onConfigureStorage?: () => void;
   onConfigureNetwork?: () => void;
@@ -733,7 +751,16 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard, 
         </div>
         <div className="dash-totals">
           <div><span>Capacity</span><strong>{isLive ? '—' : `${backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB`}</strong></div>
-          <div><span>IOPS</span><strong><LiveValue value={isLive ? (telemetry?.totalIops?.toLocaleString() ?? '0') : `${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
+          {isLive ? (
+            <StorageIopsTotals summary={telemetry?.storageIops} />
+          ) : (
+            <div>
+              <span>IOPS</span>
+              <strong>
+                <LiveValue value={`${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} />
+              </strong>
+            </div>
+          )}
           {onConfigureStorage && (
             <button type="button" className="primary-btn dash-action-btn" onClick={onConfigureStorage}>
               Configure storage
@@ -741,6 +768,8 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard, 
           )}
         </div>
       </header>
+
+      <StorageIopsPanel summary={telemetry?.storageIops} />
 
       {!isLive && (
       <>
@@ -836,9 +865,9 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard, 
                 <text x="50" y="62" textAnchor="middle" className="radial-sub">{backend.capacityTiB}TiB</text>
               </svg>
               <dl className="backend-stats">
-                <div><dt>IOPS</dt><dd><LiveValue value={backend.iops.toLocaleString()} /></dd></div>
-                <div><dt>R</dt><dd>{backend.readMiBs} MiB/s</dd></div>
-                <div><dt>W</dt><dd>{backend.writeMiBs} MiB/s</dd></div>
+                <div><dt>IOPS</dt><dd><LiveValue value={isLive ? '—' : backend.iops.toLocaleString()} /></dd></div>
+                <div><dt>R</dt><dd>{isLive ? '—' : `${backend.readMiBs} MiB/s`}</dd></div>
+                <div><dt>W</dt><dd>{isLive ? '—' : `${backend.writeMiBs} MiB/s`}</dd></div>
               </dl>
               <div className="backend-features">
                 {backend.features.map((feat) => <span key={feat}>{feat}</span>)}
@@ -1134,12 +1163,13 @@ function CoreHeatCell({ core }: { core: CpuCore }) {
   );
 }
 
-export function ProcessorMemoryDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
-  if (dataSource === 'live') {
-    return <DemoCatalogPlaceholder viewName="Processor & Memory" dataSource={dataSource} />;
-  }
-  const { numaZones, memoryTiers, pressureWaterfall, swapDevices, hugepages } = procmem;
+export function ProcessorMemoryDashboardView({ telemetry, dataSource, processorMemory }: DashboardViewProps = {}) {
+  const isLive = dataSource === 'live';
+  const catalog = processorMemory ?? procmem;
+  const { numaZones, memoryTiers, pressureWaterfall, swapDevices, hugepages } = catalog;
+  const dramTier = memoryTiers.find((tier) => tier.id === 'dram') ?? memoryTiers[0];
   const liveZones = useMemo(() => {
+    if (isLive) return numaZones;
     if (!telemetry) return numaZones;
     const cpuFactor = telemetry.cpuPercent / 58;
     return numaZones.map((zone) => ({
@@ -1149,9 +1179,9 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource }: Dashboar
         utilizationPercent: Math.max(4, Math.min(100, Math.round(core.utilizationPercent * cpuFactor))),
       })),
     }));
-  }, [telemetry]);
+  }, [telemetry, numaZones, isLive]);
   const livePressure = useMemo(() => {
-    if (!telemetry) return pressureWaterfall;
+    if (isLive || !telemetry) return pressureWaterfall;
     const cpuFactor = telemetry.cpuPercent / 58;
     const memFactor = telemetry.ramPercent / 64;
     return pressureWaterfall.map((sample, idx) => ({
@@ -1159,24 +1189,40 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource }: Dashboar
       cpuPressure: Math.round(sample.cpuPressure * (idx === pressureWaterfall.length - 1 ? cpuFactor : 1)),
       memoryPressure: Math.round(sample.memoryPressure * (idx === pressureWaterfall.length - 1 ? memFactor : 1)),
     }));
-  }, [telemetry]);
-  const maxPressure = Math.max(
-    ...livePressure.flatMap((sample) => [sample.cpuPressure, sample.memoryPressure, sample.ioPressure]),
-  );
+  }, [telemetry, pressureWaterfall, isLive]);
+  const pressureValues = livePressure.flatMap((sample) => [sample.cpuPressure, sample.memoryPressure, sample.ioPressure]);
+  const maxPressure = Math.max(1, ...pressureValues);
+  const extra = processorMemory;
   return (
     <section className="dash dash-procmem" aria-label="Processor and memory dashboard">
       <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CORE // MEMORY</span>
-          <h2>{procmem.title}</h2>
-          <p>NUMA core heatmap, memory tier topology, pressure waterfall, hugepages, swap devices.</p>
+          <h2>{catalog.title}</h2>
+          <p>
+            NUMA heatmap, DRAM/HBM/CXL/PMem/zswap/NVMe/swap tiers, PSI pressure, hugepages,
+            and allowlisted PCI add-in cards (FPGA / GPU / NPU / TPU) from the same hardware tick.
+            {isLive && extra?.policy ? ` Policy: ${extra.policy}.` : ''}
+          </p>
         </div>
         <div className="dash-totals">
           <div><span>Cores</span><strong>{numaZones.reduce((sum, zone) => sum + zone.cores.length, 0)}</strong></div>
-          <div><span>DRAM</span><strong>{memoryTiers[0]?.capacityGiB} GiB</strong></div>
+          <div><span>DRAM</span><strong>{dramTier ? `${dramTier.capacityGiB} GiB` : '—'}</strong></div>
+          {isLive ? (
+            <div><span>Demotion</span><strong>{extra?.demotionEnabled == null ? '—' : extra.demotionEnabled ? 'on' : 'off'}</strong></div>
+          ) : null}
+          <HardwareAddOnTotals summary={telemetry?.accelerators} />
+          <StorageIopsTotals summary={telemetry?.storageIops} />
         </div>
       </header>
+
+      {isLive && (extra?.waitingForHardware?.length ?? 0) > 0 ? (
+        <article className="dash-panel live-empty-panel">
+          <div className="panel-title"><span>Waiting for hardware</span><strong>{extra?.waitingForHardware?.length}</strong></div>
+          <p>These tiers activate when the firmware exposes them: {extra?.waitingForHardware?.join(', ')}.</p>
+        </article>
+      ) : null}
 
       <article className="dash-panel">
         <div className="panel-title"><span>NUMA core heatmap</span><strong>{numaZones.length} zones</strong></div>
@@ -1185,7 +1231,7 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource }: Dashboar
             <div key={zone.id} className="numa-zone">
               <div className="numa-head">
                 <strong>{zone.id}</strong>
-                <span>{zone.localRamGiB} GiB local · {zone.remoteHitsPct}% remote</span>
+                <span>{zone.localRamGiB} GiB local · {zone.remoteHitsPct == null ? '—' : `${zone.remoteHitsPct}% remote`}</span>
               </div>
               <div className="core-grid">
                 {zone.cores.map((core) => <CoreHeatCell key={core.id} core={core} />)}
@@ -1199,19 +1245,23 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource }: Dashboar
         <article className="dash-panel">
           <div className="panel-title"><span>Memory tier topology</span><strong>{memoryTiers.length} tiers</strong></div>
           <ul className="memory-tiers">
-            {memoryTiers.map((tier) => (
-              <li key={tier.id} className={`tier-${tier.id}`}>
-                <div className="tier-head">
-                  <strong>{tier.label}</strong>
-                  <span>{tier.usedGiB} / {tier.capacityGiB} GiB</span>
-                </div>
-                <div className="tier-bar"><i style={{ width: `${(tier.usedGiB / tier.capacityGiB) * 100}%` }} /></div>
-                <div className="tier-sub">
-                  <span>{tier.latencyNs}ns latency</span>
-                  <span>{tier.throughputGiBs} GiB/s</span>
-                </div>
-              </li>
-            ))}
+            {memoryTiers.map((tier) => {
+              const cap = tier.capacityGiB || 0;
+              const usedPct = cap > 0 ? (tier.usedGiB / cap) * 100 : 0;
+              return (
+                <li key={tier.id} className={`tier-${tier.id}`}>
+                  <div className="tier-head">
+                    <strong>{tier.label}</strong>
+                    <span>{tier.usedGiB} / {tier.capacityGiB} GiB{tier.present === false ? ' · absent' : ''}</span>
+                  </div>
+                  <div className="tier-bar"><i style={{ width: `${usedPct}%` }} /></div>
+                  <div className="tier-sub">
+                    <span>{tier.latencyNs == null ? '—' : `${tier.latencyNs}ns`} latency</span>
+                    <span>{tier.throughputGiBs == null ? '—' : `${tier.throughputGiBs} GiB/s`}</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </article>
 
@@ -1234,10 +1284,11 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource }: Dashboar
         <article className="dash-panel">
           <div className="panel-title"><span>Swap devices</span><strong>{swapDevices.length}</strong></div>
           <ul className="swap-list">
+            {swapDevices.length === 0 ? <li><small>No swap active</small></li> : null}
             {swapDevices.map((dev) => (
               <li key={dev.device}>
                 <strong>{dev.device}</strong>
-                <div className="tier-bar"><i style={{ width: `${(dev.usedGiB / dev.sizeGiB) * 100}%` }} /></div>
+                <div className="tier-bar"><i style={{ width: `${dev.sizeGiB > 0 ? (dev.usedGiB / dev.sizeGiB) * 100 : 0}%` }} /></div>
                 <small>{dev.usedGiB} / {dev.sizeGiB} GiB · prio {dev.priority}</small>
               </li>
             ))}
@@ -1246,16 +1297,59 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource }: Dashboar
         <article className="dash-panel">
           <div className="panel-title"><span>Hugepages</span><strong>2MiB + 1GiB</strong></div>
           <ul className="hugepage-list">
-            {hugepages.map((page) => (
-              <li key={page.sizeMiB}>
-                <strong>{page.sizeMiB} MiB pages</strong>
-                <div className="tier-bar"><i style={{ width: `${(page.allocated / (page.allocated + page.free)) * 100}%` }} /></div>
-                <small>{page.allocated} allocated · {page.free} free</small>
-              </li>
-            ))}
+            {hugepages.map((page) => {
+              const total = page.allocated + page.free;
+              return (
+                <li key={page.sizeMiB}>
+                  <strong>{page.sizeMiB} MiB pages</strong>
+                  <div className="tier-bar"><i style={{ width: `${total > 0 ? (page.allocated / total) * 100 : 0}%` }} /></div>
+                  <small>{page.allocated} allocated · {page.free} free</small>
+                </li>
+              );
+            })}
           </ul>
         </article>
       </div>
+
+      <HardwareAddOnPanel summary={telemetry?.accelerators} />
+      <StorageIopsPanel summary={telemetry?.storageIops} />
+
+      {isLive && extra?.vmstat ? (
+        <div className="dash-row dash-row-2">
+          <article className="dash-panel">
+            <div className="panel-title"><span>Virtual memory counters</span><strong>/proc/vmstat</strong></div>
+            <ul className="hugepage-list">
+              {[
+                ['pgdemoteKswapd', extra.vmstat.pgdemoteKswapd],
+                ['pgdemoteDirect', extra.vmstat.pgdemoteDirect],
+                ['pgpromoteSuccess', extra.vmstat.pgpromoteSuccess],
+                ['pswpin', extra.vmstat.pswpin],
+                ['pswpout', extra.vmstat.pswpout],
+                ['zswpin', extra.vmstat.zswpin],
+                ['zswpout', extra.vmstat.zswpout],
+                ['pgmajfault', extra.vmstat.pgmajfault],
+                ['numaHit', extra.vmstat.numaHit],
+                ['numaMiss', extra.vmstat.numaMiss],
+              ].map(([label, value]) => (
+                <li key={String(label)}>
+                  <strong>{label}</strong>
+                  <small>{value == null ? '—' : String(value)}</small>
+                </li>
+              ))}
+            </ul>
+          </article>
+          <article className="dash-panel">
+            <div className="panel-title"><span>zswap / committed</span><strong>meminfo</strong></div>
+            <ul className="hugepage-list">
+              <li><strong>zswap</strong><small>{extra.zswap?.enabled == null ? '—' : extra.zswap.enabled ? `on · ${extra.zswap.compressor ?? '—'}` : 'off'}</small></li>
+              <li><strong>zswap stored pages</strong><small>{extra.zswap?.storedPages == null ? '—' : extra.zswap.storedPages}</small></li>
+              <li><strong>Committed_AS</strong><small>{extra.meminfo?.committedAsKb == null ? '—' : `${Math.round((extra.meminfo.committedAsKb / 1024 / 1024) * 10) / 10} GiB`}</small></li>
+              <li><strong>AnonPages</strong><small>{extra.meminfo?.anonPagesKb == null ? '—' : `${Math.round((extra.meminfo.anonPagesKb / 1024 / 1024) * 10) / 10} GiB`}</small></li>
+              <li><strong>numa_balancing</strong><small>{extra.numaBalancing == null ? '—' : extra.numaBalancing}</small></li>
+            </ul>
+          </article>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1289,9 +1383,11 @@ export function OperationsDashboardView({ telemetry, dataSource, operationsLinks
         <div className="dash-totals">
           {isLive ? (
             <>
-              <div><span>CPU</span><strong><LiveValue value={`${telemetry?.cpuPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
-              <div><span>RAM</span><strong><LiveValue value={`${telemetry?.ramPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
-              <div><span>Est. watts</span><strong><LiveValue value={telemetry?.watts ?? 0} /></strong></div>
+              <div><span>CPU</span><strong><LiveValue value={formatMetric(telemetry, 'cpuPercent', (v) => `${v.toFixed(1)}%`)} /></strong></div>
+              <div><span>RAM</span><strong><LiveValue value={formatMetric(telemetry, 'ramPercent', (v) => `${v.toFixed(1)}%`)} /></strong></div>
+              <div><span>Est. watts</span><strong><LiveValue value={formatMetric(telemetry, 'watts', (v) => String(v))} /></strong></div>
+              <HardwareAddOnTotals summary={telemetry?.accelerators} />
+              <StorageIopsTotals summary={telemetry?.storageIops} />
             </>
           ) : (
             <>
@@ -1324,10 +1420,14 @@ export function OperationsDashboardView({ telemetry, dataSource, operationsLinks
       )}
 
       {isLive ? (
-        <LiveEmptyPanel
-          title="Compliance and chargeback panels are demo-only"
-          detail="Live mode shows cluster CPU/RAM/watts and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
-        />
+        <>
+          <HardwareAddOnPanel summary={telemetry?.accelerators} />
+          <StorageIopsPanel summary={telemetry?.storageIops} />
+          <LiveEmptyPanel
+            title="Compliance and chargeback panels are demo-only"
+            detail="Live mode shows cluster CPU/RAM/watts, PCI add-in cards, disk IOPS from /proc/diskstats, and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
+          />
+        </>
       ) : (
       <>
       <div className="dash-row dash-row-2">
@@ -1633,57 +1733,137 @@ export function PolyComputeDashboardView({ telemetry, dataSource }: DashboardVie
   );
 }
 
-export function AccelerationDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
-  if (dataSource === 'live') {
-    return <DemoCatalogPlaceholder viewName="Acceleration & Hardware Pass-Through" dataSource={dataSource} />;
-  }
-  const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = accel;
+export function AccelerationDashboardView({ telemetry, dataSource, acceleration }: DashboardViewProps = {}) {
+  const isLive = dataSource === 'live';
+  const catalog = isLive ? (acceleration ?? { ...accel, passThrough: [], features: [], numaPinning: [], nestedClusters: [], dpdkPorts: [], spdkLanes: [], available: false }) : accel;
+  const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = catalog;
   const liveFeatures = useMemo(() => {
+    if (isLive) return features;
     if (!telemetry) return features;
     const drift = ((telemetry.tick * 3) % 12) - 6;
     return features.map((feature) => ({
       ...feature,
       utilizationPercent: Math.max(8, Math.min(99, feature.utilizationPercent + drift)),
     }));
-  }, [telemetry]);
+  }, [telemetry, features, isLive]);
   const liveDpdk = useMemo(() => {
-    if (!telemetry) return dpdkPorts;
+    if (isLive || !telemetry) return dpdkPorts;
     const factor = telemetry.ingressMbps / 78_420;
     return dpdkPorts.map((port) => ({
       ...port,
       loadPercent: Math.max(8, Math.min(99, Math.round(port.loadPercent * factor))),
       packetsPerSecond: Math.round(port.packetsPerSecond * factor),
     }));
-  }, [telemetry]);
+  }, [telemetry, dpdkPorts, isLive]);
+  const issueCount = (catalog.issues?.length ?? 0) + passThrough.reduce((sum, dev) => sum + (dev.issues?.length ?? 0), 0);
+  const polarBars = isLive
+    ? passThrough.map((dev) => ({
+        label: dev.model.replace(/^Intel |^Google |^AMD /, '').slice(0, 18),
+        value: dev.temperatureC ?? (dev.issues?.length ? 12 : 0),
+      }))
+    : liveFeatures.slice(0, 8).map((f) => ({ label: f.label, value: f.utilizationPercent }));
+  const polarAvg = polarBars.length
+    ? Math.round(polarBars.reduce((a, f) => a + f.value, 0) / polarBars.length)
+    : 0;
+  const numaGroups = useMemo(() => {
+    if (!isLive) {
+      return {
+        groups: [
+          { label: 'numa-0', color: 'var(--theme-accent)' },
+          { label: 'numa-1', color: 'var(--theme-accent-2)' },
+          { label: 'gpu-A100', color: 'var(--theme-good)' },
+          { label: 'gpu-H100', color: 'var(--theme-good)' },
+          { label: 'fpga', color: 'var(--theme-warn)' },
+          { label: 'smart-NIC', color: 'var(--theme-danger)' },
+        ],
+        links: [
+          { source: 0, target: 2, value: 18 },
+          { source: 0, target: 4, value: 12 },
+          { source: 0, target: 5, value: 14 },
+          { source: 1, target: 3, value: 22 },
+          { source: 1, target: 5, value: 10 },
+          { source: 1, target: 4, value: 8 },
+          { source: 2, target: 1, value: 6 },
+          { source: 3, target: 0, value: 9 },
+        ],
+      };
+    }
+    const numaIds = [...new Set(passThrough.map((d) => (d.numaNode == null ? 'unknown' : `numa-${d.numaNode}`)))];
+    const groups = [
+      ...numaIds.map((label, idx) => ({
+        label,
+        color: idx % 2 === 0 ? 'var(--theme-accent)' : 'var(--theme-accent-2)',
+      })),
+      ...passThrough.map((dev) => ({
+        label: `${dev.kind}:${dev.id.slice(-7)}`,
+        color: dev.issues?.length ? 'var(--theme-danger)' : 'var(--theme-good)',
+      })),
+    ];
+    const links = passThrough.map((dev, idx) => {
+      const numaLabel = dev.numaNode == null ? 'unknown' : `numa-${dev.numaNode}`;
+      const source = Math.max(0, numaIds.indexOf(numaLabel));
+      return { source, target: numaIds.length + idx, value: dev.temperatureC ?? 10 };
+    });
+    return { groups, links };
+  }, [isLive, passThrough]);
   return (
     <section className="dash dash-acceleration" aria-label="Acceleration and pass-through dashboard">
       <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">SILICON // ACCEL</span>
-          <h2>{accel.title}</h2>
-          <p>SPDK, DPDK, vhost-user fast paths · NUMA pinning + 1 GiB hugepages · GPU / FPGA / smart-NIC pass-through · nested virtualization for AI/ML.</p>
+          <h2>{catalog.title}</h2>
+          <p>
+            {isLive
+              ? 'Measured PCIe NPU / TPU / FPGA / GPU inventory. Utilization stays unavailable unless the vendor exports it; issues come from link, AER, driver, and IOMMU.'
+              : 'SPDK, DPDK, vhost-user fast paths · NUMA pinning + 1 GiB hugepages · GPU / FPGA / smart-NIC pass-through · nested virtualization for AI/ML.'}
+          </p>
         </div>
         <div className="dash-totals">
-          <div><span>Features</span><strong>{features.filter((f) => f.enabled).length}/{features.length}</strong></div>
-          <div><span>Pass-through</span><strong>{passThrough.length}</strong></div>
-          <div><span>Nested</span><strong>{nestedClusters.length}</strong></div>
+          <div><span>Cards</span><strong>{passThrough.length}</strong></div>
+          <div><span>Issues</span><strong>{issueCount}</strong></div>
+          <div><span>{isLive ? 'Waiting' : 'Nested'}</span><strong>{isLive ? (catalog.waitingForHardware?.length ?? 0) : nestedClusters.length}</strong></div>
         </div>
       </header>
+
+      {isLive && (catalog.waitingForHardware?.length ?? 0) > 0 ? (
+        <article className="dash-panel live-empty-panel">
+          <div className="panel-title"><span>Waiting for hardware</span><strong>{catalog.waitingForHardware?.length}</strong></div>
+          <p>Allowlisted families not on this node: {catalog.waitingForHardware?.join(', ')}.</p>
+        </article>
+      ) : null}
+
+      {isLive && (catalog.issues?.length ?? 0) > 0 ? (
+        <article className="dash-panel">
+          <div className="panel-title"><span>Hardware issues</span><strong>{catalog.issues?.length}</strong></div>
+          <ul className="passthrough-list">
+            {(catalog.issues ?? []).map((issue) => (
+              <li key={issue} className="pt-fpga">
+                <span className="kind-chip kind-file">issue</span>
+                <strong>{issue}</strong>
+              </li>
+            ))}
+          </ul>
+        </article>
+      ) : null}
 
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
           <div className="panel-title">
-            <span>Accelerator utilization · polar</span>
-            <strong>{liveFeatures.length} fast paths</strong>
+            <span>{isLive ? 'Card thermals · polar' : 'Accelerator utilization · polar'}</span>
+            <strong>{isLive ? `${passThrough.length} cards` : `${liveFeatures.length} fast paths`}</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <RadialBarChart
-              bars={liveFeatures.slice(0, 8).map((f) => ({ label: f.label, value: f.utilizationPercent }))}
-              size={300}
-              innerLabel="ACCEL"
-              innerValue={`${Math.round(liveFeatures.reduce((a, f) => a + f.utilizationPercent, 0) / liveFeatures.length)}%`}
-            />
+            {polarBars.length === 0 ? (
+              <LiveEmptyPanel title="No accelerator cards" detail="Plug in an allowlisted NPU, TPU, FPGA, or GPU. Metrics appear from sysfs (link, AER, temp) without a catalog." />
+            ) : (
+              <RadialBarChart
+                bars={polarBars}
+                size={300}
+                innerLabel="ACCEL"
+                innerValue={isLive ? `${issueCount} iss` : `${polarAvg}%`}
+              />
+            )}
           </div>
         </article>
 
@@ -1693,32 +1873,21 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
             <strong>numa node ↔ device</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <ChordDiagram
-              groups={[
-                { label: 'numa-0', color: 'var(--theme-accent)' },
-                { label: 'numa-1', color: 'var(--theme-accent-2)' },
-                { label: 'gpu-A100', color: 'var(--theme-good)' },
-                { label: 'gpu-H100', color: 'var(--theme-good)' },
-                { label: 'fpga', color: 'var(--theme-warn)' },
-                { label: 'smart-NIC', color: 'var(--theme-danger)' },
-              ]}
-              links={[
-                { source: 0, target: 2, value: 18 },
-                { source: 0, target: 4, value: 12 },
-                { source: 0, target: 5, value: 14 },
-                { source: 1, target: 3, value: 22 },
-                { source: 1, target: 5, value: 10 },
-                { source: 1, target: 4, value: 8 },
-                { source: 2, target: 1, value: 6 },
-                { source: 3, target: 0, value: 9 },
-              ]}
-              size={280}
-              tick={telemetry?.tick ?? 0}
-            />
+            {numaGroups.groups.length < 2 ? (
+              <p>No NUMA ↔ device mapping until a card enumerates.</p>
+            ) : (
+              <ChordDiagram
+                groups={numaGroups.groups}
+                links={numaGroups.links}
+                size={280}
+                tick={telemetry?.tick ?? 0}
+              />
+            )}
           </div>
         </article>
       </div>
 
+      {!isLive ? (
       <article className="dash-panel">
         <div className="panel-title"><span>Acceleration feature mesh</span><strong>data-path · scheduling · pass-through · nested-virt</strong></div>
         <div className="accel-feature-grid">
@@ -1737,8 +1906,10 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
           ))}
         </div>
       </article>
+      ) : null}
 
       <div className="dash-row dash-row-2">
+        {!isLive ? (
         <article className="dash-panel">
           <div className="panel-title"><span>NUMA pinning + hugepages</span><strong>{numaPinning.length} workloads pinned</strong></div>
           <table className="dash-table">
@@ -1764,24 +1935,52 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
             </tbody>
           </table>
         </article>
+        ) : (
+        <article className="dash-panel">
+          <div className="panel-title"><span>PCIe performance</span><strong>link · AER · runtime</strong></div>
+          <table className="dash-table">
+            <thead><tr><th>bdf</th><th>kind</th><th>link</th><th>temp</th><th>AER</th><th>runtime</th></tr></thead>
+            <tbody>
+              {passThrough.length === 0 ? (
+                <tr><td colSpan={6}>No allowlisted cards on this node.</td></tr>
+              ) : passThrough.map((dev) => (
+                <tr key={dev.id}>
+                  <td><code>{dev.id}</code></td>
+                  <td>{dev.kind}</td>
+                  <td>
+                    {dev.currentLinkSpeed ?? '—'}
+                    {dev.linkDownshifted ? ' ↓' : ''}
+                  </td>
+                  <td>{dev.temperatureC == null ? '—' : `${dev.temperatureC}°C`}</td>
+                  <td>{dev.aerCorrectable == null && dev.aerUncorrectable == null ? '—' : `${dev.aerCorrectable ?? 0}c / ${dev.aerUncorrectable ?? 0}u`}</td>
+                  <td>{dev.runtimeStatus ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+        )}
 
         <article className="dash-panel">
-          <div className="panel-title"><span>Pass-through devices</span><strong>vfio-pci · SR-IOV · mdev</strong></div>
+          <div className="panel-title"><span>Pass-through devices</span><strong>{isLive ? 'sysfs inventory' : 'vfio-pci · SR-IOV · mdev'}</strong></div>
           <ul className="passthrough-list">
             {passThrough.map((dev) => (
-              <li key={dev.id} className={`pt-${dev.kind}`}>
-                <span className={`kind-chip kind-${dev.kind === 'gpu' ? 'block' : dev.kind === 'fpga' ? 'object' : 'file'}`}>{dev.kind}</span>
+              <li key={dev.id} className={`pt-${dev.kind === 'npu' ? 'fpga' : dev.kind}`}>
+                <span className={`kind-chip kind-${dev.kind === 'gpu' ? 'block' : dev.kind === 'fpga' || dev.kind === 'npu' ? 'object' : 'file'}`}>{dev.kind}</span>
                 <strong>{dev.model}</strong>
-                <small>→ {dev.boundTo} · driver {dev.driver}</small>
-                <div className="cost-bar"><i style={{ width: `${dev.utilizationPercent}%` }} /></div>
-                <b>{dev.utilizationPercent}%</b>
-                <em>{dev.memoryGiB} GiB</em>
+                <small>→ {dev.boundTo} · driver {dev.driver}{dev.numaNode == null ? '' : ` · numa-${dev.numaNode}`}</small>
+                {dev.issues && dev.issues.length > 0 ? <small>{dev.issues.join(', ')}</small> : null}
+                <div className="cost-bar"><i style={{ width: `${dev.utilizationPercent ?? 0}%` }} /></div>
+                <b>{dev.utilizationPercent == null ? '—' : `${dev.utilizationPercent}%`}</b>
+                <em>{dev.memoryGiB == null ? '—' : `${dev.memoryGiB} GiB`}</em>
               </li>
             ))}
           </ul>
         </article>
       </div>
 
+      {!isLive ? (
+      <>
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
           <div className="panel-title"><span>SPDK userspace lanes</span><strong>NVMe-oF · Vitastor · Ceph</strong></div>
@@ -1825,6 +2024,8 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
           ))}
         </ul>
       </article>
+      </>
+      ) : null}
     </section>
   );
 }
