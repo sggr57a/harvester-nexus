@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import ssl
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from typing import Any
@@ -131,10 +133,16 @@ def _count_active_migrations(kubeconfig: str) -> int:
     return count
 
 
-def _node_capacity_usage(kubeconfig: str) -> tuple[float, float, int]:
+def _node_capacity_usage(kubeconfig: str) -> tuple[float | None, float | None, int]:
+    """Cluster CPU/RAM utilisation, or (None, None) when metrics-server is absent.
+
+    Returning 0.0 for "no data" made the cockpit render a confident 0% CPU on
+    clusters with no metrics pipeline, which is indistinguishable from a genuinely
+    idle cluster.
+    """
     nodes = _kubectl_json(kubeconfig, "get", "nodes")
     if not isinstance(nodes, dict):
-        return 0.0, 0.0, 0
+        return None, None, 0
 
     node_items = nodes.get("items") or []
     node_count = len(node_items)
@@ -166,8 +174,13 @@ def _node_capacity_usage(kubeconfig: str) -> tuple[float, float, int]:
             cpu_used += _parse_cpu_cores(str(usage.get("cpu", "0")))
             mem_used += _parse_bytes(str(usage.get("memory", "0")))
 
-    cpu_percent = round((cpu_used / cpu_cap) * 100.0, 1) if cpu_cap > 0 else 0.0
-    ram_percent = round((mem_used / mem_cap) * 100.0, 1) if mem_cap > 0 else 0.0
+    if not usage_by_name:
+        # Capacity is known from the node objects, but utilisation requires the
+        # metrics API. Report unavailable rather than 0%.
+        return None, None, node_count
+
+    cpu_percent = round((cpu_used / cpu_cap) * 100.0, 1) if cpu_cap > 0 else None
+    ram_percent = round((mem_used / mem_cap) * 100.0, 1) if mem_cap > 0 else None
     return cpu_percent, ram_percent, node_count
 
 
@@ -188,14 +201,100 @@ def _monitoring_addon_enabled(kubeconfig: str) -> bool:
 
 
 def _harvester_ready(kubeconfig: str) -> bool:
-    data = _kubectl_json(kubeconfig, "get", "pods", "-n", "kube-system")
-    if not isinstance(data, dict):
+    """True when every node reports Ready and kube-system has no failed pods.
+
+    The previous implementation matched the pod names ``rke2-server`` and
+    ``rke2-ingress-nginx``, so readiness never became true on a K3s-based
+    cluster even though the installer supports both distributions. Node
+    conditions are distribution-agnostic.
+    """
+    nodes = _kubectl_json(kubeconfig, "get", "nodes")
+    if not isinstance(nodes, dict):
         return False
-    names = " ".join(
-        ((item.get("metadata") or {}).get("name") or "")
-        for item in (data.get("items") or [])
-    )
-    return "rke2-server" in names or "rke2-ingress-nginx" in names
+    node_items = nodes.get("items") or []
+    if not node_items:
+        return False
+    for node in node_items:
+        conditions = (node.get("status") or {}).get("conditions") or []
+        ready = any(
+            c.get("type") == "Ready" and c.get("status") == "True" for c in conditions
+        )
+        if not ready:
+            return False
+
+    pods = _kubectl_json(kubeconfig, "get", "pods", "-n", "kube-system")
+    if not isinstance(pods, dict):
+        return False
+    items = pods.get("items") or []
+    if not items:
+        return False
+    for pod in items:
+        phase = (pod.get("status") or {}).get("phase")
+        if phase in ("Failed", "Unknown"):
+            return False
+    return True
+
+
+def _collect_host_metrics() -> dict[str, Any]:
+    """Real power / disk / network readings, or nulls when unavailable."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "nexus_host_metrics", os.path.join(os.path.dirname(__file__), "host_metrics.py")
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("host_metrics module missing")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.collect_host_metrics()
+    except Exception:  # noqa: BLE001
+        return {
+            "watts": None,
+            "totalIops": None,
+            "ingressMbps": None,
+            "egressMbps": None,
+            "sources": {"host": "unavailable (host_metrics failed to load)"},
+        }
+
+
+def _security_posture(kubeconfig: str) -> dict[str, Any]:
+    """Derive CVE count and a trust score from real scanner output.
+
+    ``trustScore`` was previously a hardcoded 85 that nothing ever wrote. It
+    is now computed from Trivy VulnerabilityReports when the operator has
+    deployed them, and is ``None`` otherwise, so the cockpit does not present
+    a constant as a measurement.
+    """
+    reports = _kubectl_json(kubeconfig, "get", "vulnerabilityreports.aquasecurity.github.io", "-A")
+    if not isinstance(reports, dict):
+        return {
+            "openCves": None,
+            "trustScore": None,
+            "source": "unavailable (Trivy VulnerabilityReports not present)",
+        }
+
+    critical = high = medium = low = 0
+    for item in reports.get("items") or []:
+        summary = (item.get("report") or {}).get("summary") or {}
+        critical += int(summary.get("criticalCount", 0) or 0)
+        high += int(summary.get("highCount", 0) or 0)
+        medium += int(summary.get("mediumCount", 0) or 0)
+        low += int(summary.get("lowCount", 0) or 0)
+
+    open_cves = critical + high + medium + low
+    # Weighted deduction, floored at 0: criticals dominate, lows barely move it.
+    penalty = critical * 10 + high * 3 + medium * 0.5 + low * 0.1
+    trust = max(0, min(100, int(round(100 - penalty))))
+    return {
+        "openCves": open_cves,
+        "trustScore": trust,
+        "source": "trivy-operator",
+        "cveBreakdown": {
+            "critical": critical,
+            "high": high,
+            "medium": medium,
+            "low": low,
+        },
+    }
 
 
 def _load_state() -> dict[str, Any]:
@@ -207,11 +306,17 @@ def _load_state() -> dict[str, Any]:
 
 
 def _save_state(state: dict[str, Any]) -> None:
-    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-    tmp = STATE_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(state, fh)
-    os.replace(tmp, STATE_FILE)
+    """Best-effort persist. A non-writable state dir must not 503 the endpoint."""
+    try:
+        directory = os.path.dirname(STATE_FILE)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(state, fh)
+        os.replace(tmp, STATE_FILE)
+    except OSError as exc:
+        sys.stderr.write("nexus-metrics: state persist failed (%s); continuing\n" % exc)
 
 
 def collect_environment() -> dict[str, Any]:
@@ -225,6 +330,8 @@ def collect_environment() -> dict[str, Any]:
     active_migrations = _count_active_migrations(kubeconfig)
     monitoring = _monitoring_addon_enabled(kubeconfig)
     cluster_ready = _harvester_ready(kubeconfig)
+    host = _collect_host_metrics()
+    security = _security_posture(kubeconfig)
 
     state = _load_state()
     tick = int(state.get("tick", 0)) + 1
@@ -232,26 +339,35 @@ def collect_environment() -> dict[str, Any]:
     _save_state(state)
 
     total_workloads = pod_count + vm_count
-    watts = node_count * 220
 
     return {
         "totalWorkloads": total_workloads,
-        "totalIops": int(state.get("totalIops", 0)),
-        "ingressMbps": int(state.get("ingressMbps", 0)),
-        "egressMbps": int(state.get("egressMbps", 0)),
+        # Read straight from kernel counters on this node. null means the
+        # source is genuinely unavailable — never substitute a plausible
+        # number, and never depend on another endpoint having run first.
+        "totalIops": host.get("totalIops"),
+        "ingressMbps": host.get("ingressMbps"),
+        "egressMbps": host.get("egressMbps"),
         "cpuPercent": cpu_percent,
         "ramPercent": ram_percent,
-        "watts": watts,
+        "watts": host.get("watts"),
         "activeMigrations": active_migrations,
-        "openCves": int(state.get("openCves", 0)),
-        "trustScore": int(state.get("trustScore", 85)),
+        "openCves": security.get("openCves"),
+        "trustScore": security.get("trustScore"),
         "tick": tick,
-        "source": "metrics-server" if cpu_percent > 0 else "harvester",
+        "source": "metrics-server" if cpu_percent is not None else "kube-api",
         "clusterReady": cluster_ready,
         "monitoringEnabled": monitoring,
         "nodeCount": node_count,
         "podCount": pod_count,
         "vmCount": vm_count,
+        # Per-metric provenance so the cockpit can label partial coverage
+        # rather than presenting every figure as equally authoritative.
+        "metricSources": {
+            **host.get("sources", {}),
+            "cpu": "metrics-server" if cpu_percent is not None else "unavailable (metrics-server not installed)",
+            "security": security.get("source", "unavailable"),
+        },
     }
 
 

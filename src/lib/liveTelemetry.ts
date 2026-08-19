@@ -21,6 +21,15 @@ export interface EnvironmentSnapshot {
   openCves: number;
   /** Cluster trust score 0-100; security posture metric */
   trustScore: number;
+  /**
+   * Metrics the node could not measure on this tick. Numeric fields are still
+   * populated (with 0) so existing chart maths keep working, but anything
+   * listed here must render as "unavailable" rather than as a real reading.
+   * Empty or absent in demo mode, where every value is synthetic by design.
+   */
+  unavailableMetrics?: string[];
+  /** Per-metric provenance from the BFF, e.g. `{ cpu: 'metrics-server' }`. */
+  metricSources?: Record<string, string>;
   /** Rolling deltas vs previous tick (positive or negative) */
   deltas: {
     totalWorkloads: number;

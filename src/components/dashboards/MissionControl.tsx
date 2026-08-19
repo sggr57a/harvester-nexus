@@ -16,6 +16,7 @@ import {
   ApiRateGauge,
   Cluster3DMap,
   DialGauge,
+  FftBars,
   FlowDiagram,
   GitOpsSyncBank,
   GpuMemoryGrid,
@@ -23,6 +24,7 @@ import {
   KpiTile,
   LiveEventFeed,
   MultiRingGauge,
+  Oscilloscope,
   PercentileBar,
   RingMeterCluster,
   SparklineGrid,
@@ -54,8 +56,6 @@ interface MissionControlProps {
 }
 
 function LiveMissionControl({ telemetry }: { telemetry?: EnvironmentSnapshot }) {
-  const cpuSeries = useRollingSeries(telemetry?.cpuPercent ?? 0, 48, telemetry?.tick);
-  const ramSeries = useRollingSeries(telemetry?.ramPercent ?? 0, 48, telemetry?.tick);
   const rings = useMemo(
     () => [
       { label: 'CPU pressure', value: telemetry?.cpuPercent ?? 0, color: 'accent' as const },
@@ -87,14 +87,14 @@ function LiveMissionControl({ telemetry }: { telemetry?: EnvironmentSnapshot }) 
           <MultiRingGauge rings={rings} size={220} />
         </article>
         <article className="dash-panel">
-          <WidgetTitle kicker="SCOPE" title="Oscilloscope · CPU &amp; RAM" trailing={<span className="osc-readout">metrics-server / Prometheus</span>} />
-          <AnnotatedOscilloscope
-            channels={[
-              { label: 'CPU', color: 'var(--theme-accent)', series: cpuSeries, unit: '%' },
-              { label: 'DRAM', color: 'var(--theme-accent-2)', series: ramSeries, unit: '%' },
-            ]}
-            height={180}
-          />
+          <WidgetTitle kicker="SCOPE" title="Oscilloscope · CPU / DRAM / NIC" trailing={<span className="osc-readout">CH1 CPU · CH2 DRAM · CH3 NIC RX</span>} />
+          <Oscilloscope snapshot={telemetry} channels={3} height={180} />
+        </article>
+      </div>
+      <div className="dash-row dash-row-2">
+        <article className="dash-panel">
+          <WidgetTitle kicker="SPECTRUM" title="FFT of CPU / DRAM / NIC series" trailing={<span className="osc-readout">measured</span>} />
+          <FftBars snapshot={telemetry} bars={48} height={140} />
         </article>
       </div>
       {(telemetry?.totalWorkloads ?? 0) === 0 && (

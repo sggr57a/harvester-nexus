@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import os
 from typing import Any
 
 from cluster_filters import is_user_namespace
@@ -390,7 +392,30 @@ def _prometheus_series(kubeconfig: str, query: str, points: int = 24) -> list[fl
     return samples[-points:]
 
 
+def _load_xdr_ingest():
+    path = os.path.join(os.path.dirname(__file__), "xdr_ingest.py")
+    spec = importlib.util.spec_from_file_location("nexus_xdr_ingest", path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+try:
+    _xdr = _load_xdr_ingest()
+except Exception:
+    _xdr = None
+
+collect_sensor_events = getattr(_xdr, "collect_sensor_events", None)
+collect_sensor_health = getattr(_xdr, "collect_sensor_health", None)
+
+
 def _xdr_sensor_health(kubeconfig: str) -> dict[str, Any]:
+    if collect_sensor_health is not None:
+        health = collect_sensor_health(kubeconfig)
+        if isinstance(health, dict):
+            return health
     data = _kubectl_json(kubeconfig, "get", "pods", "-n", "nexus-xdr")
     healthy = 0
     total = 0
@@ -404,22 +429,17 @@ def _xdr_sensor_health(kubeconfig: str) -> dict[str, Any]:
     return {"sensorsHealthy": healthy, "sensorsTotal": total, "deployed": total > 0}
 
 
-def _k8s_security_events(kubeconfig: str) -> list[dict[str, Any]]:
-    data = _kubectl_json(kubeconfig, "get", "events", "-A", "--field-selector=type=Warning")
-    if not isinstance(data, dict):
-        return []
-    events: list[dict[str, Any]] = []
-    for item in (data.get("items") or [])[:20]:
-        meta = item.get("metadata") or {}
-        events.append(
-            {
-                "message": item.get("message") or item.get("reason") or "warning",
-                "source": item.get("source") or {},
-                "namespace": meta.get("namespace", ""),
-                "name": meta.get("name", ""),
-            }
-        )
-    return events
+def _xdr_events(kubeconfig: str) -> list[dict[str, Any]]:
+    """Falco / Tetragon / Suricata / Wazuh alerts, plus Kubernetes warnings.
+
+    Severity is taken from the sensor (or derived from the Warning reason).
+    Nothing here is hardcoded to ``medium``.
+    """
+    if collect_sensor_events is not None:
+        events = collect_sensor_events(kubeconfig)
+        if isinstance(events, list):
+            return events
+    return []
 
 
 def collect_dashboards_live() -> dict[str, Any]:
@@ -476,7 +496,12 @@ def collect_dashboards_live() -> dict[str, Any]:
     fleet = _node_fleet(kubeconfig) + _vm_fleet(kubeconfig) + _pod_fleet(kubeconfig)
     migrations = _migration_rows(kubeconfig)
     xdr = _xdr_sensor_health(kubeconfig)
-    events = _k8s_security_events(kubeconfig)
+    events = _xdr_events(kubeconfig)
+    by_sensor = xdr.get("bySensor") if isinstance(xdr.get("bySensor"), dict) else {}
+    for event in events:
+        source = str(event.get("source") or "")
+        if source in by_sensor and isinstance(by_sensor[source], dict):
+            by_sensor[source]["ingesting"] = True
     networking = collect_networking_slice(kubeconfig) if collect_networking_slice else {"available": False}
 
     work_items = []

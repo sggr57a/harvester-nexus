@@ -6,4 +6,7 @@ export default defineConfig({
   server: {
     port: 4173,
   },
+  build: {
+    target: 'es2022',
+  },
 });
