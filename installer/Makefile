@@ -10,7 +10,7 @@
 REPO_ROOT       := $(shell cd .. && pwd)
 INSTALLER_DIR   := $(REPO_ROOT)/installer
 VERSION         := $(shell cat $(INSTALLER_DIR)/VERSION)
-# Override at build time: `make iso BUILD_VERSION=1.0.0+nexus.1.main.42.abc1234`
+# Override at build time: `make iso BUILD_VERSION=3.0.0+nexus.1.main.42.abc1234`
 BUILD_VERSION   ?= $(VERSION)
 # Docker tags cannot contain '+'; keep the human-readable VERSION for ISO filenames.
 DOCKER_TAG      := $(subst +,-,$(VERSION))

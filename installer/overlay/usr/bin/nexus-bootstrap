@@ -66,8 +66,9 @@ else
 fi
 
 # Record what we installed so the cockpit can show install provenance.
+NEXUS_STAMP=$(tr -d '[:space:]' < /etc/nexus/version 2>/dev/null || echo "3.0.0+nexus.1")
 {
-  echo "installerVersion: harvester-nexus-1.0.0+nexus.1"
+  echo "installerVersion: harvester-nexus-${NEXUS_STAMP}"
   echo "completedAt: $(date -Iseconds)"
   echo "manifestsApplied: ${APPLIED}"
   echo "configFile: ${CONFIG_FILE}"

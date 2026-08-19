@@ -73,5 +73,5 @@ data:
   default.launch-variant:  "concentric-boot"
 
   # Versioning so the cockpit knows which contract it's talking to
-  config.version:          "1.0.0"
-  installer.build:         "harvester-nexus-1.0.0+nexus.1"
+  config.version:          "3.0.0"
+  installer.build:         "harvester-nexus-3.0.0+nexus.1"

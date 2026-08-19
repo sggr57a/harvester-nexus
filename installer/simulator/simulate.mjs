@@ -303,7 +303,7 @@ function writeReport(cfg, manifests, cluster, login) {
     apiVersion: 'nexus.io/v1',
     kind: 'NexusInstallSimulationReport',
     completedAt: new Date().toISOString(),
-    installerVersion: 'harvester-nexus-' + (process.env.NEXUS_VERSION ?? '1.0.0+nexus.1'),
+    installerVersion: 'harvester-nexus-' + (process.env.NEXUS_VERSION ?? '3.0.0+nexus.1'),
     summary: {
       checks: checks.length,
       passed: checks.filter((c) => c.status === 'pass').length,

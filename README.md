@@ -4,7 +4,25 @@ Nexus is a next-generation, high-performance, open-source hyperconverged infrast
 
 By unifying the bare-metal agility of Proxmox and Incus (LXC) with the massive cloud-native orchestration of Kubernetes (KubeVirt) and VMware vSphere class enterprise storage/scheduling, nexus represents the ultimate consolidation of computing, storage, and specialized hardware accelerators, including a HUD interface, wizard-driven machine provisioning, Kubernetes manifest generation, storage backend provisioning, and multi-cluster deployment workflows.
 
-> **Version 2.0** lands the features described in [`UPDATED.md`](./UPDATED.md): the Poly-Compute Engine, the Universal Storage Fabric (now including Vitastor with SPDK bypass), hyper-efficient data path acceleration (SPDK / DPDK / vhost-user / NUMA pinning / 1 GiB hugepages), advanced acceleration (GPU + FPGA + smart-NIC pass-through, nested virtualization for AI / ML), **and a built-in 100% open-source XDR / MDR platform** that detects, attributes, and auto-responds to threats across every host, VM, container, pod, and edge endpoint. See the [Nexus 2.0 release](#nexus-20-release) section.
+> **Version 3.0** is the current release. It keeps everything in [`UPDATED.md`](./UPDATED.md) (Poly-Compute, Universal Storage Fabric, XDR / MDR, acceleration) and adds ten-plus production features: authenticated cockpit APIs, a working signed ISO pipeline, measured host telemetry, live AnyRAID, live XDR ingest, Oscilloscope/FFT from real counters, KubeVirt VNC/serial consoles, and Linux CXL/PMem/zswap memory tiering. See [Nexus 3.0 release](#nexus-30-release). The [Nexus 2.0](#nexus-20-release) section is the historical baseline.
+
+## Nexus 3.0 release
+
+Harvester Nexus **3.0.0** (`installer/VERSION` `3.0.0+nexus.1`). ISO artifact: `dist/harvester-nexus-3.0.0+nexus.1.iso`.
+
+Production features added on top of 2.0:
+
+1. **Authenticated cockpit BFF** — every `/api/v1` route requires a session; lockout after failed logins; random bootstrap password instead of shipping `admin`/`admin` on the wire.
+2. **ISO CI that publishes** — root-disk and checkout-order faults fixed so `Build install ISO` can finish; CI stamps `3.0.0+nexus.1.main.<run>.<sha>`.
+3. **Measured host telemetry** — RAPL / IPMI watts, meminfo, vmstat, NIC counters; missing sensors are `null`, never invented.
+4. **Nullable metrics contract** — dashboards render gaps instead of fabricated IOPS, watts, or FFT.
+5. **AnyRAID on LVM** — heterogeneous-capacity slab pool with a real `lvcreate` path, not a catalog stub.
+6. **Live XDR ingest** — Falco, Tetragon, Suricata, and Wazuh alerts feed the SOC views instead of the demo simulator alone.
+7. **Oscilloscope and FFT from the host** — Telemetry Wave plots measured CPU / DRAM / NIC, not a canned waveform.
+8. **KubeVirt VNC and serial consoles** — cockpit attaches through the KubeVirt websocket proxy.
+9. **Linux memory tiering** — CXL Type-3 NUMA demotion, leftover Optane/PMem DAX kmem, zswap plus a bounded NVMe-backed swap file. Not vSphere NVMe-as-RAM. See [`docs/memory-tiering.md`](./docs/memory-tiering.md).
+10. **Live Processor & Memory dashboard** — NUMA, memory_tier nodelists, PSI, hugepages, demote/promote, zswap.
+11. **KubeVirt tiering hints** — `nexus.io/memory-tiering=auto` vs `dram-only`; 1 GiB hugepages pin DRAM-only guests.
 
 ## Nexus 2.0 release
 
@@ -245,7 +263,7 @@ Nexus ships two install paths. **Production** installs the full HCI platform —
 | **Validate the installer without Docker** | Any Linux/macOS with Node 20+ | 4 GB RAM, git clone | [Validate before building](#2-validate-the-installer-without-docker) |
 | **Cockpit UI only** (mock data, no cluster) | Ubuntu 24.10+ dev laptop | 4 GB RAM, Node 20+ | [Development cockpit](#development-cockpit-only) |
 
-Current release version: **`1.0.0+nexus.1`** (see `installer/VERSION`). The ISO artifact is `dist/harvester-nexus-1.0.0+nexus.1.iso`.
+Current release version: **`3.0.0+nexus.1`** (see `installer/VERSION`). The ISO artifact is `dist/harvester-nexus-3.0.0+nexus.1.iso`.
 
 ---
 
@@ -394,8 +412,8 @@ Requires Docker, ~30 minutes, and ~25 GB free disk on a **native** (non-nested) 
 
 ```bash
 cd installer
-make iso-builder    # builds harvester-nexus-iso-builder:1.0.0-nexus.1 Docker image
-make iso            # produces dist/harvester-nexus-1.0.0+nexus.1.iso
+make iso-builder    # builds harvester-nexus-iso-builder:3.0.0-nexus.1 Docker image
+make iso            # produces dist/harvester-nexus-3.0.0+nexus.1.iso
 ```
 
 Verify the artifact:
@@ -418,7 +436,7 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
 1. **Write the ISO to USB** (replace `/dev/sdX` with your USB device):
 
    ```bash
-   sudo dd if=dist/harvester-nexus-1.0.0+nexus.1.iso of=/dev/sdX bs=4M status=progress conv=fsync
+   sudo dd if=dist/harvester-nexus-3.0.0+nexus.1.iso of=/dev/sdX bs=4M status=progress conv=fsync
    ```
 
 2. **Boot the target server** from the USB stick. Enter firmware setup and confirm:
@@ -466,7 +484,7 @@ qemu-system-x86_64 \
   -smp 8 \
   -cpu host \
   -drive file=$HOME/harvester-nexus.qcow2,if=virtio,format=qcow2 \
-  -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
+  -cdrom dist/harvester-nexus-3.0.0+nexus.1.iso \
   -boot d \
   -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 \
   -device virtio-net-pci,netdev=net0 \

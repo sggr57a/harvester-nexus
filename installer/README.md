@@ -18,7 +18,7 @@ This directory holds everything needed to produce **`harvester-nexus-<version>.i
 ```
 installer/
 ├── README.md                         (this file)
-├── VERSION                           "1.0.0+nexus.1"
+├── VERSION                           "3.0.0+nexus.1"
 ├── Dockerfile                        ISO builder image (BCI golang + Dapper toolchain + Node 20)
 ├── Makefile                          overlay / simulate / iso-builder / iso / clean / tests
 ├── build-iso.sh                      6-stage build pipeline
@@ -124,7 +124,7 @@ CI stores heavy ISO build artifacts under `/var/lib/docker/nexus-ci/` on the exp
 qemu-system-x86_64 \
   -enable-kvm -m 16384 -smp 8 -cpu host \
   -drive file=harvester-nexus.qcow2,if=virtio,size=200G \
-  -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
+  -cdrom dist/harvester-nexus-3.0.0+nexus.1.iso \
   -boot d \
   -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 -device virtio-net,netdev=net0
 ```
