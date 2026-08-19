@@ -1,0 +1,76 @@
+#!/bin/bash
+# nexus-bootstrap — runs once on first boot AFTER k3s/rke2 is up and the
+# kubeconfig is reachable. Applies every YAML in
+# /usr/share/nexus-cockpit/manifests/ in lexical order, waits for
+# each to reconcile, and writes a structured log to
+# /var/log/nexus/bootstrap.log.
+
+set -euo pipefail
+
+LOG_DIR=/var/log/nexus
+LOG_FILE=${LOG_DIR}/bootstrap.log
+mkdir -p "${LOG_DIR}"
+
+CONFIG_FILE=${NEXUS_CONFIG:-/etc/nexus/config.yaml}
+MANIFESTS_DIR=${NEXUS_MANIFESTS:-/usr/share/nexus-cockpit/manifests}
+KUBECONFIG=${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}
+
+# Fallback to k3s kubeconfig if rke2 isn't present.
+if [[ ! -f "${KUBECONFIG}" ]]; then
+  KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+fi
+export KUBECONFIG
+
+log()  { printf '[%s] [info]  %s\n' "$(date -Iseconds)" "$*" | tee -a "${LOG_FILE}"; }
+warn() { printf '[%s] [warn]  %s\n' "$(date -Iseconds)" "$*" | tee -a "${LOG_FILE}" >&2; }
+fail() { printf '[%s] [fatal] %s\n' "$(date -Iseconds)" "$*" | tee -a "${LOG_FILE}" >&2; exit 1; }
+
+log "harvester-nexus bootstrap starting"
+log "config:    ${CONFIG_FILE}"
+log "manifests: ${MANIFESTS_DIR}"
+log "kubeconfig: ${KUBECONFIG}"
+
+[[ -f "${CONFIG_FILE}"   ]] || fail "config file not found: ${CONFIG_FILE}"
+[[ -d "${MANIFESTS_DIR}" ]] || fail "manifests dir not found: ${MANIFESTS_DIR}"
+[[ -f "${KUBECONFIG}"    ]] || fail "kubeconfig not found: ${KUBECONFIG} (k3s/rke2 not yet up?)"
+
+# Wait for the apiserver to respond.
+log "waiting for kube-apiserver"
+ATTEMPTS=0
+until kubectl get --raw=/livez >/dev/null 2>&1; do
+  ATTEMPTS=$((ATTEMPTS + 1))
+  if (( ATTEMPTS > 60 )); then fail "kube-apiserver did not become ready in 5 minutes"; fi
+  sleep 5
+done
+log "kube-apiserver ready"
+
+# Apply each manifest in lexical order; the prefix numbers (00-, 10-,
+# 20-, ...) sequence the dependencies.
+APPLIED=0
+for m in "${MANIFESTS_DIR}"/*.yaml; do
+  [[ -e "${m}" ]] || { warn "no manifests found"; break; }
+  log "applying $(basename "${m}")"
+  if kubectl apply -f "${m}" --server-side --force-conflicts 2>&1 | tee -a "${LOG_FILE}"; then
+    APPLIED=$((APPLIED + 1))
+  else
+    warn "failed to apply $(basename "${m}"), continuing"
+  fi
+done
+log "applied ${APPLIED} manifests"
+
+# Host nexus-cockpit.service serves the React bundle from /usr/share/nexus-cockpit/dist.
+if systemctl is-active --quiet nexus-cockpit.service 2>/dev/null; then
+  log "host cockpit service is active"
+else
+  warn "host nexus-cockpit.service is not active (open https://<node-ip>:8443 after it starts)"
+fi
+
+# Record what we installed so the cockpit can show install provenance.
+{
+  echo "installerVersion: harvester-nexus-1.0.0+nexus.1"
+  echo "completedAt: $(date -Iseconds)"
+  echo "manifestsApplied: ${APPLIED}"
+  echo "configFile: ${CONFIG_FILE}"
+} > /var/lib/nexus/install-record.yaml
+
+log "harvester-nexus bootstrap complete"

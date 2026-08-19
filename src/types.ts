@@ -6,7 +6,7 @@ export type StorageType =
   | 'nvme'
   | 'rdma'
   | 'zfs'
-  | 'zfs-anyraid'
+  | 'anyraid'
   | 'iscsi'
   | 'glusterfs'
   | 'longhorn'
@@ -82,7 +82,7 @@ export interface StorageConfig {
   zfsRaidType?: 'single' | 'mirror' | 'raidz' | 'raidz2' | 'raidz3';
   zfsIscsiTarget?: string;
 
-  // ZFS AnyRAID specific — accepts heterogeneous-capacity drives in one pool
+  // AnyRAID specific — accepts heterogeneous-capacity drives in one pool
   // by carving each disk into uniformly-sized "slabs" and striping/parity-ing
   // those slabs across the heterogeneous fleet. The effective parity policy
   // and minimum drive count come from the chosen redundancy profile.

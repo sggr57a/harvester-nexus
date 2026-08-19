@@ -11,7 +11,7 @@ By unifying the bare-metal agility of Proxmox and Incus (LXC) with the massive c
 Highlights:
 
 - **Poly-Compute Engine** — runs KubeVirt VMs, Incus / LXC system containers, and native Kubernetes pods on the same bare-metal loop, with NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, and cross-socket cost penalties on the scheduler.
-- **Universal Storage Fabric** — every storage backend in the catalog is wired into CSI / direct-host paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, **ZFS AnyRAID** with heterogeneous-capacity drive slabbing, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath driver for RWX shares.
+- **Universal Storage Fabric** — every storage backend in the catalog is wired into CSI / direct-host paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, **AnyRAID** with heterogeneous-capacity drive slabbing, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath driver for RWX shares.
 - **Hardware acceleration** — SPDK userspace NVMe-oF queues, DPDK polled-mode rings, vhost-user fast paths, NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools.
 - **Machine Wizard 2.0** — install YAML with `poly_compute` and `hardware_acceleration` blocks plus boot-parameter switches (`nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, `nexus.acceleration.gpu_passthrough=true`). Validation refuses configs that turn off every runtime or enable GPU pass-through without NUMA pinning.
 - **Built-in XDR / MDR platform (100% FOSS)** — every Nexus install ships with a complete detect-and-respond stack: 17 open-source sensors (Falco, Tetragon, Wazuh, Trivy, Grype, Syft, Suricata, Hubble, OpenSearch, MISP, kube-bench, kube-hunter, Polaris, OpenCanary, OpenSCAP, Lynis), 10 free threat-intel feeds (MISP, OTX, ThreatFox, URLhaus, Feodotracker, ETOpen, MITRE ATT&CK, NVD, OSV, internal allowlist), 18 Sigma-style detection rules covering all seven MITRE ATT&CK kill-chain phases, 10 automated response actions that emit real Kubernetes manifests (Cilium NetworkPolicy isolate, Harvester host cordon/drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot, Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback, Trivy image block, Cilium CCNP egress-domain block), and APT geo-attribution that maps sources to actors like APT28 / LAZARUS. No paid SKUs, no subscriptions.
@@ -21,7 +21,7 @@ Highlights:
 
 Nexus is the updated Harvester fork with:
 
-- **Universal storage fabric** — iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **ZFS AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local-path storage with CSI templates per backend.
+- **Universal storage fabric** — iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local-path storage with CSI templates per backend.
 - **Network fabric and service mesh** — Istio, Linkerd, Cilium, plus Service, Ingress, and NetworkPolicy generation.
 - **Built-in XDR / MDR detect-and-respond** — eBPF runtime security, HIDS, IDS/IPS, image-scan admission, K8s benchmark, host hardening, threat intel, honeypots, and automated response actions, all driven by 100% FOSS components.
 - **Identity, RBAC, and policy** — RBAC roles, Pod Security Standards enforcement, service accounts, workload annotations, and admission-time best-practice gating (Polaris).
@@ -55,7 +55,7 @@ Nexus is the updated Harvester fork with:
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
 - Manifest Wizard embedded inside the unified Setup Wizard as an optional setup section, allowing workload manifest generation without leaving the provisioning flow.
 - Wizard-driven workload and manifest configuration.
-- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, **ZFS AnyRAID**, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass). The AnyRAID wizard step accepts heterogeneous drive capacities, computes the effective usable capacity from a slab-based redundancy plan, and renders a `StorageClass` whose parameters carry the per-disk inventory through to the CSI driver.
+- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, **AnyRAID**, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass). The AnyRAID wizard step accepts heterogeneous drive capacities, computes the effective usable capacity from a slab-based redundancy plan, and renders a `StorageClass` whose parameters carry the per-disk inventory through to the CSI driver.
 - Auto-generated `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `CronJob` manifests.
 - PVC, Service, Ingress, NetworkPolicy, RBAC, monitoring, logging, GitOps, and multi-cluster manifest generation.
 - Service mesh integration support for Istio, Linkerd, and Cilium.
@@ -71,7 +71,7 @@ Nexus is the updated Harvester fork with:
 ## Screenshots
 
 A tour of the live cockpit. Every screen below is captured from the running
-[Vite dev server](#install-on-a-fresh-ubuntu-host) on the current branch.
+[Vite dev server](#installation) on the current branch.
 The captions describe what each surface **does**, not how it's laid out.
 
 ### Mission Control
@@ -108,7 +108,7 @@ full MITRE kill chain.
 ### Storage dashboard
 
 Unified view of every storage backend Nexus speaks (Ceph, Longhorn,
-NVMe-oF, RDMA, ZFS, **ZFS AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS,
+NVMe-oF, RDMA, ZFS, **AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS,
 OpenEBS, Portworx, local path), with per-backend capacity, IOPS, and
 read/write breakdowns so the operator sees the whole fabric at once.
 
@@ -123,7 +123,7 @@ without leaving the wizard.
 
 ![Setup Wizard](docs/screenshots/06-setup-wizard.webp)
 
-### ZFS AnyRAID configuration
+### AnyRAID configuration
 
 Accepts a heterogeneous-capacity drive inventory and produces a single
 slab-based ZFS pool, computing effective usable capacity and emitting a
@@ -131,7 +131,7 @@ slab-based ZFS pool, computing effective usable capacity and emitting a
 the driver. Lets operators reuse mixed older + newer drives instead of
 forcing matched sets.
 
-![ZFS AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
+![AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
 
 ### Manifest Wizard · workload types
 
@@ -230,101 +230,353 @@ lighting in the SOC. Theme selection persists in `localStorage`.
 
 ![Theme dropdown](docs/screenshots/12-theme-dropdown.webp)
 
-## Install on a fresh Ubuntu host
+## Installation
 
-The Nexus cockpit ships as a React + TypeScript single-page app built with Vite. The instructions below get you from a clean Ubuntu 22.04 / 24.04 box to a running Nexus dev server on `http://localhost:4173`.
+Nexus ships two install paths. **Production** installs the full HCI platform — Harvester base OS, Kubernetes, KubeVirt, storage fabric, XDR / MDR stack, and the Nexus cockpit — from a bootable ISO. **Development** runs only the React cockpit against mock data on your workstation.
 
-### 1. System prerequisites
+> **Important:** Ubuntu is the **build host** and/or **QEMU hypervisor**. The ISO does **not** install Ubuntu on the target node — it installs **SLE Micro + Harvester + Nexus**. The machine you boot from the ISO (bare metal or VM) becomes a dedicated HCI node whose local disk is consumed by the installer.
+
+### Choose your path
+
+| Goal | Where it runs | What you need | Start here |
+|---|---|---|---|
+| **Full Nexus cluster** (production / lab) | Bare-metal server **or** VM that boots the ISO | ISO build host (Ubuntu 24.10+), target node meeting [platform requirements](#nexus-platform--single-node-lab), USB stick or virtual disk | [Build the ISO](#3-build-the-install-iso-on-ubuntu-2410) → [Install on bare metal](#4-install-on-bare-metal) or [Install in a VM](#5-install-in-a-kvm-vm-on-ubuntu) |
+| **Validate the installer without Docker** | Any Linux/macOS with Node 20+ | 4 GB RAM, git clone | [Validate before building](#2-validate-the-installer-without-docker) |
+| **Cockpit UI only** (mock data, no cluster) | Ubuntu 24.10+ dev laptop | 4 GB RAM, Node 20+ | [Development cockpit](#development-cockpit-only) |
+
+Current release version: **`1.0.0+nexus.1`** (see `installer/VERSION`). The ISO artifact is `dist/harvester-nexus-1.0.0+nexus.1.iso`.
+
+---
+
+### Hardware requirements
+
+Three profiles apply depending on which machine you are sizing.
+
+#### ISO build host (Ubuntu 24.10+)
+
+The machine where you run `make iso`. It does **not** become part of the cluster unless you also boot the ISO on it.
+
+| Resource | Minimum | Recommended |
+|---|---|---|
+| OS | **Ubuntu 24.10** or later (24.04 LTS also works) | Ubuntu 24.10+ on bare metal with native Docker |
+| CPU | 4 cores, x86_64 | 8+ cores |
+| Memory | 8 GB RAM | 16 GB RAM |
+| Disk | **30 GB free** for Docker layers + build tree | 50+ GB free on SSD/NVMe |
+| Software | Docker Engine, git, Node.js 20+ (pulled into the builder image automatically) | KVM + QEMU if you also plan to test the ISO locally |
+| Network | Outbound HTTPS to GitHub, Docker Hub, npm registry, and container registries | Same |
+
+> **Nested VMs:** Building the ISO inside a cloud VM or nested hypervisor often fails with Docker overlay mount errors. Use a bare-metal Ubuntu 24.10+ host, or run only [`make simulate`](#2-validate-the-installer-without-docker) in constrained environments.
+
+#### QEMU / KVM test host (optional)
+
+If you test the ISO in a VM **on** Ubuntu before bare-metal deployment:
+
+| Resource | Minimum | Recommended |
+|---|---|---|
+| Host OS | Ubuntu 24.10+ with `/dev/kvm` | Same |
+| CPU | 8 cores with VT-x / AMD-V | 16 cores |
+| Memory | **16 GB RAM** free for the guest | 32 GB RAM |
+| Disk | **200 GB** qcow2 sparse file for the guest | 500 GB NVMe-backed qcow2 |
+| Network | User networking or bridged NIC | Bridged NIC so the guest gets a routable IP |
+
+#### Cockpit dev / preview host
+
+| Resource | Minimum | Optimal |
+|---|---|---|
+| CPU | 2 cores, x86_64 or arm64 | 4+ cores |
+| Memory | 4 GB RAM | 8 GB RAM |
+| Disk | 2 GB free | 10 GB free on SSD/NVMe |
+| OS | **Ubuntu 24.10+** (any modern Linux works) | Ubuntu 24.10 |
+| Network | Outbound HTTPS to npm registry + GitHub | Same |
+| Browser | Chromium / Firefox / Safari with ES2020 + `backdrop-filter` | Chromium at 1920×1080 or wider |
+
+#### Nexus platform — single-node lab
+
+The **target node** that boots the ISO. Suitable for development, proofs-of-concept, and small edge deployments.
+
+| Resource | Minimum | Optimal |
+|---|---|---|
+| CPU | 8 cores, x86_64 with VT-x / AMD-V, SSE4.2, `xsave` | 16+ cores with AVX2, IOMMU enabled (VT-d / AMD-Vi) for SR-IOV and GPU pass-through |
+| Memory | 32 GB RAM | 64+ GB RAM with at least one NUMA node free for 1 GiB hugepages |
+| Boot disk | 200 GB SSD | 500 GB NVMe |
+| Data disks | 1× 500 GB SSD for ZFS / Longhorn / OpenEBS | 2+ NVMe drives for the storage fabric (AnyRAID accepts heterogeneous capacities) |
+| Network | 1× 1 GbE | 1× 10 GbE + 1× 25 GbE for storage / east-west, or RDMA-capable NIC for the NVMe-oF fast path |
+| Accelerators | none | optional GPU / FPGA / smart-NIC with vfio-pci binding for AI/ML and SmartNIC offload pools |
+| Firmware | UEFI with secure boot **off** (KubeVirt + eBPF require unsigned kernel modules in some kernels) | UEFI + TPM 2.0 for Wazuh FIM and OpenSCAP host hardening evidence |
+
+#### Nexus platform — production HCI cluster
+
+A 3+ node hyperconverged cluster running the full Poly-Compute Engine (KubeVirt VMs + Incus / LXC + pods on every node), the Universal Storage Fabric, and every XDR sensor in the **Maximum** Security Posture profile.
+
+| Resource | Minimum (per node) | Optimal (per node) |
+|---|---|---|
+| Nodes | 3 control-plane + worker (hyperconverged) | 5+ nodes with separate control-plane and worker classes for blast-radius isolation |
+| CPU | 16 cores with VT-x/AMD-V, VT-d/AMD-Vi, AVX2 | 32+ cores, dual-socket, NUMA-aware |
+| Memory | 64 GB RAM with 8 GB reserved for hugepages | 256+ GB RAM with 64 GB reserved for 1 GiB hugepages, one socket-local pool per workload class |
+| Boot disk | 200 GB NVMe (mirrored) | 2× 500 GB NVMe in mirror |
+| Storage tier | 2× 1 TB NVMe per node for the hot tier, 4× 4 TB SATA SSD for the warm tier | 4+ NVMe per node bound to SPDK userspace queues, plus a slower SATA SSD / HDD warm tier; AnyRAID handles mixed capacities |
+| Network — front | 2× 10 GbE (LACP) for north-south | 2× 25 GbE (LACP) for north-south |
+| Network — fabric | 2× 25 GbE for east-west and storage replication | 2× 100 GbE RDMA (RoCEv2) for east-west, storage replication, and the NVMe-oF target plane |
+| Accelerators | none required | GPU pool (NVIDIA / AMD), FPGA pool (Xilinx / Intel), smart-NIC pool (BlueField / Stingray) all bound via vfio-pci / SR-IOV / mdev |
+| Firmware | UEFI, IOMMU on | UEFI + TPM 2.0 + measured boot; firmware managed via Lifecycle Controller / iLO / iDRAC / Redfish |
+| Power / cooling | redundant PSU per node | redundant PSU, hot-aisle containment, environmental telemetry exposed to the Environment Intelligence dashboard |
+
+#### XDR / MDR sensor overhead (cluster-wide, all 17 sensors in Maximum profile)
+
+| Resource | Minimum | Optimal |
+|---|---|---|
+| CPU | 4 cores total | 8+ cores total, headroom for OpenSearch indexing under burst |
+| Memory | 8 GB RAM total (OpenSearch + Wazuh Manager + MISP) | 24+ GB RAM total — OpenSearch heap 4 GB, Wazuh Manager 4 GB, MISP + ThreatFox replica 4 GB, the rest distributed across host DaemonSets |
+| Disk | 100 GB for the event lake (≈ 30 days at low event rate) | 1+ TB NVMe for the OpenSearch event lake (≥ 90 days hot retention, plus warm-tier archive for compliance evidence) |
+
+---
+
+### Production install on Ubuntu 24.10+ (full walkthrough)
+
+These steps take you from a clean Ubuntu 24.10 machine to a running Nexus cluster on bare metal or in a KVM VM.
+
+#### 1. Prepare the build host
+
+On **Ubuntu 24.10 or later**:
 
 ```bash
 sudo apt update
-sudo apt install -y git curl build-essential ca-certificates
+sudo apt install -y git curl ca-certificates \
+  docker.io qemu-system-x86 qemu-utils genisoimage \
+  cpu-checker
+
+# Add your user to the docker group (log out/in afterward)
+sudo usermod -aG docker "$USER"
+
+# Confirm hardware virtualization (needed for local KVM testing)
+kvm-ok || true
+docker --version   # Docker 24+ recommended
 ```
 
-### 2. Install Node.js 20.x
-
-The project requires **Node.js ≥ 20** (matches `vite@5` and `vitest@4`). Use one of these:
-
-**Option A — nvm (recommended for development):**
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-nvm install 20
-nvm use 20
-```
-
-**Option B — NodeSource APT (system install):**
+Install **Node.js 20+** (needed for validation targets and pulled automatically during ISO build):
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
-```
-
-Confirm the install:
-
-```bash
 node --version   # v20.x or higher
-npm --version    # 10.x or higher
 ```
 
-### 3. Clone the repository
+Clone the repository:
 
 ```bash
 git clone https://github.com/sggr57a/harvester-nexus.git
 cd harvester-nexus
+npm install      # installs Vitest + cockpit toolchain for validation
 ```
 
-> To run the bleeding-edge XDR / MDR branch instead of `main`, check it out:
-> `git checkout cursor/xdr-mdr-foss-d3bc`
+#### 2. Validate the installer (without Docker)
 
-### 4. Install JavaScript dependencies
+Run this on any machine with Node 20+ before committing to a 30-minute ISO build. Exit code `0` means the install pipeline is sound.
 
 ```bash
+cd installer
+make simulate
+```
+
+The simulator performs **59 checks**: parses `/etc/nexus/config.yaml`, validates all bootstrap manifests, reconciles 26 Kubernetes objects against a mock apiserver, and verifies `admin` / `admin` login with forced password change. A report lands at `build/install-simulation-report.yaml`.
+
+Additional contract tests:
+
+```bash
+npm run test -- installer   # 20 installer contract tests
+npm run test                # 237 tests across the whole repo
+```
+
+#### 3. Build the install ISO on Ubuntu 24.10+
+
+Requires Docker, ~30 minutes, and ~25 GB free disk on a **native** (non-nested) host:
+
+```bash
+cd installer
+make iso-builder    # builds harvester-nexus-iso-builder:1.0.0-nexus.1 Docker image
+make iso            # produces dist/harvester-nexus-1.0.0+nexus.1.iso
+```
+
+Verify the artifact:
+
+```bash
+ls -lh dist/harvester-nexus-*.iso
+sha256sum -c dist/harvester-nexus-*.iso.sha256
+```
+
+The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
+
+- Upstream **Harvester** (SLE Micro + K3s/RKE2 + KubeVirt + Longhorn + Multus + Rancher)
+- The **Nexus cockpit** production bundle
+- **12 FOSS XDR sensors** + detection rules + intel feeds + response actions
+- **AnyRAID CSI** driver
+- **16 Nexus-specific install-wizard questions** layered on Harvester's base wizard
+
+#### 4. Install on bare metal
+
+1. **Write the ISO to USB** (replace `/dev/sdX` with your USB device):
+
+   ```bash
+   sudo dd if=dist/harvester-nexus-1.0.0+nexus.1.iso of=/dev/sdX bs=4M status=progress conv=fsync
+   ```
+
+2. **Boot the target server** from the USB stick. Enter firmware setup and confirm:
+   - Boot mode: **UEFI**
+   - Secure Boot: **disabled**
+   - Virtualization (VT-x / AMD-V): **enabled**
+   - IOMMU (VT-d / AMD-Vi): **enabled** if you plan GPU / SR-IOV pass-through
+
+3. **Answer the Harvester install wizard** (required): install mode, management NIC, IP / gateway / DNS, cluster VIP, NTP, cluster token, OS / SSH password.
+
+   Nexus-specific settings are **not** shown in the install TUI today — they come from the baked-in defaults in `/etc/nexus/config.yaml` (admin/admin, Route Grid theme, XDR hardened profile, Longhorn storage, etc.). See `installer/installer-config/nexus-wizard-questions.yaml` for the full settings catalog.
+
+4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk. When install completes, `system/oem/92_nexus.yaml` enables and **starts** `nexus-cockpit.service` (and enables `nexus-bootstrap.service` for when Kubernetes is up).
+
+5. **First boot bootstrap** (automatic, 5–15 minutes depending on disk and network):
+   - `nexus-cockpit` serves the bundled React cockpit from `/usr/share/nexus-cockpit/dist/` on port **8443** (HTTPS) and **8080** (HTTP health)
+   - `nexus-bootstrap` waits for the Kubernetes apiserver, then applies manifests from `/usr/share/nexus-cockpit/manifests/` in order (`00-` namespaces → `10-` admin → `20-` XDR → `30-` AnyRAID → `40-` cockpit metadata → `99-` features)
+   - Logs: `/var/log/nexus/bootstrap.log`, `/var/log/nexus/cockpit.log`
+
+6. **Open the Nexus cockpit** at `https://<node-ip>:8443` (or `http://<node-ip>:8080` if TLS material is unavailable). Accept the self-signed certificate.
+
+   **Do not confuse this with the Harvester dashboard** at `https://<cluster-vip>:443` — that is the stock Rancher/Harvester UI and does not include the Nexus Mission Control cockpit.
+
+7. **Log in and rotate the password:**
+
+   | Field | Value |
+   |---|---|
+   | Username | `admin` |
+   | Password | `admin` |
+
+   The cockpit **requires a new password** before any privileged action. The legacy `admin` / `demo` alias still works in dev builds but production installs should use `admin` / `admin` and rotate immediately.
+
+#### 5. Install in a KVM VM on Ubuntu
+
+Use this to lab-test the ISO on the same Ubuntu 24.10+ build host before touching bare metal.
+
+```bash
+# Create a 200 GB disk image
+qemu-img create -f qcow2 ~/harvester-nexus.qcow2 200G
+
+# Boot the ISO (adjust paths; -enable-kvm requires /dev/kvm)
+qemu-system-x86_64 \
+  -enable-kvm \
+  -m 16384 \
+  -smp 8 \
+  -cpu host \
+  -drive file=$HOME/harvester-nexus.qcow2,if=virtio,format=qcow2 \
+  -cdrom dist/harvester-nexus-1.0.0+nexus.1.iso \
+  -boot d \
+  -netdev user,id=net0,hostfwd=tcp::8443-:8443,hostfwd=tcp::8080-:8080 \
+  -device virtio-net-pci,netdev=net0 \
+  -nographic
+```
+
+After installation completes and the VM reboots from disk, open `https://localhost:8443` on the Ubuntu host (the `hostfwd` rule maps host port 8443 → guest port 8443).
+
+For a graphical console, drop `-nographic` and add `-display gtk` or use `virt-manager` with the same disk + ISO settings.
+
+> **Memory note:** The guest needs **≥ 32 GB RAM** for a comfortable single-node lab (Harvester minimum). The `-m 16384` example above is the QEMU *host allocation* floor from the installer docs; increase to `-m 32768` if the host has headroom.
+
+#### 6. Post-install verification
+
+On the build host (or any machine with `kubectl` configured against the cluster):
+
+```bash
+# From the installed node (SSH in after wizard completes):
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml   # or /etc/rancher/k3s/k3s.yaml
+
+kubectl get nodes
+kubectl get pods -A | grep -E 'nexus|falco|longhorn'
+
+# Confirm bootstrap finished cleanly
+sudo tail -50 /var/log/nexus/bootstrap.log
+```
+
+In the cockpit, confirm these views load under the sidebar groups **MONITOR · COMPUTE · SECURE · DEPLOY**:
+
+- Mission Control, Telemetry Wave, Networking (Threat-Intel Map), Storage
+- Poly-Compute, Acceleration, Operations, Resource Monitor
+- XDR Operations Center, Security Posture wizard
+- Cluster Console, Setup Wizard
+
+Re-run the install simulator on the build host any time you change installer artifacts:
+
+```bash
+cd installer && make simulate   # expect: 59 / 59 checks passed
+```
+
+---
+
+### Development cockpit only
+
+Run the React cockpit against mock / computed local data — no cluster, no ISO, no Docker required. Suitable for UI development and demos on **Ubuntu 24.10+**.
+
+```bash
+sudo apt update
+sudo apt install -y git curl build-essential ca-certificates
+
+# Node.js 20+
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+git clone https://github.com/sggr57a/harvester-nexus.git
+cd harvester-nexus
 npm install
-```
-
-This installs React, Vite, CodeMirror, Vitest, TypeScript, and the rest of the toolchain (~280 packages).
-
-### 5. Run the dev server
-
-```bash
 npm run dev
 ```
 
-Open `http://localhost:4173` in any browser. **Demo credentials**: `admin` / `demo`.
+Open `http://localhost:4173`. Credentials: `admin` / `demo` or `admin` / `admin`.
 
-> The dev server binds to port **4173** (not the default Vite 5173) — see `vite.config.ts`.
-
-### 6. Verify the build
+Verify the build:
 
 ```bash
-npx tsc --noEmit     # type-check the project
-npm run test         # run the Vitest suite (178 tests)
-npm run build        # production build into ./dist
-npm run preview      # preview the production bundle on :4173
+npx tsc --noEmit
+npm run test         # 237 Vitest tests
+npm run build
+npm run preview      # production bundle on :4173
 ```
 
-### 7. Optional — Playwright capture scripts
-
-The `scripts/` folder contains optional Playwright-based mockup-capture scripts (`smoke-shot.mjs`, `record-mockups.mjs`, `capture.mjs`, `capture-login.mjs`). Install Chromium for Playwright before first use:
+Optional Playwright capture scripts (`scripts/capture.mjs`, `smoke-shot.mjs`, …) require Chromium:
 
 ```bash
 npx playwright install chromium
-node scripts/capture.mjs
+node scripts/capture.mjs mission-control /tmp/mission-control.png
 ```
 
-### 8. Optional — run inside Docker
-
-If you'd rather not install Node on the host:
+Optional — run inside Docker without installing Node on the host:
 
 ```bash
 docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
   bash -c "npm install && npm run dev -- --host 0.0.0.0"
 ```
 
-Open `http://localhost:4173` from your host browser.
+---
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `make iso` fails with `Could not find the file … rancher-charts … index.yaml` | Upstream `collect-deps.sh` copies the Rancher catalog index after only 10s; the index is often not ready yet | Rebuild with the current branch — uses `installer/patches/collect-deps.sh` |
+| `make iso` fails with `client version 1.42 is too old. Minimum supported API version is 1.44` during `elemental build-iso` | The `elemental` binary copied from `rancher/harvester-os` embeds moby client API 1.42; Docker 29+ host daemons require ≥ 1.44 | Rebuild iso-builder on the current branch (`DOCKER_API_VERSION=1.44` is set in the builder image and `make iso` run). If it persists, confirm inside the container: `docker version` shows Client API ≥ 1.44 and `echo $DOCKER_API_VERSION` is `1.44` |
+| `make iso` fails with `Rancher must be ran with the --privileged flag` | Nested Docker (iso-builder container) cannot start a privileged Rancher child container | Same patch — reads `index.yaml` from the Rancher **image** via `docker run --entrypoint bash`, or falls back to `build.yaml` fleet/webhook versions without starting Rancher |
+| `make iso-builder` fails with `'nodejs20' not found in package names` | `nodejs20` is not in the golang BCI zypper repos | Rebuild with the current `installer/Dockerfile` (installs Node 20 from nodejs.org tarball) |
+| `make iso-builder` fails with `tar (child): xz: Cannot exec` | Node tarball is `.tar.xz` but `xz` was not installed in the builder image | Rebuild with the current `installer/Dockerfile` (`xz` added to the zypper toolchain list) |
+| `make iso` fails with `go.mod requires go >= 1.26 (running go 1.25…)` | Stale iso-builder image built before Go 1.26 was required | `cd installer && docker rmi harvester-nexus-iso-builder:1.0.0-nexus.1-go1.26 2>/dev/null; make iso-builder && make iso` |
+| `make iso` fails with `exec: "/bin/sh": stat /bin/sh: no such file or directory` | Old iso-builder image used `rancher/harvester-installer` as its base — that image is `FROM scratch` (binary only, no shell) | Rebuild with the current `installer/Dockerfile` (BCI golang base): `docker rmi harvester-nexus-iso-builder:1.0.0-nexus.1-go1.26 && make iso-builder && make iso` |
+| `make iso-builder` fails with `FATAL: mkfs.vfat missing from iso-builder` | Stale iso-builder image or verify PATH missing `/usr/sbin` where SUSE installs `mkfs.fat` | `cd installer && make iso-rebuild && make iso` (forces no-cache rebuild; current image symlinks `mkfs.vfat` into `/usr/local/bin`) |
+| `make iso` fails with `exec: "mkfs.vfat": executable file not found in $PATH` during elemental | Same — dosfstools provides `mkfs.fat` on SUSE, not `mkfs.vfat` | Same as above — `make iso-rebuild` |
+| `make iso` fails with `yq: command not found` in `version-harvester` | Stale iso-builder image missing `yq` on PATH | Run `cd installer && make iso-builder` (current image installs `yq` to `/usr/local/bin`). `build-iso.sh` also bootstraps `yq` at runtime if missing |
+| `make iso` fails with `error waiting for container: unexpected EOF` on `COPY files/ /` | BuildKit + docker.sock from inside iso-builder, or Docker daemon OOM during harvester-os build | Rebuild on current branch (`DOCKER_BUILDKIT=0`, cockpit shipped as `dist.tar.gz`, full `build/` mounted). Ensure ≥25 GB free under `/var/lib/docker` and ≥8 GB RAM/swap |
+| Docker build fails with `overlay … invalid argument` | Nested / cloud VM without working overlayfs | Build the ISO on bare-metal Ubuntu 24.10+; use `make simulate` instead |
+| `make iso` runs out of disk | ISO build needs ~25 GB | Free space under `/var/lib/docker` and the repo checkout |
+| QEMU `-enable-kvm` error | KVM not available | Run `kvm-ok`; enable virtualization in firmware; or drop `-enable-kvm` (much slower) |
+| Cockpit unreachable after install | Wrong URL (Harvester `:443` vs Nexus `:8443`), service not running, missing bundle, or firewall | Use the **node management IP** (not the cluster VIP). Try `https://<node-ip>:8443` then `http://<node-ip>:8080`. On the node: `sudo nexus-cockpit --status`, `systemctl status nexus-cockpit`, `journalctl -u nexus-cockpit -b`, `curl -sk https://127.0.0.1:8443/healthz`. If `index.html` is missing, rebuild + reinstall from the current branch |
+| `nexus-cockpit.service` fails / restart loop | Read-only root blocked tarball extract, missing `python3`, or broken nginx picked first | On the node: `journalctl -u nexus-cockpit -b --no-pager`. Check `python3 --version`, `ls /usr/share/nexus-cockpit/dist/index.html /var/lib/nexus/cockpit-dist/index.html`. Rebuild ISO from current branch |
+| `cannot execute /usr/local/bin/nexus-cockpit: No such file or directory` | **Wrong path** — Nexus lives under `/usr/bin/nexus-cockpit`, not `/usr/local` (Elemental mounts `/usr/local` as empty persistent storage and hides ISO files). Or stock Harvester ISO | On the node: `ls -la /usr/bin/nexus-cockpit /usr/share/nexus-cockpit/`. Rebuild with `git pull origin cursor/fix-iso-entrypoint-d930 && cd installer && make iso-builder && make iso`, then **reinstall** using `dist/harvester-nexus-*.iso` |
+| Login rejected | Wrong credentials | Production default is `admin` / `admin`; dev server also accepts `admin` / `demo` |
+
+For installer internals, manifest layout, and simulator details, see [`installer/README.md`](./installer/README.md).
 
 ### Repository layout
 
@@ -348,44 +600,13 @@ docs/mockups/                 Reference screenshots & videos
 ## Verified build
 
 - `npx tsc --noEmit` — clean type-check
-- `npm run test` — 178 / 178 Vitest tests pass (cockpit + XDR engine + rules + responses + manifests)
+- `npm run test` — 237 / 237 Vitest tests pass (cockpit + XDR engine + rules + responses + manifests + installer)
 - `npm run build` — production bundle succeeds
+- `cd installer && make simulate` — 59 / 59 install pipeline checks pass
 
-## Demo installation
+## GitHub branches and pull requests
 
-This prototype is the front-end Nexus demo for Harvester-style workload
-generation and the bundled XDR / MDR platform. After launching the app
-locally:
-
-1. Open the **Setup Wizard** to provision the bare-metal install plan,
-   then optionally enable the embedded **Manifest Wizard** to select
-   storage, networking, security, monitoring, GitOps, and multi-cluster
-   options. Generated manifests appear in the built-in CodeMirror YAML
-   editor.
-2. Open the **Cluster Console** for live-adapter Kubernetes API
-   validation, `kubectl` apply / test runs, and `vcluster` multi-cluster
-   operations.
-3. Open the **Security Posture** wizard to pick an XDR profile
-   (Baseline / Hardened / Maximum), tune the sensor catalog, preview the
-   generated Kubernetes bundle, and read the detection-rule catalog.
-4. Open **XDR Operations** to watch the live SOC dashboard. The bundled
-   deterministic 14-step attack-scenario simulator drives the page in
-   demo mode so you can see alerts firing, response actions dispatched,
-   and APT actors being attributed in real time.
-
-### GitHub branches and pull requests
-
-The XDR / MDR platform lives on:
-
-- Branch: <https://github.com/sggr57a/harvester-nexus/tree/cursor/xdr-mdr-foss-d3bc>
-- Pull request: <https://github.com/sggr57a/harvester-nexus/pull/27>
-
-The themed cockpit + ZFS AnyRAID work lives on:
-
-- Branch: <https://github.com/sggr57a/harvester-nexus/tree/cursor/multi-theme-live-mockup-d3bc>
-- Default branch: <https://github.com/sggr57a/harvester-nexus/tree/main>
-
-The Harvester platform fork lives on:
-
-- Branch: <https://github.com/sggr57a/harvester/tree/nexus>
-- Pull request: <https://github.com/sggr57a/harvester/pull/1>
+- Default branch (everything merged): <https://github.com/sggr57a/harvester-nexus/tree/main>
+- XDR / MDR platform: PR <https://github.com/sggr57a/harvester-nexus/pull/27> (merged)
+- Themed cockpit + AnyRAID: branch <https://github.com/sggr57a/harvester-nexus/tree/cursor/multi-theme-live-mockup-d3bc>
+- Harvester platform fork: branch <https://github.com/sggr57a/harvester/tree/nexus>, PR <https://github.com/sggr57a/harvester/pull/1>

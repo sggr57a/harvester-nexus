@@ -45,6 +45,91 @@ export interface NetworkPolicyCell {
   protocol: 'tcp' | 'udp' | 'sctp';
 }
 
+export interface OvsBridgeRow {
+  id: string;
+  name: string;
+  failMode: string;
+  datapathType: string;
+  portCount: number;
+  flowCount: number;
+  status: 'up' | 'degraded' | 'down';
+}
+
+export interface OvsPortRow {
+  id: string;
+  bridge: string;
+  name: string;
+  portType: string;
+  tag?: number;
+  rxMbps: number;
+  txMbps: number;
+  status: 'up' | 'down';
+}
+
+export interface OvsFlowRow {
+  id: string;
+  bridge: string;
+  table: number;
+  priority: number;
+  match: string;
+  actions: string;
+}
+
+export interface NetworkTenantRow {
+  id: string;
+  name: string;
+  namespace: string;
+  vlanIds: number[];
+  policyCount: number;
+  workloads: number;
+}
+
+export interface VirtualBridgeRow {
+  id: string;
+  name: string;
+  kind: 'linux-bridge' | 'openvswitch' | 'harvester-clusternetwork' | 'distributed-switch';
+  bridgeName: string;
+  vlanAware: boolean;
+  portCount: number;
+  status: 'up' | 'degraded' | 'down';
+}
+
+export interface PortGroupRow {
+  id: string;
+  name: string;
+  bridge: string;
+  vlanId: number;
+  cidr: string;
+  vms: number;
+  pods: number;
+}
+
+export interface SdnZoneRow {
+  id: string;
+  name: string;
+  zoneType: string;
+  vni: number;
+  tenant: string;
+  nodeCount: number;
+}
+
+export interface NetworkDiagnosticRow {
+  id: string;
+  label: string;
+  detail: string;
+  severity: 'ok' | 'warning' | 'critical' | 'info';
+}
+
+export interface NetworkAttachmentRow {
+  id: string;
+  name: string;
+  namespace: string;
+  clusterNetwork?: string;
+  vlanId?: number;
+  ovsBridge?: string;
+  networkType?: string;
+}
+
 export interface NetworkingDashboard {
   id: 'networking';
   title: 'Networking & Service Mesh';
@@ -54,6 +139,16 @@ export interface NetworkingDashboard {
   policyMatrix: NetworkPolicyCell[];
   nicBonds: { name: string; speedGbps: number; rxMbps: number; txMbps: number; state: 'up' | 'degraded' | 'down' }[];
   vip: { mode: 'static' | 'dhcp'; address: string; floating: boolean };
+  virtualSwitches?: OvsBridgeRow[];
+  ovsPorts?: OvsPortRow[];
+  ovsFlows?: OvsFlowRow[];
+  virtualBridges?: VirtualBridgeRow[];
+  portGroups?: PortGroupRow[];
+  sdnZones?: SdnZoneRow[];
+  overlays?: { id: string; name: string; protocol: string; vni: number; tenant: string }[];
+  tenants?: NetworkTenantRow[];
+  diagnostics?: NetworkDiagnosticRow[];
+  nads?: NetworkAttachmentRow[];
 }
 
 export interface StorageBackendCard {
@@ -99,17 +194,55 @@ export interface StorageDashboard {
   replicationLinks: { source: string; target: string; lagSeconds: number; mode: 'zfs' | 'longhorn' | 'pbs' | 'cross-cluster' }[];
 }
 
+export type GuestProfile =
+  | 'windows-desktop'
+  | 'linux-desktop'
+  | 'linux-shell'
+  | 'container-shell'
+  | 'unknown';
+
+export type DesktopEnvironment = 'windows' | 'xfce' | 'kde' | 'gnome';
+
+export interface MachineNetwork {
+  name: string;
+  ip?: string;
+  mac?: string;
+  type?: string;
+}
+
+export interface MachineStorageVolume {
+  name: string;
+  sizeGiB?: number;
+  storageClass?: string;
+  mountPath?: string;
+}
+
+export interface MachineConsoleCapabilities {
+  vnc: boolean;
+  serial: boolean;
+  shell: boolean;
+}
+
 export interface MachineRow {
   id: string;
   name: string;
-  kind: 'vm' | 'lxc' | 'docker' | 'pod';
+  kind: 'vm' | 'lxc' | 'docker' | 'pod' | 'node';
   host: string;
+  namespace?: string;
   cpuPercent: number;
   ramGiB: number;
   ramAllocGiB: number;
   status: 'running' | 'paused' | 'migrating' | 'snapshot';
   haEnabled: boolean;
   affinity: 'pin' | 'avoid' | 'none';
+  networks?: MachineNetwork[];
+  storageVolumes?: MachineStorageVolume[];
+  netRxMbps?: number;
+  netTxMbps?: number;
+  guestProfile?: GuestProfile;
+  shell?: 'bash' | 'zsh' | 'sh';
+  desktopEnvironment?: DesktopEnvironment | null;
+  console?: MachineConsoleCapabilities;
 }
 
 export interface MigrationArc {
@@ -127,6 +260,9 @@ export interface ConsoleChip {
   id: string;
   type: 'novnc' | 'xterm' | 'serial';
   target: string;
+  machineId?: string;
+  namespace?: string;
+  kind?: MachineRow['kind'];
   state: 'idle' | 'active';
 }
 
@@ -477,6 +613,23 @@ export function buildNetworkingDashboard(): NetworkingDashboard {
       { name: 'rdma-bo', speedGbps: 200, rxMbps: 124820, txMbps: 121110, state: 'degraded' },
     ],
     vip: { mode: 'static', address: '10.10.40.20', floating: true },
+    virtualBridges: [
+      { id: 'vmbr0', name: 'vmbr0', kind: 'linux-bridge', bridgeName: 'vmbr0', vlanAware: true, portCount: 6, status: 'up' },
+      { id: 'br-tenant', name: 'br-tenant', kind: 'openvswitch', bridgeName: 'br-tenant', vlanAware: true, portCount: 12, status: 'up' },
+      { id: 'mgmt', name: 'mgmt', kind: 'harvester-clusternetwork', bridgeName: 'mgmt-br', vlanAware: false, portCount: 3, status: 'up' },
+    ],
+    portGroups: [
+      { id: 'pg-mgmt', name: 'Management', bridge: 'vmbr0', vlanId: 10, cidr: '10.10.10.0/24', vms: 12, pods: 0 },
+      { id: 'pg-tenant-a', name: 'Tenant A', bridge: 'br-tenant', vlanId: 40, cidr: '10.10.40.0/24', vms: 8, pods: 62 },
+      { id: 'pg-tenant-b', name: 'Tenant B', bridge: 'br-tenant', vlanId: 50, cidr: '10.10.50.0/24', vms: 6, pods: 44 },
+    ],
+    sdnZones: [
+      { id: 'sdn-a', name: 'tenant-a-vxlan', zoneType: 'vxlan', vni: 11001, tenant: 'tenant-a', nodeCount: 3 },
+      { id: 'sdn-b', name: 'tenant-b-evpn', zoneType: 'evpn', vni: 11002, tenant: 'tenant-b', nodeCount: 3 },
+    ],
+    virtualSwitches: [
+      { id: 'br-tenant', name: 'br-tenant', failMode: 'standalone', datapathType: 'system', portCount: 12, flowCount: 48, status: 'up' },
+    ],
   };
 }
 
@@ -487,7 +640,7 @@ export function buildStorageDashboard(): StorageDashboard {
     { id: 'nvme-of', label: 'NVMe-oF / TCP', kind: 'block', usagePercent: 41, capacityTiB: 64, iops: 318000, readMiBs: 12420, writeMiBs: 9810, driverHealth: 'healthy', csiTemplate: 'nvmeof.csi', features: ['ultra-low-latency', 'spdk-userspace'] },
     { id: 'rdma', label: 'NVMe over RDMA', kind: 'block', usagePercent: 36, capacityTiB: 32, iops: 412000, readMiBs: 18220, writeMiBs: 14820, driverHealth: 'degraded', csiTemplate: 'nvmeof.rdma', features: ['rdma', 'memory-tier', 'spdk-userspace'] },
     { id: 'zfs', label: 'ZFS over iSCSI', kind: 'block', usagePercent: 68, capacityTiB: 240, iops: 38400, readMiBs: 1240, writeMiBs: 980, driverHealth: 'healthy', csiTemplate: 'zfs.csi', features: ['copy-on-write', 'zstd-inline', 'arc-cache', 'send-recv'] },
-    { id: 'zfs-anyraid', label: 'ZFS AnyRAID', kind: 'block', usagePercent: 54, capacityTiB: 184, iops: 42100, readMiBs: 1380, writeMiBs: 1020, driverHealth: 'healthy', csiTemplate: 'anyraid.zfs.csi', features: ['heterogeneous-disks', 'slab-redundancy', 'auto-rebalance', 'hot-spare-pool'] },
+    { id: 'anyraid', label: 'AnyRAID', kind: 'block', usagePercent: 54, capacityTiB: 184, iops: 42100, readMiBs: 1380, writeMiBs: 1020, driverHealth: 'healthy', csiTemplate: 'anyraid.csi', features: ['heterogeneous-disks', 'slab-redundancy', 'auto-rebalance', 'hot-spare-pool'] },
     { id: 'iscsi', label: 'iSCSI block', kind: 'block', usagePercent: 51, capacityTiB: 120, iops: 22400, readMiBs: 720, writeMiBs: 540, driverHealth: 'healthy', csiTemplate: 'iscsi.csi', features: ['shared-block', 'vfio-pci-multipath'] },
     { id: 'nfs', label: 'NFS', kind: 'file', usagePercent: 64, capacityTiB: 180, iops: 14200, readMiBs: 480, writeMiBs: 320, driverHealth: 'healthy', csiTemplate: 'nfs.csi', features: ['rwx', 'subpath-driver'] },
     { id: 'smb', label: 'SMB/CIFS', kind: 'file', usagePercent: 47, capacityTiB: 60, iops: 8400, readMiBs: 240, writeMiBs: 180, driverHealth: 'healthy', csiTemplate: 'smb.csi', features: ['windows-share', 'subpath-driver'] },
@@ -529,13 +682,48 @@ export function buildMachinesDashboard(): MachinesDashboard {
     id: 'machines',
     title: 'Machines & Containers',
     fleet: [
-      { id: 'vm-101', name: 'payments-vm-01', kind: 'vm', host: 'compute-01', cpuPercent: 64, ramGiB: 28, ramAllocGiB: 32, status: 'running', haEnabled: true, affinity: 'pin' },
-      { id: 'vm-102', name: 'payments-vm-02', kind: 'vm', host: 'compute-02', cpuPercent: 58, ramGiB: 26, ramAllocGiB: 32, status: 'migrating', haEnabled: true, affinity: 'pin' },
-      { id: 'lxc-21', name: 'fraud-lxc-01', kind: 'lxc', host: 'compute-02', cpuPercent: 42, ramGiB: 6, ramAllocGiB: 8, status: 'running', haEnabled: false, affinity: 'avoid' },
-      { id: 'doc-31', name: 'registry-cache', kind: 'docker', host: 'edge-a', cpuPercent: 31, ramGiB: 2, ramAllocGiB: 4, status: 'running', haEnabled: false, affinity: 'none' },
-      { id: 'pod-91', name: 'api-green-7c8', kind: 'pod', host: 'compute-03', cpuPercent: 21, ramGiB: 1.2, ramAllocGiB: 2, status: 'running', haEnabled: true, affinity: 'avoid' },
-      { id: 'pod-92', name: 'argo-runner-bd2', kind: 'pod', host: 'compute-03', cpuPercent: 38, ramGiB: 1.6, ramAllocGiB: 2, status: 'snapshot', haEnabled: false, affinity: 'none' },
-      { id: 'vm-105', name: 'analytics-vm', kind: 'vm', host: 'compute-01', cpuPercent: 71, ramGiB: 48, ramAllocGiB: 64, status: 'paused', haEnabled: true, affinity: 'pin' },
+      {
+        id: 'vm-101', name: 'payments-vm-01', kind: 'vm', host: 'compute-01', namespace: 'finance',
+        cpuPercent: 64, ramGiB: 28, ramAllocGiB: 32, status: 'running', haEnabled: true, affinity: 'pin',
+        guestProfile: 'linux-shell', shell: 'bash',
+        networks: [{ name: 'eth0', ip: '10.42.20.10', mac: '52:54:00:12:01:01' }],
+        storageVolumes: [{ name: 'payments-data', sizeGiB: 128, storageClass: 'longhorn' }],
+        netRxMbps: 420, netTxMbps: 380,
+      },
+      {
+        id: 'vm-102', name: 'payments-vm-02', kind: 'vm', host: 'compute-02', namespace: 'finance',
+        cpuPercent: 58, ramGiB: 26, ramAllocGiB: 32, status: 'migrating', haEnabled: true, affinity: 'pin',
+        guestProfile: 'windows-desktop', desktopEnvironment: 'windows',
+        networks: [{ name: 'eth0', ip: '10.42.20.11' }],
+      },
+      {
+        id: 'lxc-21', name: 'fraud-lxc-01', kind: 'lxc', host: 'compute-02', namespace: 'finance',
+        cpuPercent: 42, ramGiB: 6, ramAllocGiB: 8, status: 'running', haEnabled: false, affinity: 'avoid',
+        guestProfile: 'container-shell', shell: 'bash',
+        networks: [{ name: 'eth0', ip: '10.42.20.20' }],
+      },
+      {
+        id: 'doc-31', name: 'registry-cache', kind: 'docker', host: 'edge-a', namespace: 'edge',
+        cpuPercent: 31, ramGiB: 2, ramAllocGiB: 4, status: 'running', haEnabled: false, affinity: 'none',
+        guestProfile: 'container-shell', shell: 'sh',
+      },
+      {
+        id: 'pod-91', name: 'api-green-7c8', kind: 'pod', host: 'compute-03', namespace: 'finance',
+        cpuPercent: 21, ramGiB: 1.2, ramAllocGiB: 2, status: 'running', haEnabled: true, affinity: 'avoid',
+        guestProfile: 'container-shell', shell: 'sh',
+      },
+      {
+        id: 'pod-92', name: 'argo-runner-bd2', kind: 'pod', host: 'compute-03', namespace: 'cicd',
+        cpuPercent: 38, ramGiB: 1.6, ramAllocGiB: 2, status: 'snapshot', haEnabled: false, affinity: 'none',
+        guestProfile: 'container-shell', shell: 'bash',
+      },
+      {
+        id: 'vm-105', name: 'analytics-vm', kind: 'vm', host: 'compute-01', namespace: 'analytics',
+        cpuPercent: 71, ramGiB: 48, ramAllocGiB: 64, status: 'paused', haEnabled: true, affinity: 'pin',
+        guestProfile: 'linux-desktop', desktopEnvironment: 'xfce', shell: 'bash',
+        networks: [{ name: 'eth0', ip: '10.42.30.5' }],
+        storageVolumes: [{ name: 'analytics-data', sizeGiB: 256, storageClass: 'ceph-rbd' }],
+      },
     ],
     migrations: [
       { id: 'mig-01', workload: 'payments-vm-02', kind: 'vm', source: 'compute-02', target: 'compute-03', progress: 64, preservesMemory: true, estimatedSeconds: 38 },
@@ -552,12 +740,7 @@ export function buildMachinesDashboard(): MachinesDashboard {
       { name: 'analytics-vm', restartWindowSeconds: 90, lastEvent: 'manual failover drill ok', active: true },
       { name: 'argo-runner-bd2', restartWindowSeconds: 30, lastEvent: 'pod restart by deployment', active: true },
     ],
-    consoleChips: [
-      { id: 'c-1', type: 'novnc', target: 'payments-vm-01', state: 'active' },
-      { id: 'c-2', type: 'xterm', target: 'fraud-lxc-01', state: 'idle' },
-      { id: 'c-3', type: 'serial', target: 'analytics-vm', state: 'idle' },
-      { id: 'c-4', type: 'novnc', target: 'analytics-vm', state: 'idle' },
-    ],
+    consoleChips: [], // derived via consoleChipsFromFleet in demo bundle builder if needed
   };
 }
 

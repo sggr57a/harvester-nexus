@@ -1,7 +1,7 @@
 /**
- * ZFS AnyRAID capacity calculator.
+ * AnyRAID capacity calculator.
  *
- * AnyRAID is a slab-based ZFS layout that accepts a heterogeneous set of
+ * AnyRAID is a slab-based RAID layout that accepts a heterogeneous set of
  * physical drives — different vendors, different capacities — and carves
  * each disk into uniformly-sized "slabs". The redundancy profile is then
  * enforced at the slab layer rather than at the whole-disk layer, so a

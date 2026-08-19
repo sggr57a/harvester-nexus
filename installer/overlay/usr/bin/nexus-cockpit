@@ -1,0 +1,288 @@
+#!/bin/bash
+# nexus-cockpit — serves the cockpit production bundle on each node.
+# Assets live on the read-only squashfs under /usr/share/nexus-cockpit/
+# (/usr/local is a persistent mount on Elemental and hides ISO-baked files).
+# Runtime tarball extract uses writable /var/lib/nexus/cockpit-dist.
+
+set -euo pipefail
+
+ACTION=${1:-help}
+shift || true
+
+COCKPIT_SHARE=/usr/share/nexus-cockpit
+RUNTIME_DIST=/var/lib/nexus/cockpit-dist
+CONFIG_FILE=/etc/nexus/config.yaml
+LOG_DIR=/var/log/nexus
+SERVE_PY=/usr/lib/nexus/serve-cockpit.py
+HTTPS_PORT=8443
+HTTP_PORT=8080
+TLS_DIR=/etc/nexus/tls
+TLS_CRT=${TLS_DIR}/cockpit.crt
+TLS_KEY=${TLS_DIR}/cockpit.key
+SERVE_ROOT=
+
+log_err() { printf '%s\n' "$*" >&2; }
+
+ensure_dirs() {
+  mkdir -p "${LOG_DIR}" /run "${RUNTIME_DIST}" "${TLS_DIR}"
+}
+
+resolve_serve_root() {
+  if [[ -n "${SERVE_ROOT}" && -f "${SERVE_ROOT}/index.html" ]]; then
+    printf '%s' "${SERVE_ROOT}"
+    return 0
+  fi
+  if [[ -f "${COCKPIT_SHARE}/dist/index.html" ]]; then
+    SERVE_ROOT=${COCKPIT_SHARE}/dist
+    printf '%s' "${SERVE_ROOT}"
+    return 0
+  fi
+  if [[ -f "${RUNTIME_DIST}/index.html" ]]; then
+    SERVE_ROOT=${RUNTIME_DIST}
+    printf '%s' "${SERVE_ROOT}"
+    return 0
+  fi
+  if [[ -f "${COCKPIT_SHARE}/dist.tar.gz" ]]; then
+    mkdir -p "${RUNTIME_DIST}"
+    tar -xzf "${COCKPIT_SHARE}/dist.tar.gz" -C "${RUNTIME_DIST}"
+    SERVE_ROOT=${RUNTIME_DIST}
+    printf '%s' "${SERVE_ROOT}"
+    return 0
+  fi
+  return 1
+}
+
+ensure_bundle() {
+  resolve_serve_root >/dev/null
+}
+
+ensure_tls() {
+  mkdir -p "${TLS_DIR}"
+  if [[ -f "${TLS_CRT}" && -f "${TLS_KEY}" ]]; then
+    return 0
+  fi
+  if ! command -v openssl >/dev/null 2>&1; then
+    log_err "openssl not found; HTTPS on ${HTTPS_PORT} unavailable"
+    return 1
+  fi
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout "${TLS_KEY}" -out "${TLS_CRT}" \
+    -subj "/CN=nexus-cockpit/O=Harvester-Nexus" >/dev/null 2>&1
+  chmod 0644 "${TLS_CRT}"
+  chmod 0600 "${TLS_KEY}"
+}
+
+nginx_mime_block() {
+  cat <<'MIME'
+    types {
+      text/html                             html htm;
+      text/css                              css;
+      application/javascript                js mjs;
+      application/json                      json map;
+      image/png                             png;
+      image/jpeg                            jpg jpeg;
+      image/svg+xml                         svg svgz;
+      image/webp                            webp;
+      image/x-icon                          ico;
+      font/woff                             woff;
+      font/woff2                            woff2;
+      application/octet-stream              bin;
+    }
+    default_type application/octet-stream;
+MIME
+}
+
+write_nginx_config() {
+  local conf=$1 has_tls=$2 root=$3
+  cat > "${conf}" <<NGX
+worker_processes auto;
+pid /run/nexus-cockpit-nginx.pid;
+error_log ${LOG_DIR}/nginx-error.log warn;
+events { worker_connections 1024; }
+http {
+  sendfile on;
+  gzip on;
+$(nginx_mime_block)
+  server {
+NGX
+  if [[ "${has_tls}" == true ]]; then
+    cat >> "${conf}" <<NGX
+    listen ${HTTPS_PORT} ssl;
+    listen ${HTTP_PORT};
+    ssl_certificate     ${TLS_CRT};
+    ssl_certificate_key ${TLS_KEY};
+NGX
+  else
+    cat >> "${conf}" <<NGX
+    listen ${HTTP_PORT};
+NGX
+  fi
+  cat >> "${conf}" <<NGX
+    server_name _;
+    root ${root};
+    index index.html;
+    location /healthz { return 200 'ok'; add_header Content-Type text/plain; }
+    location / { try_files \$uri \$uri/ /index.html; }
+  }
+}
+NGX
+}
+
+start_python_server() {
+  local root=$1
+  local py=
+  for candidate in python3 python; do
+    if command -v "${candidate}" >/dev/null 2>&1; then
+      py=${candidate}
+      break
+    fi
+  done
+  [[ -n "${py}" ]] || return 1
+  [[ -f "${SERVE_PY}" ]] || return 1
+  export NEXUS_COCKPIT_ROOT="${root}"
+  export NEXUS_COCKPIT_HTTP_PORT="${HTTP_PORT}"
+  export NEXUS_COCKPIT_HTTPS_PORT="${HTTPS_PORT}"
+  export NEXUS_COCKPIT_TLS_CRT="${TLS_CRT}"
+  export NEXUS_COCKPIT_TLS_KEY="${TLS_KEY}"
+  exec "${py}" "${SERVE_PY}"
+}
+
+print_status() {
+  local root
+  printf '=== Nexus cockpit status ===\n'
+  printf 'config:      %s\n' "${CONFIG_FILE}"
+  if root=$(resolve_serve_root 2>/dev/null); then
+    printf 'bundle OK:   yes at %s (%d files)\n' "${root}" "$(find "${root}" -type f | wc -l)"
+  else
+    printf 'bundle OK:   NO — missing dist/ and dist.tar.gz under %s\n' "${COCKPIT_SHARE}"
+  fi
+  if systemctl is-active --quiet nexus-cockpit.service 2>/dev/null; then
+    printf 'service:     active\n'
+  else
+    printf 'service:     inactive (run: systemctl start nexus-cockpit)\n'
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf 'python3:     yes (%s)\n' "$(command -v python3)"
+  elif command -v python >/dev/null 2>&1; then
+    printf 'python:      yes (%s)\n' "$(command -v python)"
+  else
+    printf 'python3:     NO — install python3 or rebuild ISO from current branch\n'
+  fi
+  if curl -sf "http://127.0.0.1:${HTTP_PORT}/healthz" >/dev/null 2>&1; then
+    printf 'http probe:  http://<node-ip>:%s OK\n' "${HTTP_PORT}"
+  elif curl -sfk "https://127.0.0.1:${HTTPS_PORT}/healthz" >/dev/null 2>&1; then
+    printf 'https probe: https://<node-ip>:%s OK\n' "${HTTPS_PORT}"
+  else
+    printf 'local probe: FAILED — see journalctl -u nexus-cockpit -b\n'
+  fi
+}
+
+case "${ACTION}" in
+  --ensure-tls)
+    ensure_dirs
+    if ensure_tls; then
+      printf 'TLS material ready under %s\n' "${TLS_DIR}"
+    else
+      log_err "TLS not configured; use http://<node-ip>:${HTTP_PORT}"
+    fi
+    exit 0
+    ;;
+
+  --check-config)
+    ensure_dirs
+    ensure_bundle || {
+      log_err "cockpit static bundle missing under ${COCKPIT_SHARE}/dist and ${COCKPIT_SHARE}/dist.tar.gz"
+      log_err "rebuild + reinstall ISO from cursor/fix-iso-entrypoint-d930"
+      exit 1
+    }
+    CFG=${1:-${CONFIG_FILE}}
+    if [[ ! -f "${CFG}" ]]; then
+      log_err "config file not found: ${CFG}"
+      exit 1
+    fi
+    root=$(resolve_serve_root)
+    printf 'config OK: %s\n' "${CFG}"
+    printf 'static bundle OK: %s (%d files)\n' "${root}" "$(find "${root}" -type f | wc -l)"
+    if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+      log_err "python3 not installed — nexus-cockpit --serve will fail without python3 or nginx"
+      exit 1
+    fi
+    exit 0
+    ;;
+
+  --status)
+    print_status
+    exit 0
+    ;;
+
+  --serve)
+    ensure_dirs
+    log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "${LOG_DIR}/cockpit.log"; }
+
+    root=$(resolve_serve_root) || {
+      log_err "cockpit bundle missing — cannot start server"
+      exit 1
+    }
+
+    HAS_TLS=false
+    if ensure_tls; then HAS_TLS=true; fi
+
+    if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+      if [[ -f "${SERVE_PY}" ]]; then
+        if [[ "${HAS_TLS}" == true ]]; then
+          log "starting python server on https://0.0.0.0:${HTTPS_PORT} and http://0.0.0.0:${HTTP_PORT}"
+        else
+          log "starting python server on http://0.0.0.0:${HTTP_PORT} (TLS unavailable)"
+        fi
+        start_python_server "${root}"
+      fi
+      log "python found but ${SERVE_PY} missing"
+    fi
+
+    if command -v nginx >/dev/null 2>&1; then
+      TMP_CONF=$(mktemp /tmp/nexus-cockpit.XXXXXX.conf)
+      write_nginx_config "${TMP_CONF}" "${HAS_TLS}" "${root}"
+      if nginx -t -c "${TMP_CONF}" >/dev/null 2>&1; then
+        if [[ "${HAS_TLS}" == true ]]; then
+          log "starting nginx on https://0.0.0.0:${HTTPS_PORT} and http://0.0.0.0:${HTTP_PORT}"
+        else
+          log "starting nginx on http://0.0.0.0:${HTTP_PORT} (TLS unavailable)"
+        fi
+        exec nginx -c "${TMP_CONF}" -g 'daemon off;'
+      fi
+      log "nginx config test failed — falling back to busybox if available"
+      rm -f "${TMP_CONF}"
+    fi
+
+    if command -v busybox >/dev/null 2>&1 && busybox httpd -h 2>&1 | grep -q httpd; then
+      log "starting busybox httpd on http://0.0.0.0:${HTTP_PORT} only"
+      exec busybox httpd -f -v -p "${HTTP_PORT}" -h "${root}"
+    fi
+
+    log_err "no python3, working nginx, or busybox httpd available; cannot serve cockpit"
+    exit 1
+    ;;
+
+  help|--help|-h)
+    cat <<USAGE
+nexus-cockpit — Harvester-Nexus cockpit launcher
+
+Usage:
+  nexus-cockpit --check-config [<path>]
+  nexus-cockpit --ensure-tls
+  nexus-cockpit --status
+  nexus-cockpit --serve [--config <path>]
+  nexus-cockpit help
+
+URLs after install:
+  https://<node-management-ip>:8443   (preferred)
+  http://<node-management-ip>:8080    (fallback / health)
+USAGE
+    ;;
+
+  *)
+    log_err "unknown action: ${ACTION} (try --help)"
+    exit 2
+    ;;
+
+esac

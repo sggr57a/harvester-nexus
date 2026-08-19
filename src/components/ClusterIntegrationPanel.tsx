@@ -7,6 +7,8 @@ import {
   ValidationResult,
   VClusterPlan,
 } from '../lib/clusterWorkflow';
+import type { DeployPhase, DeployResult } from '../lib/deploySimulation';
+import { DeployActionBar } from './DeployActionBar';
 
 interface ClusterIntegrationPanelProps {
   validation: ValidationResult;
@@ -16,6 +18,16 @@ interface ClusterIntegrationPanelProps {
   csiPreview: CsiTemplatePreview;
   operationBundle: NexusClusterOperationBundle;
   config: ApplicationConfig;
+  onDeployWorkload?: () => void;
+  workloadDeployDisabled?: boolean;
+  workloadDeployDisabledReason?: string;
+  workloadDeploying?: boolean;
+  workloadDeployPhase?: DeployPhase | null;
+  workloadPhaseIndex?: number;
+  workloadPhaseCount?: number;
+  workloadDeployResult?: DeployResult | null;
+  onCreateWorkload?: () => void;
+  onOpenSetup?: () => void;
 }
 
 export function ClusterIntegrationPanel({
@@ -26,12 +38,35 @@ export function ClusterIntegrationPanel({
   csiPreview,
   operationBundle,
   config,
+  onDeployWorkload,
+  workloadDeployDisabled,
+  workloadDeployDisabledReason,
+  workloadDeploying,
+  workloadDeployPhase,
+  workloadPhaseIndex,
+  workloadPhaseCount,
+  workloadDeployResult,
+  onCreateWorkload,
+  onOpenSetup,
 }: ClusterIntegrationPanelProps) {
   return (
     <section className="cluster-console hud-panel" aria-label="Nexus next steps cluster integration console">
       <div className="hud-panel-title cluster-console-title">
-        <span>Features</span>
+        <span>Cluster Console</span>
         <strong>{operationBundle.mode === 'live-adapter' && applyRun.status === 'passed' ? 'live adapter staged' : 'attention required'}</strong>
+      </div>
+
+      <div className="cluster-console-actions">
+        {onOpenSetup && (
+          <button type="button" className="cluster-quick-action" onClick={onOpenSetup}>
+            Setup Wizard — create cluster
+          </button>
+        )}
+        {onCreateWorkload && (
+          <button type="button" className="cluster-quick-action" onClick={onCreateWorkload}>
+            Create VM / container / pod
+          </button>
+        )}
       </div>
 
       <div className="cluster-step-grid">
@@ -145,6 +180,20 @@ export function ClusterIntegrationPanel({
         <span>storage class: {csiPreview.storageClassName}</span>
         <span>source: {operationBundle.harvesterSourceRoot}</span>
       </div>
+
+      {onDeployWorkload && (
+        <DeployActionBar
+          primaryLabel="Deploy workload to cluster"
+          disabled={workloadDeployDisabled}
+          disabledReason={workloadDeployDisabledReason}
+          deploying={workloadDeploying}
+          currentPhase={workloadDeployPhase}
+          phaseIndex={workloadPhaseIndex}
+          phaseCount={workloadPhaseCount}
+          result={workloadDeployResult}
+          onDeploy={onDeployWorkload}
+        />
+      )}
     </section>
   );
 }

@@ -1,0 +1,71 @@
+# Feature-flag ConfigMap — read by the cockpit at boot to decide which
+# views / dashboards / wizards to render. Updated post-install whenever
+# the operator toggles a feature from the Security Posture or Setup
+# Wizard surfaces.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-features
+  namespace: nexus-cockpit
+  labels:
+    app.kubernetes.io/name: nexus-features
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+data:
+  # Cockpit views — each one maps to a CockpitView in src/App.tsx
+  view.mission-control:   "true"
+  view.telemetry-wave:    "true"
+  view.networking:        "true"
+  view.storage:           "true"
+  view.machines:          "true"
+  view.processor-memory:  "true"
+  view.environment:       "true"
+  view.activity:          "true"
+  view.poly-compute:      "true"
+  view.acceleration:      "true"
+  view.operations:        "true"
+  view.resource-monitor:  "true"
+  view.xdr-operations:    "true"
+  view.security-posture:  "true"
+  view.cluster-console:   "true"
+  view.launch-mockups:    "true"
+  view.setup-wizard:      "true"
+
+  # Capability gates — drive what's visible inside the wizards
+  capability.kubevirt:    "true"
+  capability.incus-lxc:   "true"
+  capability.pods:        "true"
+  capability.anyraid:     "true"
+  capability.vitastor:    "true"
+  capability.spdk:        "true"
+  capability.dpdk:        "true"
+  capability.rdma:        "true"
+  capability.gpu-passthrough: "true"
+  capability.fpga-passthrough: "true"
+  capability.smartnic-passthrough: "true"
+  capability.nested-virt: "true"
+  capability.xdr:         "true"
+  capability.mdr:         "true"
+  capability.compliance:  "true"
+  capability.deception:   "true"
+  capability.gitops:      "true"
+
+  # Auto-response gates for the XDR engine
+  response.isolate-endpoint:   "true"
+  response.quarantine-host:    "true"
+  response.snapshot-vm:        "true"
+  response.snapshot-lxc:       "true"
+  response.kill-process:       "true"
+  response.rollback-deployment: "true"
+  response.block-image:        "true"
+  response.block-egress-domain: "true"
+  response.rotate-token:       "true"
+  response.alert-only:         "true"
+
+  # Theme + launch defaults that the cockpit reads on first boot
+  default.theme:           "route-grid"
+  default.launch-variant:  "concentric-boot"
+
+  # Versioning so the cockpit knows which contract it's talking to
+  config.version:          "1.0.0"
+  installer.build:         "harvester-nexus-1.0.0+nexus.1"

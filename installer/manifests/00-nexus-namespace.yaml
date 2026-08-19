@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nexus-system
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nexus-xdr
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nexus-cockpit
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    app.kubernetes.io/managed-by: harvester-nexus-installer

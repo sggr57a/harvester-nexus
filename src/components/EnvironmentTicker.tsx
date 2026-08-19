@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatNumber, type EnvironmentSnapshot } from '../lib/liveTelemetry';
+import type { TelemetryMode, TelemetryState } from '../lib/telemetry/mode';
 
 interface EnvironmentTickerProps {
   snapshot: EnvironmentSnapshot;
+  telemetry?: TelemetryState;
+  onTelemetryModeChange?: (mode: TelemetryMode) => void;
   /** Optional label shown above the cells; defaults to a generic "Live Environment" label */
   label?: string;
 }
@@ -21,7 +24,12 @@ interface Cell {
  * value changed since the previous tick, so the user can see the
  * dashboards monitor a live environment.
  */
-export function EnvironmentTicker({ snapshot, label = 'Live Environment Stream' }: EnvironmentTickerProps) {
+export function EnvironmentTicker({
+  snapshot,
+  telemetry,
+  onTelemetryModeChange,
+  label = 'Live Environment Stream',
+}: EnvironmentTickerProps) {
   const previousTickRef = useRef<number>(snapshot.tick);
   const [flashKeys, setFlashKeys] = useState<Set<string>>(() => new Set());
 
@@ -111,13 +119,33 @@ export function EnvironmentTicker({ snapshot, label = 'Live Environment Stream' 
     return () => window.clearTimeout(handle);
   }, [snapshot.tick, cells]);
 
+  const streamSub = telemetry?.mode === 'live'
+    ? `tick #${snapshot.tick} · Harvester cluster metrics (pods, VMs, nodes)`
+    : `tick #${snapshot.tick} · demo telemetry (synthetic)`;
+
+  const modeLabel = telemetry?.mode === 'live' ? 'cluster live' : 'demo data';
+
   return (
     <div className="env-ticker" aria-label="Live environment statistics">
       <div className="env-ticker-cell" style={{ gridColumn: '1 / -1', background: 'transparent', border: 'none', padding: '0 0 0.2rem' }}>
         <span className="label" style={{ color: 'var(--theme-text-dim)' }}>{label}</span>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem' }}>
-          <span className="sub">tick #{snapshot.tick} · synthetic poly-compute environment</span>
-          <span className="env-ticker-live">stream live</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <span className="sub">{streamSub}{telemetry?.message ? ` · ${telemetry.message}` : ''}</span>
+          <div className="env-ticker-mode-row">
+            {onTelemetryModeChange ? (
+              <select
+                className="env-ticker-mode-select"
+                aria-label="Telemetry mode"
+                value={telemetry?.requested ?? 'auto'}
+                onChange={(e) => onTelemetryModeChange(e.target.value as TelemetryMode)}
+              >
+                <option value="auto">Auto</option>
+                <option value="live">Live</option>
+                <option value="demo">Demo</option>
+              </select>
+            ) : null}
+            <span className={`env-ticker-live env-ticker-live--${telemetry?.mode ?? 'demo'}`}>{modeLabel}</span>
+          </div>
         </div>
       </div>
       {cells.map((cell) => {

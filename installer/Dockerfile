@@ -1,0 +1,139 @@
+# Nexus-flavored ISO builder image.
+#
+# IMPORTANT: rancher/harvester-installer:<tag> is a FROM-scratch image that
+# contains ONLY /usr/bin/harvester-installer — no shell, no package manager.
+# The ISO build needs the full Dapper toolchain from harvester-installer's
+# Dockerfile.dapper (Go, xorriso, squashfs, Helm, Docker CLI, …) plus Node.js
+# for the cockpit production bundle.
+#
+# Built and tagged by `make iso-builder`. Run with `make iso`.
+
+FROM registry.suse.com/bci/golang:1.26
+
+SHELL ["/bin/bash", "-c"]
+
+ARG ARCH=amd64
+ENV ARCH=${ARCH}
+
+# harvester-installer master requires go >= 1.26. Install upstream Go explicitly so
+# stale BCI layers or cached iso-builder images cannot leave go 1.25 on PATH.
+# Bump when changing Go bootstrap or ISO host-tool logic to invalidate cached layers.
+ARG GO_TOOLCHAIN_REV=3
+ARG GO_VERSION=1.26.0
+RUN GOARCH="${ARCH}" && \
+    echo "go-toolchain-rev=${GO_TOOLCHAIN_REV} go=${GO_VERSION}" >/dev/null && \
+    curl -sfL "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" -o /tmp/go.tgz && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf /tmp/go.tgz && \
+    rm /tmp/go.tgz && \
+    /usr/local/go/bin/go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])' && \
+    ln -sf /usr/local/go/bin/go /usr/bin/go && \
+    ln -sf /usr/local/go/bin/gofmt /usr/bin/gofmt && \
+    /usr/bin/go version | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'
+ENV PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin"
+ENV GOROOT=/usr/local/go
+ENV GOTOOLCHAIN=local
+
+# ISO build toolchain — mirrors harvester-installer/Dockerfile.dapper.
+# mtools + dosfstools are required by luet-makeiso >= 0.4.0 for hybrid ISOs.
+# NOTE: do NOT install the zypper "docker" package — it ships CLI API 1.42,
+# which modern host daemons (Docker 29+, min API 1.44) reject.
+RUN zypper -n rm container-suseconnect && \
+    zypper -n install \
+      bash \
+      git \
+      curl \
+      gzip \
+      tar \
+      xz \
+      wget \
+      zstd \
+      squashfs \
+      xorriso \
+      awk \
+      jq \
+      mtools \
+      dosfstools \
+      unzip \
+      rsync \
+      patch
+# dosfstools on SUSE installs mkfs.fat under /usr/sbin; elemental expects mkfs.vfat on PATH.
+RUN set -euo pipefail; \
+    mkfs_src=""; \
+    for candidate in /usr/sbin/mkfs.vfat /sbin/mkfs.vfat \
+                     /usr/sbin/mkfs.fat /sbin/mkfs.fat \
+                     /usr/sbin/mkdosfs /sbin/mkdosfs; do \
+      if [[ -x "${candidate}" ]]; then mkfs_src="${candidate}"; break; fi; \
+    done; \
+    if [[ -z "${mkfs_src}" ]]; then \
+      echo "FATAL: dosfstools installed but no mkfs.fat/mkdosfs binary found" >&2; \
+      ls -la /usr/sbin/mkfs* /sbin/mkfs* 2>/dev/null || true; \
+      exit 1; \
+    fi; \
+    ln -sf "$(readlink -f "${mkfs_src}")" /usr/local/bin/mkfs.vfat; \
+    test -x /usr/local/bin/mkfs.vfat; \
+    command -v mcopy >/dev/null
+
+# Docker CLI — must match the host daemon API (Docker 29+ requires >= 1.44).
+# Static tarball layout: docker/docker (client), docker/dockerd, …
+ARG DOCKER_CLI_VERSION=29.1.3
+RUN DOCKER_ARCH=$([ "${ARCH}" = "arm64" ] && echo aarch64 || echo x86_64) && \
+    curl -sfLO "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" && \
+    tar xzf "docker-${DOCKER_CLI_VERSION}.tgz" docker/docker && \
+    mv docker/docker /usr/local/bin/docker && \
+    rm -rf docker "docker-${DOCKER_CLI_VERSION}.tgz" && \
+    chmod +x /usr/local/bin/docker && \
+    /usr/local/bin/docker --version
+
+# Node.js, yq, and helm also land in /usr/local/bin — ensure they are on PATH
+# (BCI golang images do not include /usr/local/bin by default).
+
+# elemental (copied from rancher/harvester-os during package-harvester-os) embeds
+# go-containerregistry/moby with API 1.42. Docker 29+ host daemons require >= 1.44.
+ENV DOCKER_API_VERSION=1.44
+
+# Node.js 20 — the golang BCI image does not ship nodejs20 in its default
+# zypper repos; install the official upstream binary (same approach as yq/Helm).
+ARG NODE_VERSION=20.18.3
+RUN NODE_ARCH=$([ "${ARCH}" = "arm64" ] && echo arm64 || echo x64) && \
+    curl -sfLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" && \
+    tar -xJf "node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" -C /usr/local --strip-components=1 && \
+    rm "node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" && \
+    node --version && npm --version
+
+# yq (same source/version family as upstream harvester-installer)
+ARG YQ_VERSION=v4.52.5
+ARG YQ_SUM_amd64=75d893a0d5940d1019cb7cdc60001d9e876623852c31cfc6267047bc31149fa9
+ARG YQ_SUM_arm64=90fa510c50ee8ca75544dbfffed10c88ed59b36834df35916520cddc623d9aaa
+ENV YQ_SUM="YQ_SUM_${ARCH}"
+RUN curl -sfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" \
+      -o /usr/local/bin/yq && \
+    echo "${!YQ_SUM}  /usr/local/bin/yq" | sha256sum -c - && \
+    chmod +x /usr/local/bin/yq && \
+    ln -sf /usr/local/bin/yq /usr/bin/yq
+
+# Helm (required by harvester-installer scripts/ci → build-bundle)
+ARG HELM_VERSION=v3.20.0
+ARG HELM_SUM_amd64=dbb4c8fc8e19d159d1a63dda8db655f9ffa4aac1b9a6b188b34a40957119b286
+ARG HELM_SUM_arm64=bfb14953295d5324d47ab55f3dfba6da28d46c848978c8fbf412d4271bdc29f1
+ENV HELM_SUM="HELM_SUM_${ARCH}"
+RUN mkdir /usr/tmp && cd /usr/tmp && \
+    curl -sfLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" && \
+    echo "${!HELM_SUM}  helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" | sha256sum -c - && \
+    tar xzf "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" --strip-components=1 && \
+    mv helm /usr/bin/helm && \
+    rm -rf /usr/tmp
+
+LABEL org.opencontainers.image.title="harvester-nexus-iso-builder"
+LABEL org.opencontainers.image.description="Builds the Harvester-Nexus install ISO with bundled cockpit + XDR + AnyRAID overlays."
+LABEL org.opencontainers.image.source="https://github.com/sggr57a/harvester-nexus"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
+WORKDIR /src
+ENV HARVESTER_NEXUS_OVERLAY=/build/nexus-overlay
+ENV HARVESTER_NEXUS_DIST=/build/dist
+RUN mkdir -p "${HARVESTER_NEXUS_OVERLAY}" "${HARVESTER_NEXUS_DIST}"
+
+# Explicit bash — do not rely on /bin/sh or a script shebang inside a
+# scratch-derived image (the old base had no shell at all).
+ENTRYPOINT ["/bin/bash", "/src/installer/build-iso.sh"]

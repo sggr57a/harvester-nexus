@@ -1,0 +1,21 @@
+[Unit]
+Description=Harvester-Nexus cockpit (web UI)
+Documentation=https://github.com/sggr57a/harvester-nexus
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/mkdir -p /var/lib/nexus/cockpit-dist /var/log/nexus /etc/nexus/tls
+ExecStartPre=-/usr/bin/nexus-cockpit --ensure-tls
+ExecStartPre=/usr/bin/nexus-cockpit --check-config /etc/nexus/config.yaml
+ExecStart=/usr/bin/nexus-cockpit --serve
+StandardOutput=journal
+StandardError=journal
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+ReadWritePaths=/var/log/nexus /var/lib/nexus /etc/nexus /tmp /run
+
+[Install]
+WantedBy=multi-user.target

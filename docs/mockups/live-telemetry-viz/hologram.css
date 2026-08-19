@@ -1,0 +1,217 @@
+/* Hologram HUD layout — virtual landscape centerpiece (original canvas, no stock assets) */
+
+body.hud-mode.hologram {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 35%, rgba(14, 165, 233, 0.14), transparent 60%),
+    radial-gradient(ellipse 50% 30% at 15% 70%, rgba(91, 140, 255, 0.08), transparent),
+    radial-gradient(ellipse 50% 30% at 85% 70%, rgba(56, 189, 248, 0.08), transparent),
+    linear-gradient(180deg, #030508, #0a121c);
+}
+
+body.hud-mode.hologram::before {
+  background-size: 24px 24px;
+  opacity: 0.35;
+}
+
+body.hud-mode.hologram::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(56, 189, 248, 0.015) 2px,
+    rgba(56, 189, 248, 0.015) 3px
+  );
+  opacity: 0.5;
+}
+
+body.hud-mode.hologram .mock-header {
+  padding: 0.45rem 0.65rem 0.3rem;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(3, 5, 8, 0.88);
+}
+
+body.hud-mode.hologram .mock-header h1 { font-size: 1.05rem; }
+body.hud-mode.hologram .kicker { font-size: 0.55rem; }
+
+.hologram-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  padding: 3px;
+  max-width: 100%;
+}
+
+.hologram-grid .tile {
+  background: rgba(4, 8, 14, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+.hologram-grid .tile::before,
+.hologram-grid .tile::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.hologram-grid .tile::before { top: 2px; left: 2px; border-right: none; border-bottom: none; }
+.hologram-grid .tile::after { bottom: 2px; right: 2px; border-left: none; border-top: none; }
+
+.hologram-grid .tile.burst {
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: inset 0 0 24px rgba(251, 191, 36, 0.08), 0 0 12px rgba(251, 191, 36, 0.12);
+  animation: holo-burst 0.8s ease-in-out infinite;
+}
+
+@keyframes holo-burst {
+  0%, 100% { border-color: rgba(251, 191, 36, 0.45); }
+  50% { border-color: rgba(251, 191, 36, 0.75); }
+}
+
+.hologram-grid .tile-label {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  z-index: 2;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(139, 155, 184, 0.8);
+  pointer-events: none;
+}
+
+.hologram-grid .tile canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* KPI row */
+.hologram-grid .tile.gauge { height: 76px; grid-column: span 2; }
+.hologram-grid .tile.gauge-sm { height: 76px; grid-column: span 2; }
+.hologram-grid .tile.event-strip {
+  grid-column: span 2;
+  height: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.58rem;
+}
+.hologram-grid .tile.event-strip strong { color: var(--accent-2); font-size: 0.54rem; letter-spacing: 0.1em; }
+.hologram-grid .tile.event-strip span { color: var(--warn); font-size: 0.62rem; margin-top: 0.15rem; line-height: 1.25; }
+
+.hologram-grid .tile.linear-row {
+  grid-column: span 12;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  height: 34px;
+  background: transparent;
+  border: none;
+}
+.hologram-grid .tile.linear-row::before,
+.hologram-grid .tile.linear-row::after { display: none; }
+.hologram-grid .tile.linear-row .mini-bar {
+  background: rgba(4, 8, 14, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 2px;
+  height: 34px;
+  position: relative;
+}
+.hologram-grid .tile.linear-row .mini-bar canvas { height: 34px; }
+
+/* Hero hologram + flanking widgets */
+.hologram-grid .tile.hologram {
+  grid-column: span 5;
+  height: 268px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0, 212, 255, 0.025) 3px,
+      rgba(0, 212, 255, 0.025) 4px
+    ),
+    radial-gradient(ellipse 80% 60% at 50% 75%, rgba(0, 212, 255, 0.14), rgba(4, 8, 14, 0.95));
+  border-color: rgba(0, 212, 255, 0.38);
+  box-shadow: inset 0 0 80px rgba(0, 212, 255, 0.08), 0 0 20px rgba(0, 212, 255, 0.1);
+}
+
+.hologram-grid .tile.wave { grid-column: span 2; height: 268px; }
+.hologram-grid .tile.level { grid-column: span 1; height: 268px; }
+.hologram-grid .tile.level-bank {
+  grid-column: span 3;
+  height: 268px;
+  background:
+    linear-gradient(180deg, rgba(88, 28, 135, 0.06) 0%, rgba(127, 29, 29, 0.04) 100%),
+    rgba(4, 8, 14, 0.92);
+}
+.hologram-grid .tile.side-stack {
+  grid-column: span 2;
+  height: 268px;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 3px;
+  background: transparent;
+  border: none;
+}
+.hologram-grid .tile.side-stack::before,
+.hologram-grid .tile.side-stack::after { display: none; }
+.hologram-grid .tile.side-stack .sub-tile {
+  background: rgba(4, 8, 14, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 2px;
+  position: relative;
+  min-height: 0;
+}
+.hologram-grid .tile.side-stack .sub-tile canvas { width: 100%; height: 100%; }
+
+.hologram-grid .tile.radar { grid-column: span 2; height: 130px; }
+.hologram-grid .tile.hex { grid-column: span 2; height: 130px; }
+.hologram-grid .tile.globe { grid-column: span 2; height: 130px; }
+.hologram-grid .tile.donut { grid-column: span 2; height: 130px; }
+.hologram-grid .tile.col-chart { grid-column: span 2; height: 130px; }
+.hologram-grid .tile.col-chart.wide { grid-column: span 3; height: 130px; }
+
+.hologram-grid .tile.stack { grid-column: span 12; height: 100px; }
+.hologram-grid .tile.lines { grid-column: span 6; height: 110px; }
+.hologram-grid .tile.spark { grid-column: span 6; height: 110px; }
+
+.hologram-grid .tile.history { grid-column: span 12; height: 220px; }
+
+.hologram-grid .tile.meters { grid-column: span 4; height: 150px; }
+.hologram-grid .tile.table-wrap { grid-column: span 8; height: 150px; overflow: auto; }
+.hologram-grid .tile.events { grid-column: span 4; height: 150px; overflow: auto; padding: 0.3rem 0.45rem; }
+
+.hologram-grid .metric-table { font-size: 0.58rem; margin: 0; }
+.hologram-grid .metric-table th,
+.hologram-grid .metric-table td { padding: 0.22rem 0.4rem; }
+
+.hologram-grid .event-rail li { padding: 0.28rem 0; font-size: 0.62rem; }
+
+@media (max-width: 1100px) {
+  .hologram-grid { grid-template-columns: repeat(6, 1fr); }
+  .hologram-grid .tile.hologram,
+  .hologram-grid .tile.wave,
+  .hologram-grid .tile.level,
+  .hologram-grid .tile.level-bank,
+  .hologram-grid .tile.side-stack,
+  .hologram-grid .tile.stack,
+  .hologram-grid .tile.history,
+  .hologram-grid .tile.lines,
+  .hologram-grid .tile.spark,
+  .hologram-grid .tile.table-wrap,
+  .hologram-grid .tile.meters { grid-column: span 6; }
+}

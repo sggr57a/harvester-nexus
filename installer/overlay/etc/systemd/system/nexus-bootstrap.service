@@ -1,0 +1,20 @@
+[Unit]
+Description=Harvester-Nexus first-boot bootstrap
+Documentation=https://github.com/sggr57a/harvester-nexus
+After=k3s.service rke2-server.service
+Wants=k3s.service rke2-server.service
+ConditionPathExists=/etc/nexus/config.yaml
+ConditionPathExists=!/var/lib/nexus/.bootstrap-complete
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/mkdir -p /var/lib/nexus /var/log/nexus
+ExecStart=/usr/bin/nexus-bootstrap
+ExecStartPost=/bin/touch /var/lib/nexus/.bootstrap-complete
+TimeoutStartSec=900
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

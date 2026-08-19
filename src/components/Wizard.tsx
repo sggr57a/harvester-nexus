@@ -6,6 +6,7 @@ interface WizardProps {
   onChange: (config: ApplicationConfig) => void;
   onNext: () => void;
   onBack: () => void;
+  onFinish?: () => void;
 }
 
 const storageOptions: { value: StorageType; label: string; description: string }[] = [
@@ -16,7 +17,7 @@ const storageOptions: { value: StorageType; label: string; description: string }
   { value: 'nvme', label: 'NVMe-oF', description: 'NVMe over TCP with high-performance block storage' },
   { value: 'rdma', label: 'RDMA', description: 'Low-latency RDMA-backed CSI volumes' },
   { value: 'zfs', label: 'ZFS', description: 'ZFS-backed persistent volumes via CSI or iSCSI' },
-  { value: 'zfs-anyraid', label: 'ZFS AnyRAID', description: 'Slab-based ZFS pool over mixed-capacity drives — accepts heterogeneous disk sizes' },
+  { value: 'anyraid', label: 'AnyRAID', description: 'Slab-based pool over mixed-capacity drives — accepts heterogeneous disk sizes' },
   { value: 'iscsi', label: 'iSCSI', description: 'Block storage via iSCSI protocol' },
   { value: 'glusterfs', label: 'GlusterFS', description: 'Distributed filesystem with CSI support' },
   { value: 'longhorn', label: 'Longhorn', description: 'Cloud-native distributed block storage' },
@@ -26,7 +27,7 @@ const storageOptions: { value: StorageType; label: string; description: string }
 
 const workloadOptions: WorkloadType[] = ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'];
 
-export function Wizard({ currentStep, config, onChange, onNext, onBack }: WizardProps) {
+export function Wizard({ currentStep, config, onChange, onNext, onBack, onFinish }: WizardProps) {
   return (
     <section className="wizard-shell">
       <header className="wizard-header">
@@ -417,9 +418,9 @@ export function Wizard({ currentStep, config, onChange, onNext, onBack }: Wizard
             </div>
           )}
 
-          {config.storage.storageType === 'zfs-anyraid' && (
+          {config.storage.storageType === 'anyraid' && (
             <div className="storage-config-section anyraid-config">
-              <h4>ZFS AnyRAID configuration</h4>
+              <h4>AnyRAID configuration</h4>
               <p className="anyraid-blurb">
                 AnyRAID accepts a heterogeneous set of drives — different vendors, different
                 capacities — and carves each disk into uniform <strong>slabs</strong>. The
@@ -918,8 +919,11 @@ export function Wizard({ currentStep, config, onChange, onNext, onBack }: Wizard
         <button onClick={onBack} disabled={currentStep === 1} type="button">
           Back
         </button>
-        <button onClick={onNext} type="button">
-          {currentStep === 7 ? 'Generate Manifests' : 'Next'}
+        <button
+          onClick={() => (currentStep === 7 ? onFinish?.() : onNext())}
+          type="button"
+        >
+          {currentStep === 7 ? 'Finish & review' : 'Next'}
         </button>
       </footer>
     </section>

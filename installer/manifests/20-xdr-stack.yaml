@@ -1,0 +1,258 @@
+# XDR / MDR sensor stack — installed automatically when
+# `xdr.enabled: true` in the install config. The default profile is
+# "hardened" (12 sensors). Operators can swap profiles or toggle
+# individual sensors later from the cockpit's Security Posture view.
+#
+# Every container reference here is a real upstream FOSS image — no
+# proprietary or paid components anywhere in the stack.
+---
+# Falco — eBPF runtime security on every host.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: nexus-xdr
+  labels:
+    app.kubernetes.io/name: falco
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+    sensor.nexus.io/license: Apache-2.0
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: falco } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: falco }
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations: [{ operator: Exists }]
+      containers:
+        - name: falco
+          image: docker.io/falcosecurity/falco-no-driver:0.40.0
+          args: [/usr/bin/falco, --modern-bpf, -pk, -o, json_output=true]
+          securityContext: { privileged: true }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
+---
+# Tetragon — kernel-level enforcement + tracing policy execution.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tetragon
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: tetragon, sensor.nexus.io/license: Apache-2.0 }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: tetragon } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: tetragon } }
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations: [{ operator: Exists }]
+      containers:
+        - name: tetragon
+          image: quay.io/cilium/tetragon:v1.4.0
+          securityContext: { privileged: true }
+          args: [--enable-policy-filter, --enable-process-cred, --enable-process-ns]
+---
+# Wazuh agent on every host + cluster-singleton manager.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: wazuh-agent
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: wazuh-agent, sensor.nexus.io/license: GPL-2.0 }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: wazuh-agent } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: wazuh-agent } }
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations: [{ operator: Exists }]
+      containers:
+        - name: wazuh-agent
+          image: docker.io/wazuh/wazuh-agent:4.7.5
+          env:
+            - { name: WAZUH_MANAGER, value: "wazuh-manager.nexus-xdr.svc.cluster.local" }
+            - { name: WAZUH_AGENT_GROUP, value: "nexus-host" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wazuh-manager
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: wazuh-manager, sensor.nexus.io/license: GPL-2.0 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: wazuh-manager } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: wazuh-manager } }
+    spec:
+      containers:
+        - name: wazuh-manager
+          image: docker.io/wazuh/wazuh-manager:4.7.5
+          ports:
+            - { containerPort: 1514, name: agent-tcp }
+            - { containerPort: 1515, name: registration }
+            - { containerPort: 55000, name: api }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits:   { cpu: 2,    memory: 4Gi }
+---
+# Suricata IDS — ETOpen rules.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: suricata
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: suricata, sensor.nexus.io/license: GPL-2.0 }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: suricata } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: suricata } }
+    spec:
+      hostNetwork: true
+      tolerations: [{ operator: Exists }]
+      containers:
+        - name: suricata
+          image: docker.io/jasonish/suricata:7.0.4
+          args: [-i, any, --af-packet, -v]
+          securityContext: { privileged: true }
+---
+# Hubble — Cilium flow telemetry relay.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hubble-relay
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: hubble-relay, sensor.nexus.io/license: Apache-2.0 }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: hubble-relay } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: hubble-relay } }
+    spec:
+      containers:
+        - name: hubble-relay
+          image: quay.io/cilium/hubble-relay:v1.15.5
+          ports: [{ containerPort: 4245, name: grpc }]
+---
+# Trivy operator — image-scan ValidatingAdmissionWebhook.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trivy-operator
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: trivy-operator, sensor.nexus.io/license: Apache-2.0 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: trivy-operator } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: trivy-operator } }
+    spec:
+      containers:
+        - name: trivy-operator
+          image: ghcr.io/aquasecurity/trivy-operator:0.20.6
+          env: [{ name: OPERATOR_NAMESPACE, value: nexus-xdr }]
+---
+# OpenSearch — event lake for Wazuh + cockpit XDR view.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: opensearch, sensor.nexus.io/license: Apache-2.0 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: opensearch } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: opensearch } }
+    spec:
+      containers:
+        - name: opensearch
+          image: docker.io/opensearchproject/opensearch:2.13.0
+          env:
+            - { name: discovery.type, value: single-node }
+            - { name: OPENSEARCH_JAVA_OPTS, value: "-Xms2g -Xmx2g" }
+          ports: [{ containerPort: 9200, name: http }]
+          resources:
+            requests: { cpu: 500m, memory: 2Gi }
+            limits:   { cpu: 4, memory: 4Gi }
+---
+# Polaris admission — workload best-practice gate.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: polaris
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: polaris, sensor.nexus.io/license: Apache-2.0 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: polaris } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: polaris } }
+    spec:
+      containers:
+        - name: polaris
+          image: quay.io/fairwinds/polaris:9.1.0
+          args: [webhook, --port=9876]
+          ports: [{ containerPort: 9876, name: webhook }]
+---
+# kube-bench — CIS-K8s benchmark, runs daily.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kube-bench
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: kube-bench, sensor.nexus.io/license: Apache-2.0 }
+spec:
+  schedule: "@daily"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          hostPID: true
+          containers:
+            - name: kube-bench
+              image: docker.io/aquasec/kube-bench:v0.7.3
+              command: [kube-bench]
+              args: [run, --json, --outputfile=/results/kube-bench.json]
+              securityContext: { privileged: true }
+---
+# Grype + Syft cronjobs — vuln scan + SBOM, every 6h.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: grype
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: grype, sensor.nexus.io/license: Apache-2.0 }
+spec:
+  schedule: "0 */6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: grype
+              image: docker.io/anchore/grype:v0.79.0
+              command: [grype, dir:/]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: syft
+  namespace: nexus-xdr
+  labels: { app.kubernetes.io/name: syft, sensor.nexus.io/license: MIT }
+spec:
+  schedule: "@daily"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: syft
+              image: docker.io/anchore/syft:v1.5.0
+              command: [syft, dir:/, -o, spdx-json]

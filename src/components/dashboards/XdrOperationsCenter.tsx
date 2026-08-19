@@ -1,37 +1,66 @@
-import { useLiveXdrEngine } from '../../lib/xdr/hooks';
+import type { MachineRow } from '../../lib/dashboards';
+import { useClusterXdrEngine } from '../../lib/telemetry/useClusterXdrEngine';
+import type { LiveXdrSlice } from '../../lib/telemetry/dashboardTypes';
+import type { TelemetryState } from '../../lib/telemetry/mode';
 import { SENSORS } from '../../lib/xdr/sensors';
 import { RULES } from '../../lib/xdr/rules';
 import { INTEL_FEEDS } from '../../lib/xdr/intel';
+import { ThreatSurface3D } from './ThreatSurface3D';
 
-/** XDR Operations Center — a live SOC view that reads from the XDR engine
- * (which is fed by the deterministic attack simulator while the demo runs).
- * Every number on this page is computed from real engine output, not from a
- * static catalog.
- */
-export function XdrOperationsCenter() {
-  const snap = useLiveXdrEngine({ intervalMs: 1600, simulate: true, loop: true });
+interface XdrOperationsCenterProps {
+  telemetry?: TelemetryState;
+  xdrLive?: LiveXdrSlice;
+  fleet?: MachineRow[];
+}
+
+/** XDR Operations Center — demo uses synthetic APT scenario; live uses real cluster inventory only. */
+export function XdrOperationsCenter({ telemetry, xdrLive, fleet }: XdrOperationsCenterProps = {}) {
+  const mode = telemetry?.mode ?? 'demo';
+  const { snap, simulate, sensorsLive, isDemo } = useClusterXdrEngine(
+    telemetry ?? { mode: 'demo', requested: 'auto', liveAvailable: false, clusterReady: false },
+    xdrLive,
+    fleet,
+  );
 
   return (
     <section className="dash dash-xdr-soc" aria-label="XDR / MDR operations center">
       <header className="dash-header">
         <div>
-          <span className="dash-kicker">SOC // XDR-MDR LIVE</span>
+          <span className="dash-kicker">SOC // XDR-MDR {simulate ? 'DEMO' : 'LIVE'}</span>
           <h2>XDR / MDR operations center</h2>
           <p>
-            Live snapshot from the in-app Nexus XDR engine. Sensors (Falco / Tetragon / Wazuh /
-            Trivy / Suricata / Hubble / OpenCanary) emit events; {RULES.length} Sigma-style
-            detection rules evaluate every event; matched indicators come from{' '}
-            {INTEL_FEEDS.length} free intel feeds; response actions are dispatched as real
-            Kubernetes manifests.
+            {simulate
+              ? 'Demo mode — synthetic endpoints (payments-vm, fraud-lxc, edge-a) and a scripted attack scenario. Not shown in live mode.'
+              : 'Live mode — endpoints from your Harvester cluster only. Deploy Nexus XDR sensors to ingest Falco/Tetragon/Wazuh events.'}
+            {' '}
+            {RULES.length} detection rules; {INTEL_FEEDS.length} intel feeds.
+            {sensorsLive && xdrLive
+              ? ` Sensors ${xdrLive.sensorsHealthy}/${xdrLive.sensorsTotal} healthy.`
+              : !isDemo && !sensorsLive
+                ? ' No XDR sensor pods detected in nexus-xdr namespace yet.'
+                : ''}
           </p>
         </div>
         <div className="dash-totals">
+          <div><span>Mode</span><strong>{mode}</strong></div>
           <div><span>Alerts/min</span><strong>{snap.stats.alertsPerMin}</strong></div>
           <div><span>Blocked 24h</span><strong>{snap.stats.blocked24h}</strong></div>
           <div><span>Isolated hosts</span><strong>{snap.stats.isolatedHosts}</strong></div>
           <div><span>Active APTs</span><strong>{snap.stats.activeAptCount}</strong></div>
         </div>
       </header>
+
+      <ThreatSurface3D snapshot={snap} />
+
+      {!isDemo && snap.endpoints.length === 0 && (
+        <article className="dash-panel live-empty-panel">
+          <p><strong>No cluster endpoints registered</strong></p>
+          <small>
+            Create VMs or deploy workloads to tenant namespaces — they appear here for XDR correlation.
+            Demo names like edge-a, payments-vm-01, and fraud-lxc-01 are never shown in live mode.
+          </small>
+        </article>
+      )}
 
       <div className="xdr-soc-grid">
         <article className="dash-panel">
@@ -85,7 +114,13 @@ export function XdrOperationsCenter() {
               </li>
             ))}
             {snap.alerts.length === 0 && (
-              <li className="xdr-alert sev-low"><em>No alerts yet — waiting for the simulator to emit events…</em></li>
+              <li className="xdr-alert sev-low">
+                <em>
+                  {simulate
+                    ? 'No alerts yet — waiting for the simulator to emit events…'
+                    : 'No alerts yet — waiting for sensor events from the cluster…'}
+                </em>
+              </li>
             )}
           </ul>
         </article>
@@ -156,7 +191,11 @@ export function XdrOperationsCenter() {
         <article className="dash-panel">
           <header className="panel-title">
             <span>Sensor health</span>
-            <strong>{snap.stats.sensorsHealthy} / {snap.stats.sensorsTotal}</strong>
+            <strong>
+              {xdrLive?.deployed
+                ? `${xdrLive.sensorsHealthy} / ${xdrLive.sensorsTotal} cluster pods`
+                : `${snap.stats.sensorsHealthy} / ${snap.stats.sensorsTotal}`}
+            </strong>
           </header>
           <ul className="xdr-sensor-list">
             {SENSORS.map((s) => (

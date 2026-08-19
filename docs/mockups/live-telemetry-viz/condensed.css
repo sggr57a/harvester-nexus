@@ -1,0 +1,120 @@
+/* Condensed dashboard grid — stock HUD / infographic density */
+body.hud-mode.condensed {
+  overflow-x: hidden;
+}
+
+body.hud-mode.condensed .mock-header {
+  padding: 0.5rem 0.65rem 0.35rem;
+  border-bottom-width: 1px;
+}
+
+body.hud-mode.condensed .mock-header h1 { font-size: 1.15rem; }
+body.hud-mode.condensed .mock-header p { display: none; }
+body.hud-mode.condensed .kicker { font-size: 0.58rem; margin-bottom: 0.2rem; }
+body.hud-mode.condensed .disclaimer,
+body.hud-mode.condensed .ref-note { display: none; }
+
+.condensed-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  padding: 3px;
+  max-width: 100%;
+}
+
+.tile {
+  background: rgba(6, 10, 18, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+.tile-label {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  z-index: 2;
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(139, 155, 184, 0.75);
+  pointer-events: none;
+}
+
+.tile canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tile.gauge { height: 82px; grid-column: span 2; }
+.tile.gauge-sm { height: 82px; grid-column: span 2; }
+.tile.event-strip {
+  grid-column: span 2;
+  height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.62rem;
+}
+.tile.event-strip strong { color: var(--accent-2); font-size: 0.58rem; letter-spacing: 0.08em; }
+.tile.event-strip span { color: var(--warn); font-size: 0.68rem; margin-top: 0.2rem; line-height: 1.3; }
+
+.tile.stack { grid-column: span 12; height: 118px; }
+.tile.lines { grid-column: span 6; height: 118px; }
+.tile.donut { grid-column: span 2; height: 118px; }
+.tile.col-chart { grid-column: span 2; height: 118px; }
+
+.tile.radar { grid-column: span 3; height: 148px; }
+.tile.hex { grid-column: span 3; height: 148px; }
+.tile.spark { grid-column: span 6; height: 148px; }
+
+.tile.history { grid-column: span 12; height: 248px; }
+
+.tile.meters { grid-column: span 4; height: 168px; }
+.tile.table-wrap { grid-column: span 8; height: 168px; overflow: auto; }
+
+.tile.linear-row {
+  grid-column: span 12;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  height: 38px;
+  background: transparent;
+  border: none;
+}
+.tile.linear-row .mini-bar {
+  background: rgba(6, 10, 18, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  border-radius: 2px;
+  height: 38px;
+}
+.tile.linear-row .mini-bar canvas { height: 38px; }
+
+.tile.globe { grid-column: span 4; height: 148px; }
+.tile.env-lines { grid-column: span 5; height: 118px; }
+.tile.env-stack { grid-column: span 12; height: 110px; }
+.tile.events { grid-column: span 4; height: 168px; overflow: auto; padding: 0.35rem 0.5rem; }
+
+.condensed-grid .metric-table {
+  font-size: 0.62rem;
+  margin: 0;
+}
+.condensed-grid .metric-table th,
+.condensed-grid .metric-table td {
+  padding: 0.28rem 0.45rem;
+}
+
+.condensed-grid .event-rail li {
+  padding: 0.35rem 0;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 1100px) {
+  .condensed-grid { grid-template-columns: repeat(6, 1fr); }
+  .tile.stack, .tile.history, .tile.lines, .tile.spark, .tile.table-wrap, .tile.meters { grid-column: span 6; }
+  .tile.gauge, .tile.gauge-sm, .tile.donut, .tile.col-chart, .tile.radar, .tile.hex, .tile.globe { grid-column: span 3; }
+}

@@ -1,0 +1,66 @@
+# Default cockpit administrator — created automatically on first boot
+# from the values in /etc/nexus/config.yaml.
+#
+# IMPORTANT: the password is a bcrypt hash of `admin` so the value below
+# is NOT a plaintext leak. The cluster also writes a `password-change-
+# required` annotation so the cockpit's first-login flow forces the
+# operator to pick a new password before granting any other action.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin
+  namespace: nexus-system
+  annotations:
+    nexus.io/created-by: installer
+    nexus.io/default-credentials: "true"
+    nexus.io/password-change-required: "true"
+---
+# bcrypt cost=10 hash of literal "admin" — needs to be rotated on
+# first login. The cockpit refuses to grant any privileged action until
+# the rotation completes.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-credentials
+  namespace: nexus-system
+  annotations:
+    nexus.io/created-by: installer
+    nexus.io/rotate-on-first-login: "true"
+type: Opaque
+stringData:
+  username: admin
+  # bcrypt $2a$10$… of "admin"
+  passwordHash: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+  forcePasswordChange: "true"
+---
+# Cluster-wide admin role — every Nexus operator inherits this on the
+# first boot. Subsequent users created from the cockpit get scoped roles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nexus-admin
+  annotations:
+    nexus.io/created-by: installer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: admin
+    namespace: nexus-system
+---
+# Bootstrap API token — 24-hour TTL, used by the cockpit during first-
+# login to enrol the operator. The cockpit rotates this immediately
+# after the operator picks a new password.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-bootstrap-token
+  namespace: nexus-system
+  annotations:
+    kubernetes.io/service-account.name: admin
+    nexus.io/expires-at: "+24h"
+    nexus.io/rotate-on-first-login: "true"
+type: kubernetes.io/service-account-token

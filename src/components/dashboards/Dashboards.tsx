@@ -12,6 +12,13 @@ import {
   type CpuCore,
 } from '../../lib/dashboards';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
+import type { LiveOperationsSlice } from '../../lib/telemetry/dashboardTypes';
+import type { TelemetryDataSource } from '../../lib/telemetry/dashboardAdapters';
+import type { MachinesDashboard, StorageDashboard, ConsoleChip } from '../../lib/dashboards';
+import { consoleChipsFromFleet } from '../../lib/machineConsole';
+import { MachineDetailPanel } from '../MachineDetailPanel';
+import { ConsoleSession } from '../ConsoleSession';
+import { DemoCatalogPlaceholder, LiveEmptyPanel } from './LiveEmptyPanel';
 import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
 import {
   ChordDiagram,
@@ -45,6 +52,15 @@ const activity = buildActivityDashboard();
 
 interface DashboardViewProps {
   telemetry?: EnvironmentSnapshot;
+  dataSource?: TelemetryDataSource;
+  storageDashboard?: StorageDashboard;
+  machinesDashboard?: MachinesDashboard;
+  networkingDashboard?: import('../../lib/dashboards').NetworkingDashboard;
+  operationsLinks?: LiveOperationsSlice;
+  onCreateWorkload?: (kind?: 'kubevirt-vm' | 'incus-lxc' | 'k8s-pod') => void;
+  onConfigureStorage?: () => void;
+  onConfigureNetwork?: () => void;
+  onFleetRefresh?: () => void;
 }
 
 /**
@@ -151,10 +167,43 @@ const VLAN_CHORD_LINKS: ChordTrafficLink[] = [
   { source: 5, target: 0, value: 11, rate: '212 Mb/s', label: 'edge-dmz → mgmt' },
 ];
 
-export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) {
-  const { topology, vlans, ingressRoutes, policyMatrix, nicBonds, vip } = networking;
+export function NetworkingDashboardView({
+  telemetry,
+  dataSource,
+  networkingDashboard,
+  onConfigureNetwork,
+}: DashboardViewProps = {}) {
+  const isLive = dataSource === 'live';
+  const net = networkingDashboard ?? (isLive ? undefined : networking);
+  if (isLive && !net) {
+    return (
+      <section className="dash dash-networking" aria-label="Networking dashboard">
+        <RouteDecoration />
+        <LiveEmptyPanel
+          title="Networking telemetry unavailable"
+          detail="Cluster network collectors could not load. Ensure the Nexus BFF is running on the Harvester node."
+        />
+      </section>
+    );
+  }
+  if (!net) return null;
+
+  const {
+    vlans,
+    ingressRoutes,
+    policyMatrix,
+    nicBonds,
+    vip,
+    virtualSwitches = [],
+    virtualBridges = [],
+    portGroups = [],
+    sdnZones = [],
+    diagnostics = [],
+    topology,
+  } = net;
+
   const liveBonds = useMemo(() => {
-    if (!telemetry) return nicBonds;
+    if (isLive || !telemetry) return nicBonds;
     const ingressFactor = telemetry.ingressMbps / 78_420;
     const egressFactor = telemetry.egressMbps / 74_840;
     return nicBonds.map((bond) => ({
@@ -162,8 +211,58 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
       rxMbps: Math.round(bond.rxMbps * ingressFactor),
       txMbps: Math.round(bond.txMbps * egressFactor),
     }));
-  }, [telemetry]);
-  const nodeMap = new Map(topology.nodes.map((node) => [node.id, node]));
+  }, [isLive, nicBonds, telemetry]);
+
+  const hasLiveInventory =
+    vlans.length > 0 ||
+    virtualSwitches.length > 0 ||
+    virtualBridges.length > 0 ||
+    portGroups.length > 0 ||
+    ingressRoutes.length > 0;
+
+  if (isLive && !hasLiveInventory) {
+    return (
+      <section className="dash dash-networking" aria-label="Networking dashboard">
+        <RouteDecoration />
+        <header className="dash-header">
+          <div>
+            <span className="dash-kicker">CHANNEL // NETWORK</span>
+            <h2>{net.title}</h2>
+            <p>Live cluster networking — virtual bridges, OVS, VLANs, SDN zones, and policies from your Harvester node.</p>
+          </div>
+          {onConfigureNetwork && (
+            <button type="button" className="machines-create-btn" onClick={onConfigureNetwork}>
+              Configure networking
+            </button>
+          )}
+        </header>
+        <LiveEmptyPanel
+          title="No user networking configured yet"
+          detail="Create virtual bridges, VLAN port groups, OVS overlays, tenant namespaces, or zero-trust policies using the network wizard."
+        >
+          {onConfigureNetwork && (
+            <button type="button" className="machines-create-btn" onClick={onConfigureNetwork}>
+              Open network wizard
+            </button>
+          )}
+        </LiveEmptyPanel>
+        {diagnostics.length > 0 && (
+          <article className="dash-panel network-diagnostics-panel">
+            <div className="panel-title"><span>Diagnostics</span><strong>{diagnostics.length} checks</strong></div>
+            <ul className="network-diagnostics-list">
+              {diagnostics.map((check) => (
+                <li key={check.id} className={`diag-${check.severity}`}>
+                  <strong>{check.label}</strong>
+                  <span>{check.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        )}
+      </section>
+    );
+  }
+
   const sources = Array.from(new Set(policyMatrix.map((cell) => cell.source)));
   const targets = Array.from(new Set(policyMatrix.map((cell) => cell.target)));
 
@@ -186,16 +285,183 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
       <header className="dash-header">
         <div>
           <span className="dash-kicker">CHANNEL // NETWORK</span>
-          <h2>{networking.title}</h2>
-          <p>Geo-traffic globe, vector route topology, ingress mesh, VLAN lanes, NIC bonds, and policy fabric.</p>
+          <h2>{net.title}</h2>
+          <p>
+            {isLive
+              ? 'Virtual bridges, OVS switches, VLAN port groups, SDN zones, overlays, tenants, and zero-trust policies from the cluster.'
+              : 'Geo-traffic globe, vector route topology, ingress mesh, VLAN lanes, NIC bonds, and policy fabric.'}
+          </p>
         </div>
         <div className="dash-vip">
           <span>VIP</span>
           <strong>{vip.address}</strong>
           <small>{vip.mode} · {vip.floating ? 'floating' : 'pinned'}</small>
         </div>
+        {isLive && onConfigureNetwork && (
+          <button type="button" className="machines-create-btn" onClick={onConfigureNetwork}>
+            Configure networking
+          </button>
+        )}
       </header>
 
+      {isLive && diagnostics.length > 0 && (
+        <article className="dash-panel network-diagnostics-panel">
+          <div className="panel-title"><span>Network diagnostics</span><strong>{diagnostics.length} checks</strong></div>
+          <ul className="network-diagnostics-list">
+            {diagnostics.map((check) => (
+              <li key={check.id} className={`diag-${check.severity}`}>
+                <strong>{check.label}</strong>
+                <span>{check.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+      )}
+
+      {isLive ? (
+        <>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title"><span>Virtual bridges</span><strong>{virtualBridges.length}</strong></div>
+              <table className="dash-table">
+                <thead><tr><th>name</th><th>kind</th><th>ports</th><th>status</th></tr></thead>
+                <tbody>
+                  {virtualBridges.map((br) => (
+                    <tr key={br.id}><td><strong>{br.name}</strong></td><td>{br.kind}</td><td>{br.portCount}</td><td>{br.status}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title"><span>OVS switches</span><strong>{virtualSwitches.length}</strong></div>
+              <table className="dash-table">
+                <thead><tr><th>bridge</th><th>fail mode</th><th>ports</th><th>flows</th></tr></thead>
+                <tbody>
+                  {virtualSwitches.map((sw) => (
+                    <tr key={sw.id}><td><strong>{sw.name}</strong></td><td>{sw.failMode}</td><td>{sw.portCount}</td><td>{sw.flowCount}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          </div>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title"><span>Port groups</span><strong>{portGroups.length}</strong></div>
+              <ul className="vlan-list">
+                {portGroups.map((pg) => (
+                  <li key={pg.id}>
+                    <div><span className="vlan-id">VLAN {pg.vlanId}</span><strong>{pg.name}</strong><small>{pg.bridge}</small></div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title"><span>SDN zones</span><strong>{sdnZones.length}</strong></div>
+              <table className="dash-table">
+                <thead><tr><th>zone</th><th>type</th><th>vni</th><th>tenant</th></tr></thead>
+                <tbody>
+                  {sdnZones.map((z) => (
+                    <tr key={z.id}><td><strong>{z.name}</strong></td><td>{z.zoneType}</td><td>{z.vni}</td><td>{z.tenant}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          </div>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>VLAN lanes</span>
+                <strong>{vlans.length} VLANs</strong>
+              </div>
+              <ul className="vlan-list">
+                {vlans.map((vlan) => (
+                  <li key={vlan.id}>
+                    <div>
+                      <span className="vlan-id">VLAN {vlan.vlanId}</span>
+                      <strong>{vlan.name}</strong>
+                      <small>{vlan.cidr}</small>
+                    </div>
+                    <div className="vlan-counts">
+                      <span>{vlan.pods} pods</span>
+                      <span>{vlan.vms} vms</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>Service-mesh ingress routes</span>
+                <strong>{ingressRoutes.length} routes</strong>
+              </div>
+              <table className="dash-table">
+                <thead>
+                  <tr><th>host</th><th>service</th><th>mesh</th><th>tls</th><th>rps</th><th>p95</th></tr>
+                </thead>
+                <tbody>
+                  {ingressRoutes.map((route) => (
+                    <tr key={route.id}>
+                      <td><strong>{route.host}</strong></td>
+                      <td>{route.service}</td>
+                      <td><span className={`mesh-chip mesh-${route.meshProvider}`}>{route.meshProvider}</span></td>
+                      <td><span className={`tls-chip tls-${route.tls}`}>{route.tls}</span></td>
+                      <td><b>{route.rps}</b></td>
+                      <td>{route.p95Latency}ms</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          </div>
+          <div className="dash-row dash-row-2">
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>NIC bonds</span>
+                <strong>{nicBonds.length} bonds</strong>
+              </div>
+              <ul className="nic-list">
+                {liveBonds.map((bond) => (
+                  <li key={bond.name} className={`nic-state-${bond.state}`}>
+                    <div>
+                      <strong>{bond.name}</strong>
+                      <small>{bond.speedGbps} Gbps · {bond.state}</small>
+                    </div>
+                    <div className="nic-flow">
+                      <span>RX {bond.rxMbps.toLocaleString()} Mb/s</span>
+                      <span>TX {bond.txMbps.toLocaleString()} Mb/s</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="dash-panel">
+              <div className="panel-title">
+                <span>NetworkPolicy matrix</span>
+                <strong>{policyMatrix.filter((cell) => cell.allow).length} allow · {policyMatrix.filter((cell) => !cell.allow).length} deny</strong>
+              </div>
+              <div className="policy-grid" style={{ gridTemplateColumns: `auto repeat(${targets.length}, 1fr)` }}>
+                <span />
+                {targets.map((target) => <span key={target} className="policy-col">{target}</span>)}
+                {sources.map((source) => (
+                  <Fragment key={`row-${source}`}>
+                    <span className="policy-row">{source}</span>
+                    {targets.map((target) => {
+                      const cell = policyMatrix.find((entry) => entry.source === source && entry.target === target);
+                      if (!cell || source === target) return <span key={`${source}-${target}`} className="policy-cell policy-na" />;
+                      return (
+                        <span key={`${source}-${target}`} className={`policy-cell policy-${cell.allow ? 'allow' : 'deny'}`} title={`${source} -> ${target} ${cell.allow ? 'allow' : 'deny'} ${cell.protocol}`}>
+                          {cell.allow ? '+' : '-'}
+                        </span>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+              </div>
+            </article>
+          </div>
+        </>
+      ) : (
+        <>
       <article className="dash-panel threat-intel-panel">
         <WidgetTitle
           kicker="MDR // XDR · GEO-INTEL"
@@ -362,6 +628,8 @@ export function NetworkingDashboardView({ telemetry }: DashboardViewProps = {}) 
           </div>
         </article>
       </div>
+        </>
+      )}
     </section>
   );
 }
@@ -442,10 +710,12 @@ const STORAGE_SCATTER = [
   { id: 's-8', x: 74, y: 58, label: 'longhorn-1', status: 'warn' as const, size: 1.4 },
 ];
 
-export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
-  const { backends, pvcs, snapshots, replicationLinks } = storage;
+export function StorageDashboardView({ telemetry, dataSource, storageDashboard, onConfigureStorage }: DashboardViewProps = {}) {
+  const storageData = storageDashboard ?? storage;
+  const { backends, pvcs, snapshots, replicationLinks } = storageData;
+  const isLive = dataSource === 'live';
   const liveBackends = useMemo(() => {
-    if (!telemetry) return backends;
+    if (isLive || !telemetry) return backends;
     const iopsFactor = telemetry.totalIops / 1_120_000;
     return backends.map((backend) => ({
       ...backend,
@@ -458,15 +728,22 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FABRIC // STORAGE</span>
-          <h2>{storage.title}</h2>
-          <p>Per-backend radial gauges, IOPS sparklines, PVC lanes, snapshot shelves, replication links.</p>
+          <h2>{storageData.title}</h2>
+          <p>{isLive ? 'User PVCs and storage classes with bound volumes from your cluster.' : 'Per-backend radial gauges, IOPS sparklines, PVC lanes, snapshot shelves, replication links.'}</p>
         </div>
         <div className="dash-totals">
-          <div><span>Capacity</span><strong>{backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB</strong></div>
-          <div><span>IOPS</span><strong><LiveValue value={`${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
+          <div><span>Capacity</span><strong>{isLive ? '—' : `${backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB`}</strong></div>
+          <div><span>IOPS</span><strong><LiveValue value={isLive ? (telemetry?.totalIops?.toLocaleString() ?? '0') : `${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
+          {onConfigureStorage && (
+            <button type="button" className="primary-btn dash-action-btn" onClick={onConfigureStorage}>
+              Configure storage
+            </button>
+          )}
         </div>
       </header>
 
+      {!isLive && (
+      <>
       <article className="dash-panel">
         <div className="panel-title">
           <span>Storage flow · workloads → CSI class → backend</span>
@@ -524,7 +801,23 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
           })()}
         />
       </article>
+      </>
+      )}
 
+      {isLive && liveBackends.length === 0 && pvcs.length === 0 && (
+        <LiveEmptyPanel
+          title="No user storage volumes detected"
+          detail="Create a PVC, PV, or CSI backend in a tenant namespace. Platform volumes in kube-system and cattle-* are excluded."
+        >
+          {onConfigureStorage && (
+            <button type="button" className="primary-btn" onClick={onConfigureStorage}>
+              Open storage wizard
+            </button>
+          )}
+        </LiveEmptyPanel>
+      )}
+
+      {liveBackends.length > 0 && (
       <div className="storage-backend-grid">
         {liveBackends.map((backend) => {
           const rad = 38;
@@ -555,10 +848,14 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
           );
         })}
       </div>
+      )}
 
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
-          <div className="panel-title"><span>PVC lanes</span><strong>{pvcs.length} bound</strong></div>
+          <div className="panel-title"><span>PVC lanes</span><strong>{pvcs.length} claims</strong></div>
+          {pvcs.length === 0 ? (
+            <p className="live-empty-inline">No user PVCs in tenant namespaces.</p>
+          ) : (
           <table className="dash-table">
             <thead><tr><th>name</th><th>ns</th><th>class</th><th>size</th><th>mode</th><th>status</th></tr></thead>
             <tbody>
@@ -574,8 +871,10 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
               ))}
             </tbody>
           </table>
+          )}
         </article>
 
+        {!isLive && (
         <article className="dash-panel">
           <div className="panel-title"><span>Snapshot + replication shelves</span><strong>{snapshots.length} snapshots · {replicationLinks.length} links</strong></div>
           <ul className="snapshot-shelf">
@@ -599,44 +898,116 @@ export function StorageDashboardView({ telemetry }: DashboardViewProps = {}) {
             ))}
           </ul>
         </article>
+        )}
       </div>
     </section>
   );
 }
 
-export function MachinesDashboardView({ telemetry }: DashboardViewProps = {}) {
-  const { fleet, migrations, affinityRules, ha, consoleChips } = machines;
+export function MachinesDashboardView({
+  telemetry,
+  dataSource,
+  machinesDashboard,
+  storageDashboard,
+  networkingDashboard,
+  onCreateWorkload,
+  onFleetRefresh,
+}: DashboardViewProps = {}) {
+  const machinesData = machinesDashboard ?? machines;
+  const { fleet, migrations, affinityRules, ha } = machinesData;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeConsole, setActiveConsole] = useState<{ machine: (typeof fleet)[0]; chip: ConsoleChip } | null>(null);
+  const isLive = dataSource === 'live';
   const liveMigrations = useMemo(() => {
-    if (!telemetry) return migrations;
+    if (isLive || !telemetry) return migrations;
     const progressShift = (telemetry.tick * 7) % 32;
     return migrations.map((mig, index) => ({
       ...mig,
       progress: Math.min(98, (mig.progress + progressShift + index * 4) % 99),
     }));
-  }, [telemetry]);
+  }, [isLive, migrations, telemetry]);
   const liveFleet = useMemo(() => {
-    if (!telemetry) return fleet;
+    if (isLive || !telemetry) return fleet;
     const cpuFactor = telemetry.cpuPercent / 58;
     return fleet.map((row) => ({
       ...row,
       cpuPercent: Math.max(4, Math.min(99, Math.round(row.cpuPercent * cpuFactor))),
     }));
-  }, [telemetry]);
+  }, [isLive, fleet, telemetry]);
+  const selectedMachine = liveFleet.find((row) => row.id === selectedId) ?? null;
+  const fleetConsoleChips = useMemo(() => consoleChipsFromFleet(liveFleet), [liveFleet]);
+
   return (
     <section className="dash dash-machines" aria-label="Machines and containers dashboard">
       <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">FLEET // COMPUTE</span>
-          <h2>{machines.title}</h2>
-          <p>VM / LXC / Docker / Pod fleet with live migration, HA, affinity, console launch.</p>
+          <h2>{machinesData.title}</h2>
+          <p>{isLive ? 'Click a workload for CPU, RAM, storage, network, and console. User VMs and pods only.' : 'Click any workload for resource detail and console (graphical VNC for Windows/desktop Linux, terminal for shell-only).'}</p>
         </div>
         <div className="dash-totals">
-          <div><span>Workloads</span><strong>{fleet.length}</strong></div>
+          <div><span>Workloads</span><strong>{liveFleet.length}</strong></div>
           <div><span>Migrations</span><strong><LiveValue value={liveMigrations.length} /></strong></div>
         </div>
+        {onCreateWorkload && (
+          <div className="machines-create-actions">
+            <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('kubevirt-vm')}>
+              Create VM
+            </button>
+            <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('incus-lxc')}>
+              Create container
+            </button>
+            <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('k8s-pod')}>
+              Create pod
+            </button>
+          </div>
+        )}
       </header>
 
+      {isLive && liveFleet.length === 0 && (
+        <LiveEmptyPanel
+          title="No user VMs or pods running"
+          detail="KubeVirt VMs and pods in tenant namespaces appear here. Harvester platform pods in kube-system, longhorn-system, and cattle-* are not counted as workloads."
+        >
+          {onCreateWorkload && (
+            <div className="machines-create-actions">
+              <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('kubevirt-vm')}>
+                Create VM
+              </button>
+              <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('incus-lxc')}>
+                Create container
+              </button>
+              <button type="button" className="machines-create-btn" onClick={() => onCreateWorkload('k8s-pod')}>
+                Create pod
+              </button>
+            </div>
+          )}
+        </LiveEmptyPanel>
+      )}
+
+      {selectedMachine && (
+        <MachineDetailPanel
+          machine={selectedMachine}
+          pvcs={storageDashboard?.pvcs}
+          dataSource={dataSource}
+          networkingDashboard={networkingDashboard}
+          onOpenConsole={(chip) => setActiveConsole({ machine: selectedMachine, chip })}
+          onClose={() => setSelectedId(null)}
+          onNetworkChanged={onFleetRefresh}
+        />
+      )}
+
+      {activeConsole && (
+        <ConsoleSession
+          machine={activeConsole.machine}
+          chip={activeConsole.chip}
+          dataSource={dataSource}
+          onClose={() => setActiveConsole(null)}
+        />
+      )}
+
+      {liveMigrations.length > 0 && (
       <article className="dash-panel migration-panel">
         <div className="panel-title"><span>Live migration arcs</span><strong>vMotion-style · memory state preserved</strong></div>
         <svg viewBox="0 0 100 30" className="migration-svg" preserveAspectRatio="none" aria-hidden="true">
@@ -659,15 +1030,30 @@ export function MachinesDashboardView({ telemetry }: DashboardViewProps = {}) {
           })}
         </svg>
       </article>
+      )}
 
+      {liveFleet.length > 0 && (
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
-          <div className="panel-title"><span>Fleet</span><strong>{fleet.length} workloads</strong></div>
+          <div className="panel-title"><span>Fleet</span><strong>{liveFleet.length} workloads</strong></div>
           <table className="dash-table">
             <thead><tr><th>name</th><th>kind</th><th>host</th><th>cpu</th><th>ram</th><th>aff</th><th>ha</th><th>status</th></tr></thead>
             <tbody>
               {liveFleet.map((row) => (
-                <tr key={row.id}>
+                <tr
+                  key={row.id}
+                  className={selectedId === row.id ? 'machine-row-selected' : 'machine-row-clickable'}
+                  onClick={() => setSelectedId(row.id === selectedId ? null : row.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedId(row.id === selectedId ? null : row.id);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={selectedId === row.id}
+                >
                   <td><strong>{row.name}</strong></td>
                   <td><span className={`kind-chip kind-${row.kind}`}>{row.kind}</span></td>
                   <td>{row.host}</td>
@@ -682,6 +1068,7 @@ export function MachinesDashboardView({ telemetry }: DashboardViewProps = {}) {
           </table>
         </article>
 
+        {!isLive && (
         <div className="machine-side-stack">
           <article className="dash-panel">
             <div className="panel-title"><span>Affinity rules</span><strong>{affinityRules.length}</strong></div>
@@ -707,18 +1094,32 @@ export function MachinesDashboardView({ telemetry }: DashboardViewProps = {}) {
             </ul>
           </article>
           <article className="dash-panel">
-            <div className="panel-title"><span>Console chips</span><strong>{consoleChips.length}</strong></div>
+            <div className="panel-title"><span>Console chips</span><strong>{fleetConsoleChips.length}</strong></div>
             <div className="console-chips">
-              {consoleChips.map((chip) => (
-                <button key={chip.id} type="button" className={`console-chip type-${chip.type} state-${chip.state}`}>
+              {fleetConsoleChips.map((chip) => {
+                const row = liveFleet.find((r) => r.id === chip.machineId);
+                if (!row) return null;
+                return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  className={`console-chip type-${chip.type} state-${chip.state}`}
+                  onClick={() => {
+                    setSelectedId(row.id);
+                    setActiveConsole({ machine: row, chip });
+                  }}
+                >
                   <span>{chip.type}</span>
                   <strong>{chip.target}</strong>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </article>
         </div>
+        )}
       </div>
+      )}
     </section>
   );
 }
@@ -733,7 +1134,10 @@ function CoreHeatCell({ core }: { core: CpuCore }) {
   );
 }
 
-export function ProcessorMemoryDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function ProcessorMemoryDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Processor & Memory" dataSource={dataSource} />;
+  }
   const { numaZones, memoryTiers, pressureWaterfall, swapDevices, hugepages } = procmem;
   const liveZones = useMemo(() => {
     if (!telemetry) return numaZones;
@@ -856,7 +1260,8 @@ export function ProcessorMemoryDashboardView({ telemetry }: DashboardViewProps =
   );
 }
 
-export function OperationsDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function OperationsDashboardView({ telemetry, dataSource, operationsLinks }: DashboardViewProps = {}) {
+  const isLive = dataSource === 'live';
   const { cost, power, rightSizing, compliance, cve, audit, gitops, backupSla, drPlans } = ops;
   const livePower = useMemo(() => {
     if (!telemetry) return power;
@@ -879,15 +1284,52 @@ export function OperationsDashboardView({ telemetry }: DashboardViewProps = {}) 
         <div>
           <span className="dash-kicker">OPS // COMPLIANCE</span>
           <h2>{ops.title}</h2>
-          <p>Cost · sustainability · CVE · CIS · audit · GitOps · backups · DR.</p>
+          <p>{isLive ? 'Harvester observability links and cluster-level power estimate from live nodes.' : 'Cost · sustainability · CVE · CIS · audit · GitOps · backups · DR.'}</p>
         </div>
         <div className="dash-totals">
-          <div><span>€/month</span><strong>€{costTotal.toFixed(0)}</strong></div>
-          <div><span>kWh/mo</span><strong><LiveValue value={powerTotal.toFixed(0)} /></strong></div>
-          <div><span>CO₂ kg/mo</span><strong><LiveValue value={co2Total.toFixed(0)} /></strong></div>
+          {isLive ? (
+            <>
+              <div><span>CPU</span><strong><LiveValue value={`${telemetry?.cpuPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
+              <div><span>RAM</span><strong><LiveValue value={`${telemetry?.ramPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
+              <div><span>Est. watts</span><strong><LiveValue value={telemetry?.watts ?? 0} /></strong></div>
+            </>
+          ) : (
+            <>
+              <div><span>€/month</span><strong>€{costTotal.toFixed(0)}</strong></div>
+              <div><span>kWh/mo</span><strong><LiveValue value={powerTotal.toFixed(0)} /></strong></div>
+              <div><span>CO₂ kg/mo</span><strong><LiveValue value={co2Total.toFixed(0)} /></strong></div>
+            </>
+          )}
         </div>
       </header>
 
+      {operationsLinks?.monitoringEnabled && (
+        <article className="dash-panel ops-links-panel">
+          <div className="panel-title">
+            <span>Harvester observability</span>
+            <strong>rancher-monitoring addon</strong>
+          </div>
+          <div className="ops-external-links">
+            <a href={operationsLinks.grafanaUrl} target="_blank" rel="noreferrer">
+              Grafana dashboards
+            </a>
+            <a href={operationsLinks.alertmanagerUrl} target="_blank" rel="noreferrer">
+              Alertmanager
+            </a>
+            <a href={operationsLinks.harvesterReadyZ} target="_blank" rel="noreferrer">
+              Harvester readyz
+            </a>
+          </div>
+        </article>
+      )}
+
+      {isLive ? (
+        <LiveEmptyPanel
+          title="Compliance and chargeback panels are demo-only"
+          detail="Live mode shows cluster CPU/RAM/watts and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
+        />
+      ) : (
+      <>
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
           <div className="panel-title"><span>Cost · chargeback</span><strong>top 5 workloads</strong></div>
@@ -1073,11 +1515,16 @@ export function OperationsDashboardView({ telemetry }: DashboardViewProps = {}) 
           height={210}
         />
       </article>
+      </>
+      )}
     </section>
   );
 }
 
-export function PolyComputeDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function PolyComputeDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Poly-Compute Engine" dataSource={dataSource} />;
+  }
   const { runtimes, nodeBlend, topologyAwareScheduling, unifiedScheduler } = poly;
   const liveRuntimes = useMemo(() => {
     if (!telemetry) return runtimes;
@@ -1186,7 +1633,10 @@ export function PolyComputeDashboardView({ telemetry }: DashboardViewProps = {})
   );
 }
 
-export function AccelerationDashboardView({ telemetry }: DashboardViewProps = {}) {
+export function AccelerationDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Acceleration & Hardware Pass-Through" dataSource={dataSource} />;
+  }
   const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = accel;
   const liveFeatures = useMemo(() => {
     if (!telemetry) return features;
@@ -1379,7 +1829,10 @@ export function AccelerationDashboardView({ telemetry }: DashboardViewProps = {}
   );
 }
 
-export function EnvironmentDashboardView() {
+export function EnvironmentDashboardView({ dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Environment Intel" dataSource={dataSource} />;
+  }
   const { totals, zones, activity, backdropVectors } = environment;
   const vectorPoints = backdropVectors.map((value, index) => `${(index / (backdropVectors.length - 1)) * 100},${100 - value}`).join(' ');
 
@@ -1457,7 +1910,10 @@ export function EnvironmentDashboardView() {
   );
 }
 
-export function ActivityDashboardView() {
+export function ActivityDashboardView({ dataSource }: DashboardViewProps = {}) {
+  if (dataSource === 'live') {
+    return <DemoCatalogPlaceholder viewName="Activity Command" dataSource={dataSource} />;
+  }
   const { signals, lanes, bursts, timeline } = activity;
 
   return (

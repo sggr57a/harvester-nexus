@@ -1,0 +1,18 @@
+# Nexus cockpit endpoint metadata.
+# The production UI is served on each node by nexus-cockpit.service from the
+# static bundle baked into the ISO at /usr/share/nexus-cockpit/dist/.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-cockpit-host
+  namespace: nexus-cockpit
+  labels:
+    app.kubernetes.io/name: nexus-cockpit
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+data:
+  mode: host-static
+  staticRoot: /usr/share/nexus-cockpit/dist
+  httpsPort: "8443"
+  httpPort: "8080"
+  loginHint: "Open https://<node-ip>:8443 (Nexus cockpit), not https://<vip>:443 (Harvester dashboard)."

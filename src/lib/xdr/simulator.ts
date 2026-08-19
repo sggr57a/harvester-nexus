@@ -246,8 +246,11 @@ export function startLiveSimulation(
   const handle = window.setInterval(() => {
     if (stepIdx >= allSteps.length) {
       if (loop) {
+        // Loop the kill chain continuously without resetting the engine —
+        // the engine already trims its alert / response buffers via
+        // `windowSize` and `alertCap`, so the SOC view "breathes" without
+        // dropping back to a fully-empty state between iterations.
         stepIdx = 0;
-        engine.reset(); // start fresh per loop
       } else {
         window.clearInterval(handle);
         return;
@@ -255,7 +258,10 @@ export function startLiveSimulation(
     }
     const step = allSteps[stepIdx];
     stepIdx += 1;
-    const fired = engine.ingest(step.event);
+    // Re-stamp the event with `now` so its decay window starts fresh on
+    // each loop iteration — otherwise looped events appear as ancient and
+    // their decayed contribution is invisible.
+    const fired = engine.ingest({ ...step.event, timestampMs: Date.now() });
     if (fired.length > 0 && opts.onAlert) opts.onAlert(fired);
   }, intervalMs);
 

@@ -1,5 +1,9 @@
+import type { ReactNode } from 'react';
 import type { ApplicationConfig } from '../types';
+import type { DeployPhase, DeployResult } from '../lib/deploySimulation';
 import type { HarvesterMachineConfig, HarvesterMachineInstallPlan } from '../lib/harvesterMachineWizard';
+import type { ValidationResult } from '../lib/clusterWorkflow';
+import { DeployActionBar } from './DeployActionBar';
 import { NexusMachineWizard } from './NexusMachineWizard';
 import { Wizard } from './Wizard';
 
@@ -13,6 +17,26 @@ interface UnifiedSetupWizardProps {
   onManifestStepChange: (step: number) => void;
   includeManifestSetup: boolean;
   onIncludeManifestSetupChange: (include: boolean) => void;
+  manifestValidation: ValidationResult;
+  onDeployCluster: () => void;
+  clusterDeployLabel: string;
+  clusterDeployDisabled: boolean;
+  clusterDeployDisabledReason?: string;
+  clusterDeploying?: boolean;
+  clusterDeployPhase?: DeployPhase | null;
+  clusterPhaseIndex?: number;
+  clusterPhaseCount?: number;
+  clusterDeployResult?: DeployResult | null;
+  onDeployWorkload: () => void;
+  workloadDeployDisabled: boolean;
+  workloadDeployDisabledReason?: string;
+  workloadDeploying?: boolean;
+  workloadDeployPhase?: DeployPhase | null;
+  workloadPhaseIndex?: number;
+  workloadPhaseCount?: number;
+  workloadDeployResult?: DeployResult | null;
+  onGoToClusterConsole: () => void;
+  reviewSlot: ReactNode;
 }
 
 const manifestSteps = ['Workload', 'Storage', 'Networking', 'Security', 'Monitoring', 'GitOps', 'Review'];
@@ -27,7 +51,38 @@ export function UnifiedSetupWizard({
   onManifestStepChange,
   includeManifestSetup,
   onIncludeManifestSetupChange,
+  manifestValidation,
+  onDeployCluster,
+  clusterDeployLabel,
+  clusterDeployDisabled,
+  clusterDeployDisabledReason,
+  clusterDeploying,
+  clusterDeployPhase,
+  clusterPhaseIndex,
+  clusterPhaseCount,
+  clusterDeployResult,
+  onDeployWorkload,
+  workloadDeployDisabled,
+  workloadDeployDisabledReason,
+  workloadDeploying,
+  workloadDeployPhase,
+  workloadPhaseIndex,
+  workloadPhaseCount,
+  workloadDeployResult,
+  onGoToClusterConsole,
+  reviewSlot,
 }: UnifiedSetupWizardProps) {
+  const manifestWizardSlot = (
+    <Wizard
+      currentStep={manifestStep}
+      config={manifestConfig}
+      onChange={onManifestChange}
+      onBack={() => onManifestStepChange(Math.max(manifestStep - 1, 1))}
+      onNext={() => onManifestStepChange(Math.min(manifestStep + 1, manifestSteps.length))}
+      onFinish={() => onManifestStepChange(manifestSteps.length)}
+    />
+  );
+
   return (
     <section className="setup-wizard-shell" aria-label="Unified Nexus setup wizard">
       <div className="setup-geometry-backdrop" aria-hidden="true">
@@ -41,7 +96,7 @@ export function UnifiedSetupWizard({
           <span className="hud-kicker">SETUP // ONE WIZARD</span>
           <h2>Platform install with optional manifest setup</h2>
           <p>
-            Provision the Nexus host first, then optionally fold the Kubernetes manifest wizard into the same transparent control surface.
+            Configure the Nexus host, create or join a cluster, optionally prepare workload manifests, then deploy from the review tab.
           </p>
         </div>
         <div className="setup-wizard-status">
@@ -51,7 +106,7 @@ export function UnifiedSetupWizard({
       </header>
 
       <div className="setup-phase-grid" aria-label="Setup phases">
-        <article>
+        <article className="is-active">
           <span>01</span>
           <strong>Machine foundation</strong>
           <p>Install mode, disks, VIP, poly-compute, acceleration, and boot parameters.</p>
@@ -63,12 +118,28 @@ export function UnifiedSetupWizard({
         </article>
         <article>
           <span>03</span>
-          <strong>Generated previews</strong>
-          <p>Machine YAML and Kubernetes manifests remain visible for practical review.</p>
+          <strong>Review &amp; deploy</strong>
+          <p>Use Create cluster or Deploy workload once validation passes.</p>
         </article>
       </div>
 
-      <NexusMachineWizard config={machineConfig} plan={machinePlan} onChange={onMachineChange} />
+      <NexusMachineWizard
+        config={machineConfig}
+        plan={machinePlan}
+        onChange={onMachineChange}
+        manifestWizardSlot={includeManifestSetup ? manifestWizardSlot : undefined}
+        reviewSlot={reviewSlot}
+        onDeployCluster={onDeployCluster}
+        clusterDeployLabel={clusterDeployLabel}
+        clusterDeployDisabled={clusterDeployDisabled}
+        clusterDeployDisabledReason={clusterDeployDisabledReason}
+        clusterDeploying={clusterDeploying}
+        clusterDeployPhase={clusterDeployPhase}
+        clusterPhaseIndex={clusterPhaseIndex}
+        clusterPhaseCount={clusterPhaseCount}
+        clusterDeployResult={clusterDeployResult}
+        onGoToClusterConsole={onGoToClusterConsole}
+      />
 
       <section className="manifest-setup-embed" aria-label="Optional manifest setup wizard">
         <div className="manifest-setup-header">
@@ -108,13 +179,31 @@ export function UnifiedSetupWizard({
                 );
               })}
             </nav>
-            <Wizard
-              currentStep={manifestStep}
-              config={manifestConfig}
-              onChange={onManifestChange}
-              onBack={() => onManifestStepChange(Math.max(manifestStep - 1, 1))}
-              onNext={() => onManifestStepChange(Math.min(manifestStep + 1, manifestSteps.length))}
+            {manifestWizardSlot}
+            <DeployActionBar
+              primaryLabel="Deploy workload"
+              secondaryLabel={workloadDeployResult?.success ? 'Open Cluster Console' : 'Go to review tab'}
+              disabled={workloadDeployDisabled}
+              disabledReason={workloadDeployDisabledReason}
+              deploying={workloadDeploying}
+              currentPhase={workloadDeployPhase}
+              phaseIndex={workloadPhaseIndex}
+              phaseCount={workloadPhaseCount}
+              result={workloadDeployResult}
+              onDeploy={onDeployWorkload}
+              onSecondary={
+                workloadDeployResult?.success
+                  ? onGoToClusterConsole
+                  : () => onManifestStepChange(manifestSteps.length)
+              }
             />
+            {!manifestValidation.valid && (
+              <div className="machine-issues" role="alert">
+                {manifestValidation.issues.map((issue) => (
+                  <p key={`${issue.resource}-${issue.message}`}>{issue.severity.toUpperCase()}: {issue.message}</p>
+                ))}
+              </div>
+            )}
           </>
         ) : (
           <div className="manifest-setup-placeholder">
