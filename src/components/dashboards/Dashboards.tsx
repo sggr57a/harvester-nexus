@@ -21,6 +21,8 @@ import { ConsoleSession } from '../ConsoleSession';
 import { DemoCatalogPlaceholder, LiveEmptyPanel } from './LiveEmptyPanel';
 import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
 import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
+import { StorageIopsPanel, StorageIopsTotals } from './StorageIopsMetrics';
+import { formatMetric } from '../../lib/telemetry/environmentAdapter';
 import {
   ChordDiagram,
   ChordWithStats,
@@ -749,7 +751,16 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard, 
         </div>
         <div className="dash-totals">
           <div><span>Capacity</span><strong>{isLive ? '—' : `${backends.reduce((sum, b) => sum + b.capacityTiB, 0)} TiB`}</strong></div>
-          <div><span>IOPS</span><strong><LiveValue value={isLive ? (telemetry?.totalIops?.toLocaleString() ?? '0') : `${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} /></strong></div>
+          {isLive ? (
+            <StorageIopsTotals summary={telemetry?.storageIops} />
+          ) : (
+            <div>
+              <span>IOPS</span>
+              <strong>
+                <LiveValue value={`${(liveBackends.reduce((sum, b) => sum + b.iops, 0) / 1000).toFixed(1)} K`} />
+              </strong>
+            </div>
+          )}
           {onConfigureStorage && (
             <button type="button" className="primary-btn dash-action-btn" onClick={onConfigureStorage}>
               Configure storage
@@ -757,6 +768,8 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard, 
           )}
         </div>
       </header>
+
+      <StorageIopsPanel summary={telemetry?.storageIops} />
 
       {!isLive && (
       <>
@@ -852,9 +865,9 @@ export function StorageDashboardView({ telemetry, dataSource, storageDashboard, 
                 <text x="50" y="62" textAnchor="middle" className="radial-sub">{backend.capacityTiB}TiB</text>
               </svg>
               <dl className="backend-stats">
-                <div><dt>IOPS</dt><dd><LiveValue value={backend.iops.toLocaleString()} /></dd></div>
-                <div><dt>R</dt><dd>{backend.readMiBs} MiB/s</dd></div>
-                <div><dt>W</dt><dd>{backend.writeMiBs} MiB/s</dd></div>
+                <div><dt>IOPS</dt><dd><LiveValue value={isLive ? '—' : backend.iops.toLocaleString()} /></dd></div>
+                <div><dt>R</dt><dd>{isLive ? '—' : `${backend.readMiBs} MiB/s`}</dd></div>
+                <div><dt>W</dt><dd>{isLive ? '—' : `${backend.writeMiBs} MiB/s`}</dd></div>
               </dl>
               <div className="backend-features">
                 {backend.features.map((feat) => <span key={feat}>{feat}</span>)}
@@ -1200,6 +1213,7 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource, processorM
             <div><span>Demotion</span><strong>{extra?.demotionEnabled == null ? '—' : extra.demotionEnabled ? 'on' : 'off'}</strong></div>
           ) : null}
           <HardwareAddOnTotals summary={telemetry?.accelerators} />
+          <StorageIopsTotals summary={telemetry?.storageIops} />
         </div>
       </header>
 
@@ -1298,6 +1312,7 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource, processorM
       </div>
 
       <HardwareAddOnPanel summary={telemetry?.accelerators} />
+      <StorageIopsPanel summary={telemetry?.storageIops} />
 
       {isLive && extra?.vmstat ? (
         <div className="dash-row dash-row-2">
@@ -1368,10 +1383,11 @@ export function OperationsDashboardView({ telemetry, dataSource, operationsLinks
         <div className="dash-totals">
           {isLive ? (
             <>
-              <div><span>CPU</span><strong><LiveValue value={`${telemetry?.cpuPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
-              <div><span>RAM</span><strong><LiveValue value={`${telemetry?.ramPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
-              <div><span>Est. watts</span><strong><LiveValue value={telemetry?.watts ?? 0} /></strong></div>
+              <div><span>CPU</span><strong><LiveValue value={formatMetric(telemetry, 'cpuPercent', (v) => `${v.toFixed(1)}%`)} /></strong></div>
+              <div><span>RAM</span><strong><LiveValue value={formatMetric(telemetry, 'ramPercent', (v) => `${v.toFixed(1)}%`)} /></strong></div>
+              <div><span>Est. watts</span><strong><LiveValue value={formatMetric(telemetry, 'watts', (v) => String(v))} /></strong></div>
               <HardwareAddOnTotals summary={telemetry?.accelerators} />
+              <StorageIopsTotals summary={telemetry?.storageIops} />
             </>
           ) : (
             <>
@@ -1406,9 +1422,10 @@ export function OperationsDashboardView({ telemetry, dataSource, operationsLinks
       {isLive ? (
         <>
           <HardwareAddOnPanel summary={telemetry?.accelerators} />
+          <StorageIopsPanel summary={telemetry?.storageIops} />
           <LiveEmptyPanel
             title="Compliance and chargeback panels are demo-only"
-            detail="Live mode shows cluster CPU/RAM/watts, PCI add-in cards, and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
+            detail="Live mode shows cluster CPU/RAM/watts, PCI add-in cards, disk IOPS from /proc/diskstats, and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
           />
         </>
       ) : (

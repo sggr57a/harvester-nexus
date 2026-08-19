@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatNumber, type EnvironmentSnapshot } from '../lib/liveTelemetry';
+import { formatMetric } from '../lib/telemetry/environmentAdapter';
 import type { TelemetryMode, TelemetryState } from '../lib/telemetry/mode';
 import { hardwareTickerCells } from '../lib/telemetry/hardwareAddOn';
+import { storageIopsTickerCells } from '../lib/telemetry/storageIops';
 
 interface EnvironmentTickerProps {
   snapshot: EnvironmentSnapshot;
@@ -46,35 +48,40 @@ export function EnvironmentTicker({
       {
         key: 'totalIops',
         label: 'Cluster IOPS',
-        value: formatNumber(snapshot.totalIops, { compact: true }),
-        sub: 'all storage backends',
+        value: formatMetric(snapshot, 'totalIops', (v) => formatNumber(v, { compact: true })),
+        sub: snapshot.storageIops?.source?.includes('diskstats')
+          ? '/proc/diskstats'
+          : snapshot.unavailableMetrics?.includes('totalIops')
+            ? 'waiting for sample'
+            : 'physical disks',
         delta: snapshot.deltas.totalIops,
       },
+      ...storageIopsTickerCells(snapshot.storageIops),
       {
         key: 'ingressMbps',
         label: 'Ingress Mb/s',
-        value: formatNumber(snapshot.ingressMbps),
+        value: formatMetric(snapshot, 'ingressMbps', (v) => formatNumber(v)),
         sub: 'NIC bonds aggregated',
         delta: snapshot.deltas.ingressMbps,
       },
       {
         key: 'egressMbps',
         label: 'Egress Mb/s',
-        value: formatNumber(snapshot.egressMbps),
+        value: formatMetric(snapshot, 'egressMbps', (v) => formatNumber(v)),
         sub: 'NIC bonds aggregated',
         delta: snapshot.deltas.egressMbps,
       },
       {
         key: 'cpuPercent',
         label: 'CPU %',
-        value: `${snapshot.cpuPercent}%`,
+        value: formatMetric(snapshot, 'cpuPercent', (v) => `${v}%`),
         sub: 'rolling cluster avg',
         delta: snapshot.deltas.cpuPercent,
       },
       {
         key: 'ramPercent',
         label: 'DRAM %',
-        value: `${snapshot.ramPercent}%`,
+        value: formatMetric(snapshot, 'ramPercent', (v) => `${v}%`),
         sub: 'rolling cluster avg',
         delta: snapshot.deltas.ramPercent,
       },
@@ -82,7 +89,7 @@ export function EnvironmentTicker({
       {
         key: 'watts',
         label: 'Power',
-        value: `${formatNumber(snapshot.watts)} W`,
+        value: formatMetric(snapshot, 'watts', (v) => `${formatNumber(v)} W`),
         sub: 'aggregate draw',
         delta: snapshot.deltas.watts,
       },

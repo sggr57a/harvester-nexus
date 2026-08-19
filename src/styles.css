@@ -4828,6 +4828,20 @@ select {
   background: color-mix(in srgb, var(--theme-panel) 70%, transparent);
 }
 
+.storage-iops-panel {
+  margin-top: 0.55rem;
+}
+.holo-tile .storage-iops-panel {
+  margin: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+.storage-iops-list small {
+  font-variant-numeric: tabular-nums;
+}
+
 .spdk-lanes { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
 .spdk-lanes li {
   border: 1px solid var(--theme-panel-border);

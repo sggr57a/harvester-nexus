@@ -25,6 +25,8 @@ import {
 } from './Widgets';
 import { HologramHudShell } from './HologramHudShell';
 import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
+import { StorageIopsPanel, StorageIopsTotals } from './StorageIopsMetrics';
+import { formatMetric } from '../../lib/telemetry/environmentAdapter';
 import {
   ConnectedColumnChart,
   HudEventStrip,
@@ -114,6 +116,7 @@ export function ResourceMonitorHudView({
           <div><span>CPU</span><strong>{fmtPct(effectiveTelemetry?.cpuPercent ?? model.nodes[0]?.cpu ?? 0)}</strong></div>
           <div><span>Active ops</span><strong>{resourceMonitoring?.workItems.length ?? effectiveTelemetry?.activeMigrations ?? 0}</strong></div>
           <HardwareAddOnTotals summary={effectiveTelemetry?.accelerators} />
+          <StorageIopsTotals summary={effectiveTelemetry?.storageIops} />
         </div>
       </header>
 
@@ -144,7 +147,7 @@ export function ResourceMonitorHudView({
           />
         </HudTile>
         <HudTile label="DISK" className="holo-gauge">
-          <KpiTile label="DSK" value={fmtK(effectiveTelemetry?.totalIops ?? 0)} unit="IOPS" size="sm" series={diskSeries} />
+          <KpiTile label="DSK" value={formatMetric(effectiveTelemetry, 'totalIops', fmtK)} unit="IOPS" size="sm" series={diskSeries} />
         </HudTile>
         <HudTile label="NET RX" className="holo-gauge">
           <KpiTile label="RX" value={fmtMb(effectiveTelemetry?.ingressMbps ?? 0)} size="sm" series={netSeries} status="warn" />
@@ -299,6 +302,9 @@ export function ResourceMonitorHudView({
         </HudTile>
         <HudTile label="Add-in cards" className="holo-table holo-accel">
           <HardwareAddOnPanel summary={effectiveTelemetry?.accelerators} />
+        </HudTile>
+        <HudTile label="Disk IOPS" className="holo-table holo-storage">
+          <StorageIopsPanel summary={effectiveTelemetry?.storageIops} />
         </HudTile>
       </div>
       </HologramHudShell>

@@ -23,6 +23,7 @@ function py<T>(snippet: string): T {
     env: {
       ...process.env,
       NEXUS_TELEMETRY_STATE: join(workdir, 'telemetry-state.json'),
+      NEXUS_HOST_SAMPLE_FILE: join(workdir, 'host-sample.json'),
     },
   });
   return JSON.parse(out) as T;
@@ -80,6 +81,45 @@ describe('accelerator summary on the CPU/RAM environment tick', () => {
     expect('ramPercent' in payload).toBe(true);
   });
 
+  it('collect_environment attaches storageIops from /proc/diskstats next to CPU/RAM', () => {
+    const payload = py<{
+      skipped?: boolean;
+      storageIops?: {
+        totalIops: number | null;
+        readIops: number | null;
+        writeIops: number | null;
+        devices: unknown[];
+        source?: string;
+      };
+      totalIops: number | null;
+    }>(
+      [
+        'import cluster_metrics as cm, time',
+        'if not cm._find_kubeconfig():',
+        '    print(json.dumps({"skipped": True}))',
+        'else:',
+        '    cm.collect_environment()',
+        '    time.sleep(1.05)',
+        '    env = cm.collect_environment()',
+        '    print(json.dumps({',
+        '        "skipped": False,',
+        '        "storageIops": env.get("storageIops"),',
+        '        "totalIops": env.get("totalIops"),',
+        '    }))',
+      ].join('\n'),
+    );
+    if (payload.skipped) return;
+    expect(payload.storageIops).toBeDefined();
+    expect(Array.isArray(payload.storageIops?.devices)).toBe(true);
+    expect(payload.totalIops).toBe(payload.storageIops?.totalIops ?? null);
+    if ((payload.storageIops?.devices.length ?? 0) > 0) {
+      expect(typeof payload.storageIops?.totalIops).toBe('number');
+      expect(payload.storageIops?.source).toMatch(/diskstats/);
+    } else {
+      expect(payload.storageIops?.totalIops ?? null).toBeNull();
+    }
+  }, 15000);
+
   it('collect_dashboards_live includes environment.accelerators and acceleration inventory', () => {
     const payload = py<{
       skipped?: boolean;
@@ -114,5 +154,47 @@ describe('accelerator summary on the CPU/RAM environment tick', () => {
     expect(payload.envHottest === null || typeof payload.envHottest === 'number').toBe(true);
     expect(payload.accelAvailable).toBe(true);
     expect(payload.accelDevices).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('storage IOPS on the CPU/RAM environment tick', () => {
+  it('collect_dashboards_live includes environment.storageIops rather than fabricating CSI rates', () => {
+    const payload = py<{
+      skipped?: boolean;
+      error?: string;
+      totalIops: number | null;
+      storageTotal?: number | null;
+      storageSource?: string;
+      backendIops?: number;
+      devices?: number;
+    }>(
+      [
+        'import cluster_metrics as cm',
+        'if not cm._find_kubeconfig():',
+        '    print(json.dumps({"skipped": True}))',
+        'else:',
+        '    import dashboard_collectors as dc',
+        '    live = dc.collect_dashboards_live()',
+        '    env = live.get("environment") or {}',
+        '    storage = env.get("storageIops") or {}',
+        '    backends = (live.get("storage") or {}).get("backends") or []',
+        '    print(json.dumps({',
+        '        "skipped": False,',
+        '        "totalIops": env.get("totalIops"),',
+        '        "storageTotal": storage.get("totalIops"),',
+        '        "storageSource": storage.get("source"),',
+        '        "backendIops": (backends[0] or {}).get("iops") if backends else None,',
+        '        "devices": len(storage.get("devices") or []),',
+        '    }))',
+      ].join('\n'),
+    );
+    if (payload.skipped) return;
+    expect(payload.error).toBeUndefined();
+    expect(payload.devices).toBeGreaterThanOrEqual(0);
+    expect(payload.totalIops).toBe(payload.storageTotal ?? null);
+    expect(payload.storageSource).toMatch(/diskstats|unavailable/);
+    if (payload.backendIops != null) {
+      expect(payload.backendIops).toBe(0);
+    }
   });
 });

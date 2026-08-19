@@ -11,6 +11,7 @@ from typing import Any
 from cluster_filters import is_user_namespace
 from cluster_metrics import (
     _collect_accelerator_summary,
+    _collect_host_metrics,
     _count_active_migrations,
     _find_kubeconfig,
     _kubectl_json,
@@ -21,6 +22,7 @@ from cluster_metrics import (
     _parse_bytes,
     _parse_cpu_cores,
     _save_state,
+    _storage_iops_from_host,
 )
 
 try:
@@ -544,6 +546,7 @@ def collect_dashboards_live() -> dict[str, Any]:
         if source in by_sensor and isinstance(by_sensor[source], dict):
             by_sensor[source]["ingesting"] = True
     networking = collect_networking_slice(kubeconfig) if collect_networking_slice else {"available": False}
+    host = _collect_host_metrics()
 
     work_items = []
     for mig in migrations[:6]:
@@ -570,18 +573,21 @@ def collect_dashboards_live() -> dict[str, Any]:
                 }
             )
 
+    host_iops = host.get("totalIops")
+    env_iops = host_iops if host_iops is not None else (int(total_iops) if monitoring and total_iops else None)
+
     return {
         "environment": {
             "totalWorkloads": pod_count + vm_count,
-            "totalIops": int(total_iops),
-            "ingressMbps": int(ingress_mbps),
-            "egressMbps": int(egress_mbps),
+            "totalIops": env_iops,
+            "ingressMbps": host.get("ingressMbps") if host.get("ingressMbps") is not None else (int(ingress_mbps) if monitoring and ingress_mbps else None),
+            "egressMbps": host.get("egressMbps") if host.get("egressMbps") is not None else (int(egress_mbps) if monitoring and egress_mbps else None),
             "cpuPercent": cpu_percent,
             "ramPercent": ram_percent,
-            "watts": node_count * 220,
+            "watts": host.get("watts"),
             "activeMigrations": migrations_count,
-            "openCves": int(state.get("openCves", 0)),
-            "trustScore": int(state.get("trustScore", 85)),
+            "openCves": int(state.get("openCves", 0)) if state.get("openCves") is not None else None,
+            "trustScore": int(state.get("trustScore", 0)) if state.get("trustScore") is not None else None,
             "tick": tick,
             "source": "mixed" if monitoring else "harvester",
             "clusterReady": True,
@@ -590,6 +596,8 @@ def collect_dashboards_live() -> dict[str, Any]:
             "podCount": pod_count,
             "vmCount": vm_count,
             "accelerators": _collect_accelerator_summary(),
+            "storageIops": _storage_iops_from_host(host),
+            "metricSources": host.get("sources") or {},
         },
         "storage": {
             "pvcs": pvcs,

@@ -1,4 +1,5 @@
 import type { EnvironmentAcceleratorSummary } from './hardwareAddOn';
+import type { EnvironmentStorageIops } from './storageIops';
 
 /**
  * A metric the node could not measure. The BFF sends `null` rather than a
@@ -30,6 +31,8 @@ export interface EnvironmentTelemetryPayload {
   metricSources?: Record<string, string>;
   /** Allowlisted FPGA / GPU / NPU / TPU pulse collected on the same tick as CPU / RAM. */
   accelerators?: EnvironmentAcceleratorSummary;
+  /** Per-disk IOPS / throughput from /proc/diskstats on the same tick as CPU / RAM. */
+  storageIops?: EnvironmentStorageIops;
 }
 
 export interface LiveHealthPayload {

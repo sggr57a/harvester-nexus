@@ -22,6 +22,13 @@ describe('nextSnapshot', () => {
     expect(snap.accelerators?.byKind.fpga).toBeGreaterThan(0);
   });
 
+  it('includes demo per-disk IOPS on the same snapshot as CPU and DRAM', () => {
+    const snap = nextSnapshot();
+    expect(snap.storageIops?.totalIops).toBe(1_120_000);
+    expect(snap.storageIops?.devices.length).toBeGreaterThan(0);
+    expect(snap.storageIops?.source).toBe('demo');
+  });
+
   it('keeps the same demo accelerator inventory across ticks', () => {
     const first = nextSnapshot();
     const second = nextSnapshot(first);
@@ -58,6 +65,9 @@ describe('emptyEnvironmentSnapshot', () => {
     expect(snap.accelerators?.cards).toBe(0);
     expect(snap.accelerators?.hottestC).toBeNull();
     expect(snap.accelerators?.devices).toEqual([]);
+    expect(snap.storageIops?.totalIops).toBeNull();
+    expect(snap.storageIops?.devices).toEqual([]);
+    expect(snap.unavailableMetrics).toContain('totalIops');
   });
 });
 describe('formatNumber', () => {

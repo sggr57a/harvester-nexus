@@ -54,6 +54,7 @@ export function payloadToEnvironmentSnapshot(
     unavailableMetrics,
     metricSources: payload.metricSources,
     accelerators: payload.accelerators,
+    storageIops: payload.storageIops,
   };
 
   if (!previous) {

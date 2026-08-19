@@ -394,8 +394,10 @@ describe('installer · overlay avoids Elemental /usr/local persistent mount', ()
     expect(serve).toMatch(/\/api\/v1\/telemetry\/accelerators/);
     const metricsSrc = readFileSync(metrics, 'utf8');
     expect(metricsSrc).toMatch(/"accelerators": accelerators/);
+    expect(metricsSrc).toMatch(/"storageIops": _storage_iops_from_host\(host\)/);
     const dash = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'dashboard_collectors.py'), 'utf8');
     expect(dash).toMatch(/"accelerators": _collect_accelerator_summary\(\)/);
+    expect(dash).toMatch(/"storageIops": _storage_iops_from_host\(host\)/);
     expect(dash).toMatch(/_parse_cpu_cores/);
   });
 });

@@ -275,6 +275,11 @@ def _collect_host_metrics() -> dict[str, Any]:
         return {
             "watts": None,
             "totalIops": None,
+            "readIops": None,
+            "writeIops": None,
+            "readMiBs": None,
+            "writeMiBs": None,
+            "disks": [],
             "ingressMbps": None,
             "egressMbps": None,
             "sources": {"host": "unavailable (host_metrics failed to load)"},
@@ -344,6 +349,19 @@ def _save_state(state: dict[str, Any]) -> None:
         sys.stderr.write("nexus-metrics: state persist failed (%s); continuing\n" % exc)
 
 
+def _storage_iops_from_host(host: dict[str, Any]) -> dict[str, Any]:
+    sources = host.get("sources") or {}
+    return {
+        "totalIops": host.get("totalIops"),
+        "readIops": host.get("readIops"),
+        "writeIops": host.get("writeIops"),
+        "readMiBs": host.get("readMiBs"),
+        "writeMiBs": host.get("writeMiBs"),
+        "devices": host.get("disks") or [],
+        "source": sources.get("totalIops"),
+    }
+
+
 def collect_environment() -> dict[str, Any]:
     kubeconfig = _find_kubeconfig()
     if not kubeconfig:
@@ -390,6 +408,7 @@ def collect_environment() -> dict[str, Any]:
         # Same poll as CPU / RAM so every hardware dashboard can render
         # FPGA / GPU / NPU / TPU without a second round trip.
         "accelerators": accelerators,
+        "storageIops": _storage_iops_from_host(host),
         # Per-metric provenance so the cockpit can label partial coverage
         # rather than presenting every figure as equally authoritative.
         "metricSources": {

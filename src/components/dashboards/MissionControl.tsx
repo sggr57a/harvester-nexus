@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 import { MissionCustomizableArea } from './MissionCustomizableArea';
 import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
+import { StorageIopsPanel, StorageIopsTotals } from './StorageIopsMetrics';
+import { formatMetric } from '../../lib/telemetry/environmentAdapter';
 import { summarizeFromPassThrough } from '../../lib/telemetry/hardwareAddOn';
 import {
   buildAccelerationDashboard,
@@ -87,9 +89,10 @@ function LiveMissionControl({
         <div className="dash-totals">
           <div><span>User workloads</span><strong>{telemetry?.totalWorkloads ?? 0}</strong></div>
           <div><span>Migrations</span><strong>{telemetry?.activeMigrations ?? 0}</strong></div>
-          <div><span>CPU</span><strong>{telemetry?.cpuPercent?.toFixed(1) ?? '0'}%</strong></div>
-          <div><span>RAM</span><strong>{telemetry?.ramPercent?.toFixed(1) ?? '0'}%</strong></div>
+          <div><span>CPU</span><strong>{formatMetric(telemetry, 'cpuPercent', (v) => `${v.toFixed(1)}%`)}</strong></div>
+          <div><span>RAM</span><strong>{formatMetric(telemetry, 'ramPercent', (v) => `${v.toFixed(1)}%`)}</strong></div>
           <HardwareAddOnTotals summary={telemetry?.accelerators} />
+          <StorageIopsTotals summary={telemetry?.storageIops} />
         </div>
       </header>
       <div className="dash-row dash-row-2">
@@ -117,6 +120,7 @@ function LiveMissionControl({
       <HardwareAddOnPanel
         summary={telemetry?.accelerators ?? (acceleration ? summarizeFromPassThrough(acceleration.passThrough, acceleration.waitingForHardware) : undefined)}
       />
+      <StorageIopsPanel summary={telemetry?.storageIops} />
     </section>
   );
 }
@@ -337,10 +341,11 @@ export function MissionControlView({ telemetry, dataSource, acceleration }: Miss
         </div>
         <div className="dash-totals">
           <div><span>Workloads</span><strong>{telemetry?.totalWorkloads ?? 642}</strong></div>
-          <div><span>IOPS</span><strong>{telemetry ? `${(telemetry.totalIops / 1000).toFixed(0)}K` : '1.12M'}</strong></div>
+          <div><span>IOPS</span><strong>{formatMetric(telemetry, 'totalIops', (v) => `${(v / 1000).toFixed(0)}K`, '1.12M')}</strong></div>
           <div><span>Watts</span><strong>{telemetry?.watts ?? 1592}</strong></div>
           <div><span>Trust</span><strong>{telemetry?.trustScore ?? 87}</strong></div>
           <HardwareAddOnTotals summary={telemetry?.accelerators} />
+          <StorageIopsTotals summary={telemetry?.storageIops} />
         </div>
       </header>
 
@@ -354,13 +359,15 @@ export function MissionControlView({ telemetry, dataSource, acceleration }: Miss
           hint={telemetry?.accelerators?.hottestC == null ? 'PCI add-in cards' : `hottest ${telemetry.accelerators.hottestC}°C`}
           status={(telemetry?.accelerators?.issues ?? 0) > 0 ? 'warn' : 'good'}
         />
-        <KpiTile label="Cluster IOPS" value={telemetry ? `${(telemetry.totalIops / 1000).toFixed(0)}` : '1120'} unit="K" delta={telemetry ? Math.round(telemetry.deltas.totalIops / 1000) : 0} series={iopsSeries} hint="Ceph · NVMe-oF · Vitastor" status="good" />
+        <KpiTile label="Cluster IOPS" value={formatMetric(telemetry, 'totalIops', (v) => `${(v / 1000).toFixed(0)}`, '1120')} unit="K" delta={telemetry && !telemetry.unavailableMetrics?.includes('totalIops') ? Math.round(telemetry.deltas.totalIops / 1000) : 0} series={iopsSeries} hint="physical disks · /proc/diskstats" status="good" />
         <KpiTile label="Power" value={`${telemetry?.watts ?? 1592}`} unit="W" delta={telemetry?.deltas.watts} series={wattsSeries} hint="aggregate node draw" />
         <KpiTile label="Ingress" value={telemetry ? `${(telemetry.ingressMbps / 1000).toFixed(1)}` : '78.4'} unit="Gb/s" delta={telemetry ? Math.round(telemetry.deltas.ingressMbps / 1000) : 0} series={ingressSeries} hint="NIC bonds aggregated" />
         <KpiTile label="Egress" value={telemetry ? `${(telemetry.egressMbps / 1000).toFixed(1)}` : '74.8'} unit="Gb/s" delta={telemetry ? Math.round(telemetry.deltas.egressMbps / 1000) : 0} series={egressSeries} hint="NIC bonds aggregated" />
         <KpiTile label="Migrations" value={`${telemetry?.activeMigrations ?? 3}`} delta={telemetry?.deltas.activeMigrations} series={migrSeries} hint="vMotion in-flight" status={(telemetry?.activeMigrations ?? 3) > 5 ? 'warn' : 'good'} />
         <KpiTile label="Open CVE" value={`${telemetry?.openCves ?? 17}`} hint="critical & high" status="warn" />
       </div>
+
+      <StorageIopsPanel summary={telemetry?.storageIops} />
 
       <MissionCustomizableArea>
         <article key="radial" className="dash-panel mission-radial">
