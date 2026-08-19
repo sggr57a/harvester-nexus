@@ -19,6 +19,7 @@ from cluster_metrics import (
     _monitoring_addon_enabled,
     _node_capacity_usage,
     _parse_bytes,
+    _parse_cpu_cores,
     _save_state,
 )
 

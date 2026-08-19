@@ -391,5 +391,11 @@ describe('installer · overlay avoids Elemental /usr/local persistent mount', ()
     const serve = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'serve-cockpit.py'), 'utf8');
     expect(serve).toMatch(/\/api\/v1\/telemetry\/environment/);
     expect(serve).toMatch(/\/api\/v1\/health\/live/);
+    expect(serve).toMatch(/\/api\/v1\/telemetry\/accelerators/);
+    const metricsSrc = readFileSync(metrics, 'utf8');
+    expect(metricsSrc).toMatch(/"accelerators": accelerators/);
+    const dash = readFileSync(join(INSTALLER, 'overlay', 'usr', 'lib', 'nexus', 'dashboard_collectors.py'), 'utf8');
+    expect(dash).toMatch(/"accelerators": _collect_accelerator_summary\(\)/);
+    expect(dash).toMatch(/_parse_cpu_cores/);
   });
 });
