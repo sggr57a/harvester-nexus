@@ -169,6 +169,42 @@ compliance:
     iso-27001:    { schedule: "@weekly",  tool: lynis }
     soc2:         { schedule: "@weekly",  tool: openscap }
 
+# Memory tiering — Linux NUMA/CXL/PMem first, zswap+NVMe last, future
+# knobs reserved so they activate when firmware/kernel expose them.
+# NVMe is never treated as a NUMA node; it is swap / a QEMU page store.
+memoryTiering:
+  enabled: true
+  policy: capacity          # capacity (demote/promote) | bandwidth (weighted interleave)
+  cxl:
+    enabled: true
+  phaseChange:
+    enabled: true
+    device: auto            # daxctl --mode=system-ram when /dev/dax* or pmem exists
+  hbm:
+    enabled: true
+  nvmeSwap:
+    enabled: true
+    zswap: true
+    zswapMaxPoolPercent: 20
+    zswapCompressor: zstd
+    device: auto            # unused local NVMe only; never the boot/data disk
+    ratio: 1.0
+    excludeDevices: []
+  hypervisorNvme:
+    enabled: true
+    directory: /var/lib/nexus/memory-tier-nvme
+  damon:
+    enabled: true
+  weightedInterleave:
+    enabled: true
+  future:
+    cxlPooling: true
+    compressedCxl: true
+    guestCxl: true
+    guestNvdimm: true
+    pghot: true
+    packageAware: true
+
 # First-login launch animation variant. Operators choose between four
 # variants in the cockpit; this picks the install-time default.
 launchVariant: concentric-boot   # concentric-boot | status-cascade | hex-grid | radar-sweep

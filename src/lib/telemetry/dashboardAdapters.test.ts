@@ -99,6 +99,18 @@ const samplePayload: DashboardTelemetryPayload = {
     harvesterReadyZ: '/readyz',
     monitoringEnabled: true,
   },
+  processorMemory: {
+    available: true,
+    memoryTiers: [
+      { id: 'dram', label: 'DRAM', capacityGiB: 32, usedGiB: 8, latencyNs: 80, throughputGiBs: 64, present: true },
+      { id: 'cxl', label: 'CXL Type-3', capacityGiB: 0, usedGiB: 0, latencyNs: null, throughputGiBs: null, present: false },
+      { id: 'swap', label: 'Swap', capacityGiB: 0, usedGiB: 0, latencyNs: 2400, throughputGiBs: 4, present: false },
+    ],
+    numaZones: [{ id: 'node0', localRamGiB: 32, remoteHitsPct: 2.5, cores: [] }],
+    waitingForHardware: ['cxl'],
+    vmstat: { pgdemoteKswapd: 0, pswpin: 0 },
+    demotionEnabled: false,
+  },
 };
 
 describe('buildClusterDashboardBundle', () => {
@@ -130,6 +142,13 @@ describe('buildClusterDashboardBundle', () => {
     };
     const bundle = buildClusterDashboardBundle(sparse, 'live');
     expect(bundle.machines.fleet.filter((row) => row.kind === 'node')).toHaveLength(3);
+  });
+
+  it('maps live processor-memory tiers without substituting demo DRAM sizes', () => {
+    const bundle = buildClusterDashboardBundle(samplePayload, 'live');
+    expect(bundle.processorMemory?.available).toBe(true);
+    expect(bundle.processorMemory?.memoryTiers.find((tier) => tier.id === 'dram')?.capacityGiB).toBe(32);
+    expect(bundle.processorMemory?.waitingForHardware).toContain('cxl');
   });
 
   it('uses live networking inventory without demo catalog merge', () => {

@@ -47,3 +47,4 @@ because it has no backend to authenticate against.
 - **ISO builds on `main`:** every push to `main` runs `.github/workflows/build-iso.yml` and publishes a pre-release ISO under GitHub Releases (`iso-main-<run>`). See `installer/README.md` for download instructions.
 - Live XDR events come from Falco / Tetragon / Suricata / Wazuh pod logs via `xdr_ingest.py`; Kubernetes Warning events keep a derived severity instead of a hardcoded `medium`.
 - Live consoles attach through `console_proxy.py` (`/api/v1/console/{vnc,serial,exec}`) onto KubeVirt subresources or `kubectl exec`. `src/lib/demoConsole.ts` is demo-mode only.
+- Memory tiering is host-side (`memory_tiering.py` + `nexus-memory-tiering.service`). Live Processor & Memory reads `/proc` and `/sys` (demotion, zswap, swap, PSI, NUMA). Do not fabricate tier capacity when the hardware is absent — list it under `waitingForHardware`.

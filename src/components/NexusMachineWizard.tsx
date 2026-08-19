@@ -213,8 +213,17 @@ export function NexusMachineWizard({
             <label>
               Memory tier mode
               <select value={config.memoryTiering.mode} onChange={(event) => onChange({ ...config, memoryTiering: { ...config.memoryTiering, mode: event.target.value as HarvesterMachineConfig['memoryTiering']['mode'] } })}>
-                <option value="nvme">NVMe tier</option>
-                <option value="phase-change">Phase-change tier</option>
+                <option value="auto">Auto (CXL + PMem + NVMe swap when present)</option>
+                <option value="cxl">CXL Type-3 far memory</option>
+                <option value="phase-change">Phase-change / Optane PMem DAX</option>
+                <option value="nvme">NVMe zswap last tier</option>
+              </select>
+            </label>
+            <label>
+              Tiering policy
+              <select value={config.memoryTiering.policy} onChange={(event) => onChange({ ...config, memoryTiering: { ...config.memoryTiering, policy: event.target.value as HarvesterMachineConfig['memoryTiering']['policy'] } })}>
+                <option value="capacity">Capacity (demote/promote)</option>
+                <option value="bandwidth">Bandwidth (weighted interleave)</option>
               </select>
             </label>
             <label>

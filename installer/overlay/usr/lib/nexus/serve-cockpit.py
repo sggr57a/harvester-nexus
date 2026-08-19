@@ -166,6 +166,10 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             self._json_api(self._handle_anyraid_status)
             return
 
+        if path == "/api/v1/telemetry/memory-tiering":
+            self._json_api(self._handle_memory_tiering)
+            return
+
         if path.startswith("/api/v1/"):
             self._plain(404, b"not found")
             return
@@ -359,6 +363,14 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         if self._anyraid is None:
             return {"exists": False, "error": "AnyRAID provisioner unavailable"}
         return self._anyraid.pool_status()
+
+    def _handle_memory_tiering(self) -> dict:
+        if self._dashboards is None:
+            return {"available": False, "error": "dashboard collector unavailable"}
+        collector = getattr(self._dashboards, "_collect_processor_memory", None)
+        if collector is None:
+            return {"available": False, "error": "memory tiering collector unavailable"}
+        return collector()
 
     def _handle_console_upgrade(self, path: str) -> None:
         if self._console is None:

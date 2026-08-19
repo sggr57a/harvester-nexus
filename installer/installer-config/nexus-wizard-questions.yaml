@@ -169,6 +169,27 @@ questions:
     type: bool
     default: true
 
+  - variable: nexus.memoryTiering.enabled
+    label: Enable memory tiering
+    description: |
+      Use Linux NUMA demotion/promotion for CXL and persistent memory
+      when those devices exist. NVMe is a last-resort zswap+swap tier,
+      not extra guest RAM. Future knobs (HBM, DAMON, CXL pooling) wait
+      until the kernel exposes them.
+    type: bool
+    default: true
+
+  - variable: nexus.memoryTiering.policy
+    label: Memory tiering policy
+    description: |
+      capacity = keep the hot working set in DRAM (demote cold pages).
+      bandwidth = weighted-interleave across DRAM and CXL without moving
+      pages after allocation.
+    type: enum
+    default: capacity
+    options: [capacity, bandwidth]
+    showIf: nexus.memoryTiering.enabled = true
+
   - variable: nexus.observability.prometheus.enabled
     label: Enable Prometheus + alerting
     description: Install the kube-prometheus stack on first boot.

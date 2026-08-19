@@ -27,6 +27,22 @@ except ImportError:
     collect_networking_slice = None  # type: ignore[assignment,misc]
 
 
+def _collect_processor_memory() -> dict[str, Any]:
+    """Live NUMA / tier / swap / zswap / PSI snapshot. Never applies sysctls."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "nexus_memory_tiering",
+            os.path.join(os.path.dirname(__file__), "memory_tiering.py"),
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("memory_tiering module missing")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.live_dashboard()
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "error": str(exc), "memoryTiers": [], "numaZones": [], "waitingForHardware": []}
+
+
 def _parse_gi(value: str) -> float:
     if value.endswith("Ti"):
         return float(value[:-2]) * 1024.0
@@ -575,6 +591,7 @@ def collect_dashboards_live() -> dict[str, Any]:
             "monitoringEnabled": monitoring,
         },
         "networking": networking if isinstance(networking, dict) else {"available": False},
+        "processorMemory": _collect_processor_memory(),
     }
 
 

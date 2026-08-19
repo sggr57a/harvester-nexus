@@ -90,6 +90,45 @@ export interface LiveOperationsSlice {
   monitoringEnabled: boolean;
 }
 
+export interface LiveMemoryTier {
+  id: 'dram' | 'hbm' | 'cxl' | 'nvme' | 'phase-change' | 'zswap' | 'swap';
+  label: string;
+  capacityGiB: number;
+  usedGiB: number;
+  latencyNs: number | null;
+  throughputGiBs: number | null;
+  present?: boolean;
+}
+
+export interface LiveProcessorMemorySlice {
+  available?: boolean;
+  id?: 'processor-memory';
+  title?: string;
+  policy?: string;
+  enabled?: boolean;
+  numaZones?: { id: string; hasCpu?: boolean; localRamGiB: number; remoteHitsPct: number | null; cores: { id: number; utilizationPercent: number; frequencyGhz: number; thread: 'p' | 'e' }[] }[];
+  memoryTiers?: LiveMemoryTier[];
+  pressureWaterfall?: { label: string; cpuPressure: number | null; memoryPressure: number | null; ioPressure: number | null }[];
+  swapDevices?: { device: string; sizeGiB: number; usedGiB: number; priority: number | null }[];
+  hugepages?: { sizeMiB: number | null; allocated: number | null; free: number | null }[];
+  vmstat?: Record<string, number | null>;
+  zswap?: {
+    enabled: boolean | null;
+    compressor: string | null;
+    maxPoolPercent: number | null;
+    storedPages: number | null;
+    poolLimitHit: number | null;
+    writtenBackPages: number | null;
+  };
+  meminfo?: Record<string, number | null>;
+  demotionEnabled?: boolean | null;
+  numaBalancing?: number | null;
+  waitingForHardware?: string[];
+  capabilities?: Record<string, boolean>;
+  notes?: string[];
+  error?: string;
+}
+
 export interface DashboardTelemetryPayload {
   environment: EnvironmentTelemetryPayload;
   storage: LiveStorageSlice;
@@ -98,4 +137,5 @@ export interface DashboardTelemetryPayload {
   xdr: LiveXdrSlice;
   operations: LiveOperationsSlice;
   networking?: LiveNetworkingSlice;
+  processorMemory?: LiveProcessorMemorySlice;
 }

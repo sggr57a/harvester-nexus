@@ -570,7 +570,13 @@ function App() {
             onFleetRefresh={() => void refreshDashboards()}
           />
         )}
-        {cockpitView === 'processor-memory' && <ProcessorMemoryDashboardView telemetry={telemetry} dataSource={dataSource} />}
+        {cockpitView === 'processor-memory' && (
+          <ProcessorMemoryDashboardView
+            telemetry={telemetry}
+            dataSource={dataSource}
+            processorMemory={clusterDashboards.processorMemory}
+          />
+        )}
         {cockpitView === 'environment' && (
           <EnvironmentIntelHudView
             telemetry={telemetry}

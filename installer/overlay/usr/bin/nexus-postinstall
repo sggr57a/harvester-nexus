@@ -32,5 +32,5 @@ fi
 mkdir -p /var/lib/nexus /var/log/nexus /etc/nexus/tls
 
 # Enable the bootstrap + cockpit units so they fire on next boot.
-systemctl enable nexus-bootstrap.service nexus-cockpit.service
-printf '[nexus-postinstall] enabled nexus-bootstrap + nexus-cockpit units\n'
+systemctl enable nexus-bootstrap.service nexus-cockpit.service nexus-memory-tiering.service nexus-memory-tiering.timer
+printf '[nexus-postinstall] enabled nexus-bootstrap + nexus-cockpit + memory-tiering units\n'

@@ -18,7 +18,8 @@ export interface NvmeOverRdmaConfig {
 
 export interface MemoryTieringConfig {
   enabled: boolean;
-  mode: 'phase-change' | 'nvme';
+  mode: 'auto' | 'phase-change' | 'nvme' | 'cxl';
+  policy: 'capacity' | 'bandwidth';
   device: string;
   ratio: number;
 }
@@ -102,9 +103,10 @@ export function buildDefaultMachineConfig(): HarvesterMachineConfig {
     },
     memoryTiering: {
       enabled: true,
-      mode: 'nvme',
-      device: '/dev/nvme1n1',
-      ratio: 0.25,
+      mode: 'auto',
+      policy: 'capacity',
+      device: 'auto',
+      ratio: 1.0,
     },
     polyCompute: {
       kubevirt: true,
@@ -271,6 +273,7 @@ export function buildHarvesterMachineInstallPlan(config: HarvesterMachineConfig)
       memory_tiering: {
         enabled: config.memoryTiering.enabled,
         mode: config.memoryTiering.mode,
+        policy: config.memoryTiering.policy,
         device: config.memoryTiering.device,
         ratio: config.memoryTiering.ratio,
       },
@@ -303,6 +306,10 @@ export function buildHarvesterMachineInstallPlan(config: HarvesterMachineConfig)
       `harvester.install.management_interface=${config.managementInterface || '<management-interface>'}`,
       `nexus.features.nvme_over_rdma=${config.nvmeOverRdma.enabled}`,
       config.memoryTiering.enabled ? `nexus.features.memory_tiering=${config.memoryTiering.mode}` : 'nexus.features.memory_tiering=false',
+      config.memoryTiering.enabled ? `nexus.features.memory_tiering.policy=${config.memoryTiering.policy}` : 'nexus.features.memory_tiering.policy=off',
+      ...(config.memoryTiering.enabled
+        ? ['zswap.enabled=1', 'zswap.compressor=zstd', 'zswap.max_pool_percent=20']
+        : []),
       `nexus.poly_compute=${[
         config.polyCompute.kubevirt ? 'kubevirt' : null,
         config.polyCompute.incusLxc ? 'incus' : null,

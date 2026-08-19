@@ -1,0 +1,54 @@
+# KubeVirt hints for memory tiering. Applied by nexus-bootstrap.
+# Tierable VMs must NOT pin 1 GiB hugepages (those pages cannot demote).
+# DRAM-pinned VMs (GPU, TDX, latency-critical) opt out via annotation
+# nexus.io/memory-tiering=dram-only.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-memory-tiering
+  namespace: nexus-cockpit
+  labels:
+    app.kubernetes.io/name: nexus-memory-tiering
+    app.kubernetes.io/managed-by: harvester-nexus-installer
+data:
+  policy: "capacity"
+  annotations.yaml: |
+    nexus.io/memory-tiering: auto
+    nexus.io/guest-cxl: reserved
+    nexus.io/guest-nvdimm: reserved
+    nexus.io/memory-backend: host-tiering
+  preference-tierable.yaml: |
+    apiVersion: instancetype.kubevirt.io/v1beta1
+    kind: VirtualMachinePreference
+    metadata:
+      name: nexus-tierable
+      namespace: default
+    spec:
+      memory:
+        hugepages: {}
+      annotations:
+        nexus.io/memory-tiering: auto
+  preference-dram-pinned.yaml: |
+    apiVersion: instancetype.kubevirt.io/v1beta1
+    kind: VirtualMachinePreference
+    metadata:
+      name: nexus-dram-pinned
+      namespace: default
+    spec:
+      memory:
+        hugepages:
+          pageSize: 1Gi
+      annotations:
+        nexus.io/memory-tiering: dram-only
+  guest-cxl-reserved.yaml: |
+    # Applied when QEMU on the node advertises a CXL Type-3 device to the guest.
+    # KubeVirt does not yet model CXL as first-class CRD fields; the annotation
+    # is reserved so a future launcher hook can attach -device cxl-type3.
+    metadata:
+      annotations:
+        nexus.io/guest-cxl: "true"
+  guest-nvdimm-reserved.yaml: |
+    metadata:
+      annotations:
+        nexus.io/guest-nvdimm: "true"

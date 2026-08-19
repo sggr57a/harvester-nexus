@@ -1,0 +1,17 @@
+[Unit]
+Description=Harvester-Nexus memory tiering (CXL / PMem / zswap / NVMe)
+Documentation=https://github.com/sggr57a/harvester-nexus
+After=local-fs.target systemd-sysctl.service
+ConditionPathExists=/usr/lib/nexus/memory_tiering.py
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=NEXUS_MEMORY_TIERING_COMMIT_SWAP=1
+ExecStartPre=/bin/mkdir -p /run/nexus /var/lib/nexus/memory-tiering /var/log/nexus
+ExecStart=/usr/bin/nexus-memory-tiering
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

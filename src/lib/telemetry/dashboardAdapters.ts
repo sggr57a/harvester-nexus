@@ -2,10 +2,12 @@ import {
   buildMachinesDashboard,
   buildNetworkingDashboard,
   buildStorageDashboard,
+  buildProcessorMemoryDashboard,
   type MachineRow,
   type MachinesDashboard,
   type NetworkingDashboard,
   type StorageDashboard,
+  type ProcessorMemoryDashboard,
 } from '../dashboards';
 import { buildResourceMonitoring, type ResourceMonitoring } from '../activeOperations';
 import { consoleChipsFromFleet } from '../machineConsole';
@@ -21,6 +23,7 @@ import type {
   LiveNetworkingSlice,
   LiveResourceMonitoringSlice,
   LiveStorageSlice,
+  LiveProcessorMemorySlice,
 } from './dashboardTypes';
 
 export type TelemetryDataSource = 'demo' | 'live';
@@ -33,6 +36,20 @@ export interface ClusterDashboardBundle {
   resourceMonitoring: ResourceMonitoring;
   xdr?: DashboardTelemetryPayload['xdr'];
   operations?: DashboardTelemetryPayload['operations'];
+  processorMemory?: ProcessorMemoryDashboard & {
+    available?: boolean;
+    policy?: string;
+    enabled?: boolean;
+    waitingForHardware?: string[];
+    vmstat?: Record<string, number | null>;
+    zswap?: LiveProcessorMemorySlice['zswap'];
+    meminfo?: Record<string, number | null>;
+    demotionEnabled?: boolean | null;
+    numaBalancing?: number | null;
+    capabilities?: Record<string, boolean>;
+    notes?: string[];
+    error?: string;
+  };
 }
 
 const EMPTY_STORAGE: StorageDashboard = {
@@ -292,6 +309,72 @@ function mergeResourceMonitoring(
 }
 
 
+function buildLiveProcessorMemory(live?: LiveProcessorMemorySlice | null): ClusterDashboardBundle['processorMemory'] {
+  const fallback = buildProcessorMemoryDashboard();
+  if (!live || live.available === false) {
+    return {
+      ...fallback,
+      numaZones: [],
+      memoryTiers: [],
+      pressureWaterfall: [],
+      swapDevices: [],
+      hugepages: [],
+      available: false,
+      waitingForHardware: live?.waitingForHardware ?? [],
+      error: live?.error,
+    };
+  }
+  return {
+    id: 'processor-memory',
+    title: fallback.title,
+    numaZones: (live.numaZones ?? []).map((zone) => ({
+      id: zone.id,
+      localRamGiB: zone.localRamGiB,
+      remoteHitsPct: zone.remoteHitsPct,
+      cores: zone.cores?.length
+        ? zone.cores
+        : [],
+    })),
+    memoryTiers: (live.memoryTiers ?? []).map((tier) => ({
+      id: tier.id,
+      label: tier.label,
+      capacityGiB: tier.capacityGiB,
+      usedGiB: tier.usedGiB,
+      latencyNs: tier.latencyNs,
+      throughputGiBs: tier.throughputGiBs,
+      present: tier.present,
+    })),
+    pressureWaterfall: (live.pressureWaterfall ?? []).map((sample) => ({
+      label: sample.label,
+      cpuPressure: sample.cpuPressure ?? 0,
+      memoryPressure: sample.memoryPressure ?? 0,
+      ioPressure: sample.ioPressure ?? 0,
+    })),
+    swapDevices: (live.swapDevices ?? []).map((dev) => ({
+      device: dev.device,
+      sizeGiB: dev.sizeGiB,
+      usedGiB: dev.usedGiB,
+      priority: dev.priority ?? 0,
+    })),
+    hugepages: (live.hugepages ?? []).map((page) => ({
+      sizeMiB: page.sizeMiB ?? 0,
+      allocated: page.allocated ?? 0,
+      free: page.free ?? 0,
+    })),
+    available: true,
+    policy: live.policy,
+    enabled: live.enabled,
+    waitingForHardware: live.waitingForHardware ?? [],
+    vmstat: live.vmstat,
+    zswap: live.zswap,
+    meminfo: live.meminfo,
+    demotionEnabled: live.demotionEnabled,
+    numaBalancing: live.numaBalancing,
+    capabilities: live.capabilities,
+    notes: live.notes,
+  };
+}
+
 export function buildClusterDashboardBundle(
   payload: DashboardTelemetryPayload | null | undefined,
   dataSource: TelemetryDataSource,
@@ -327,6 +410,7 @@ export function buildClusterDashboardBundle(
       resourceMonitoring: mergedResource,
       xdr: undefined,
       operations: undefined,
+      processorMemory: buildProcessorMemoryDashboard(),
     };
   }
 
@@ -379,6 +463,7 @@ export function buildClusterDashboardBundle(
     resourceMonitoring: buildLiveResourceMonitoring(live.resourceMonitoring),
     xdr: payload?.xdr,
     operations: payload?.operations,
+    processorMemory: buildLiveProcessorMemory(payload?.processorMemory),
   };
 
   const infraRows = infrastructureRowsFromPayload(payload);

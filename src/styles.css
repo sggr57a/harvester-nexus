@@ -4416,8 +4416,11 @@ select {
 .tier-bar i { display: block; height: 100%; background: var(--theme-accent); box-shadow: var(--theme-route-glow); }
 .tier-sub { display: flex; justify-content: space-between; color: var(--theme-text-dim); font-size: 0.7rem; }
 .tier-dram .tier-bar i { background: var(--theme-accent); }
+.tier-hbm .tier-bar i { background: var(--theme-good); }
+.tier-cxl .tier-bar i { background: var(--theme-accent-2); }
 .tier-nvme .tier-bar i { background: var(--theme-channel-vm); }
 .tier-phase-change .tier-bar i { background: var(--theme-channel-gitops); }
+.tier-zswap .tier-bar i { background: var(--theme-channel-storage); }
 .tier-swap .tier-bar i { background: var(--theme-warn); }
 
 .pressure-waterfall {

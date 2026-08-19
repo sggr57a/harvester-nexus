@@ -1,0 +1,4 @@
+# Re-run memory tiering when CXL or DAX devices appear (hotplug / late firmware).
+ACTION=="add", SUBSYSTEM=="cxl", TAG+="systemd", ENV{SYSTEMD_WANTS}="nexus-memory-tiering.service"
+ACTION=="add", SUBSYSTEM=="dax", TAG+="systemd", ENV{SYSTEMD_WANTS}="nexus-memory-tiering.service"
+ACTION=="add", KERNEL=="nvme*n*", TAG+="systemd", ENV{SYSTEMD_WANTS}="nexus-memory-tiering.service"
