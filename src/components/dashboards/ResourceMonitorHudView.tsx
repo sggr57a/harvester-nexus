@@ -24,6 +24,7 @@ import {
   VerticalMeterBank,
 } from './Widgets';
 import { HologramHudShell } from './HologramHudShell';
+import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
 import {
   ConnectedColumnChart,
   HudEventStrip,
@@ -112,6 +113,7 @@ export function ResourceMonitorHudView({
           <div><span>Nodes</span><strong>{model.nodes.length}</strong></div>
           <div><span>CPU</span><strong>{fmtPct(effectiveTelemetry?.cpuPercent ?? model.nodes[0]?.cpu ?? 0)}</strong></div>
           <div><span>Active ops</span><strong>{resourceMonitoring?.workItems.length ?? effectiveTelemetry?.activeMigrations ?? 0}</strong></div>
+          <HardwareAddOnTotals summary={effectiveTelemetry?.accelerators} />
         </div>
       </header>
 
@@ -132,6 +134,15 @@ export function ResourceMonitorHudView({
         <HudTile label="RAM" className="holo-gauge">
           <KpiTile label="RAM" value={fmtPct(effectiveTelemetry?.ramPercent ?? 0)} size="sm" series={ramSeries} />
         </HudTile>
+        <HudTile label="ACCEL" className="holo-gauge">
+          <KpiTile
+            label="ACCEL"
+            value={String(effectiveTelemetry?.accelerators?.cards ?? 0)}
+            unit="cards"
+            size="sm"
+            status={(effectiveTelemetry?.accelerators?.issues ?? 0) > 0 ? 'warn' : 'good'}
+          />
+        </HudTile>
         <HudTile label="DISK" className="holo-gauge">
           <KpiTile label="DSK" value={fmtK(effectiveTelemetry?.totalIops ?? 0)} unit="IOPS" size="sm" series={diskSeries} />
         </HudTile>
@@ -149,6 +160,7 @@ export function ResourceMonitorHudView({
           <div className="holo-linear-grid">
             <HudLinearBar label="WL" value={effectiveTelemetry?.cpuPercent ?? 0} max={100} />
             <HudLinearBar label="MEM" value={effectiveTelemetry?.ramPercent ?? 0} max={100} tone="accent-2" />
+            <HudLinearBar label="ACC" value={effectiveTelemetry?.accelerators?.hottestC ?? 0} max={100} tone="danger" />
             <HudLinearBar label="IO" value={effectiveTelemetry?.totalIops ?? 0} max={1_400_000} tone="good" />
             <HudLinearBar label="NET" value={effectiveTelemetry?.ingressMbps ?? 0} max={110_000} tone="warn" />
             <HudLinearBar label="IOPS" value={effectiveTelemetry?.totalIops ?? 0} max={1_400_000} tone="good" />
@@ -187,6 +199,7 @@ export function ResourceMonitorHudView({
               meters={[
                 { label: 'CPU', value: effectiveTelemetry?.cpuPercent ?? 0 },
                 { label: 'RAM', value: effectiveTelemetry?.ramPercent ?? 0 },
+                { label: 'ACC', value: effectiveTelemetry?.accelerators?.hottestC ?? 0 },
               ]}
             />
           </div>
@@ -283,6 +296,9 @@ export function ResourceMonitorHudView({
               ],
             }))}
           />
+        </HudTile>
+        <HudTile label="Add-in cards" className="holo-table holo-accel">
+          <HardwareAddOnPanel summary={effectiveTelemetry?.accelerators} />
         </HudTile>
       </div>
       </HologramHudShell>

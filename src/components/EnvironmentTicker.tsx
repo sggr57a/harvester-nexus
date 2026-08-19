@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatNumber, type EnvironmentSnapshot } from '../lib/liveTelemetry';
 import type { TelemetryMode, TelemetryState } from '../lib/telemetry/mode';
+import { hardwareTickerCells } from '../lib/telemetry/hardwareAddOn';
 
 interface EnvironmentTickerProps {
   snapshot: EnvironmentSnapshot;
@@ -11,7 +12,7 @@ interface EnvironmentTickerProps {
 }
 
 interface Cell {
-  key: keyof EnvironmentSnapshot['deltas'] | 'openCves' | 'trustScore';
+  key: string;
   label: string;
   value: string;
   sub: string;
@@ -77,6 +78,7 @@ export function EnvironmentTicker({
         sub: 'rolling cluster avg',
         delta: snapshot.deltas.ramPercent,
       },
+      ...hardwareTickerCells(snapshot.accelerators),
       {
         key: 'watts',
         label: 'Power',

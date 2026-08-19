@@ -136,6 +136,25 @@ The Acceleration dashboard and Mission Control consume
 `GET /api/v1/telemetry/accelerators` (also nested under dashboards as
 `acceleration`). Host collector: `accelerator_inventory.py`.
 
+The same poll also folds a compact summary onto
+`GET /api/v1/telemetry/environment` as `accelerators` (card count, issues,
+hottest `hwmon` °C, per-kind counts, per-card link/temp/issues). Every
+dashboard that already shows CPU, RAM, or other host hardware therefore
+renders FPGA / GPU / NPU / TPU automatically:
+
+| Surface | How add-in cards appear |
+|---|---|
+| Environment ticker (all views) | Accel cards / issues / hottest °C next to CPU % and DRAM % |
+| Processor & Memory | Header totals + PCI inventory panel beside NUMA / DRAM tiers |
+| Resource Monitor HUD | Totals, ACCEL tile, rings, linear bar, card list |
+| Environment Intel HUD | Totals, thermal tile, card list |
+| Mission Control | Header totals, Accel °C ring, inventory panel |
+| Operations (live) | Header totals next to CPU / RAM / watts + inventory panel |
+| Telemetry Wave (demo) | Totals and ACCEL readout next to CPU / DRAM |
+
+Live mode never substitutes catalog Coral / Alveo U200 rows. Missing
+families stay `waitingForHardware`. Utilization stays `null`.
+
 Measured when sysfs exports them:
 
 - PCIe current vs max link speed/width (downshift is an issue)

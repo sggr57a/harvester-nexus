@@ -226,3 +226,58 @@ describe('accelerator inventory · allowlisted cards', () => {
     expect(dash.issues.join(' ')).toMatch(/no-driver|no-iommu/);
   });
 });
+
+describe('accelerator inventory · environment tick summary', () => {
+  it('folds card counts, hottest temp, and issues into a compact CPU/RAM-tick payload', () => {
+    const sys = join(workdir, 'env-summary', 'sys');
+    mkdirSync(join(sys, 'bus/pci/devices'), { recursive: true });
+    pciDevice(sys, '0000:3d:00.0', {
+      vendor: '1da3',
+      device: '1063',
+      classCode: '120000',
+      driver: 'habanalabs',
+      iommu: '12',
+      currentSpeed: '16.0 GT/s PCIe',
+      maxSpeed: '32.0 GT/s PCIe',
+      tempMilliC: '71000',
+    });
+    pciDevice(sys, '0000:81:00.0', {
+      vendor: '10ee',
+      device: '5000',
+      classCode: '120000',
+      driver: 'vfio-pci',
+      iommu: '21',
+      currentSpeed: '16.0 GT/s PCIe',
+      maxSpeed: '16.0 GT/s PCIe',
+      tempMilliC: '48000',
+    });
+
+    const summary = py<{
+      cards: number;
+      issues: number;
+      hottestC: number | null;
+      byKind: Record<string, number>;
+      waitingForHardware: string[];
+      devices: Array<{ id: string; kind: string; temperatureC: number | null }>;
+    }>(`print(json.dumps(ai.environment_summary(sys_root=${JSON.stringify(sys)})))`);
+
+    expect(summary.cards).toBe(2);
+    expect(summary.byKind.npu).toBe(1);
+    expect(summary.byKind.fpga).toBe(1);
+    expect(summary.hottestC).toBe(71);
+    expect(summary.issues).toBeGreaterThan(0);
+    expect(summary.waitingForHardware).toContain('tpu-coral');
+    expect(summary.devices.map((d) => d.kind).sort()).toEqual(['fpga', 'npu']);
+  });
+
+  it('reports zero cards and null hottestC when no allowlisted add-in is present', () => {
+    const sys = join(workdir, 'env-empty', 'sys');
+    mkdirSync(join(sys, 'bus/pci/devices'), { recursive: true });
+    const summary = py<{ cards: number; hottestC: number | null; waitingForHardware: string[] }>(
+      `print(json.dumps(ai.environment_summary(sys_root=${JSON.stringify(sys)})))`,
+    );
+    expect(summary.cards).toBe(0);
+    expect(summary.hottestC).toBeNull();
+    expect(summary.waitingForHardware.length).toBeGreaterThan(0);
+  });
+});

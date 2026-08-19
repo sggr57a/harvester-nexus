@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { demoAcceleratorSummary, type EnvironmentAcceleratorSummary } from './telemetry/hardwareAddOn';
 
 export interface EnvironmentSnapshot {
   /** Total monitored workloads (vm + lxc + pod + docker) across the synthetic environment */
@@ -30,6 +31,8 @@ export interface EnvironmentSnapshot {
   unavailableMetrics?: string[];
   /** Per-metric provenance from the BFF, e.g. `{ cpu: 'metrics-server' }`. */
   metricSources?: Record<string, string>;
+  /** FPGA / GPU / NPU / TPU pulse collected with CPU / RAM. */
+  accelerators?: EnvironmentAcceleratorSummary;
   /** Rolling deltas vs previous tick (positive or negative) */
   deltas: {
     totalWorkloads: number;
@@ -56,6 +59,7 @@ const BASE_SNAPSHOT: Omit<EnvironmentSnapshot, 'deltas' | 'tick'> = {
   activeMigrations: 3,
   openCves: 17,
   trustScore: 87,
+  accelerators: demoAcceleratorSummary(),
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -89,6 +93,7 @@ export function nextSnapshot(prev?: EnvironmentSnapshot): EnvironmentSnapshot {
     activeMigrations,
     openCves: seed.openCves,
     trustScore: seed.trustScore,
+    accelerators: seed.accelerators ?? demoAcceleratorSummary(),
     deltas: {
       totalWorkloads: totalWorkloads - seed.totalWorkloads,
       totalIops: totalIops - seed.totalIops,

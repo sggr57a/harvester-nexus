@@ -328,6 +328,49 @@ def live_dashboard(sys_root: str = "/sys", proc_root: str = "/proc") -> dict[str
     }
 
 
+def environment_summary(sys_root: str = "/sys") -> dict[str, Any]:
+    """Compact add-in card pulse for the same tick as CPU / RAM / watts.
+
+    Dashboards that already render host hardware (ticker, Processor & Memory,
+    Resource Monitor, Environment Intel, Operations) consume this object so
+    FPGA / GPU / NPU / TPU metrics appear automatically next to those KPIs.
+    Utilization is never invented here — hottestC stays None without hwmon.
+    """
+    dash = live_dashboard(sys_root=sys_root)
+    devices = dash.get("devices") or []
+    by_kind: dict[str, int] = {}
+    temps: list[int] = []
+    compact: list[dict[str, Any]] = []
+    for dev in devices:
+        kind = str(dev.get("kind") or "other")
+        by_kind[kind] = by_kind.get(kind, 0) + 1
+        temp = dev.get("temperatureC")
+        if isinstance(temp, (int, float)):
+            temps.append(int(temp))
+        compact.append(
+            {
+                "id": dev.get("bdf") or dev.get("id"),
+                "kind": kind,
+                "model": dev.get("model"),
+                "temperatureC": temp,
+                "linkDownshifted": dev.get("linkDownshifted"),
+                "issues": list(dev.get("issues") or []),
+                "currentLinkSpeed": dev.get("currentLinkSpeed"),
+                "driver": dev.get("driver"),
+            }
+        )
+    return {
+        "available": bool(dash.get("available", True)),
+        "cards": len(devices),
+        "issues": len(dash.get("issues") or []),
+        "hottestC": max(temps) if temps else None,
+        "byKind": by_kind,
+        "waitingForHardware": list(dash.get("waitingForHardware") or []),
+        "devices": compact,
+        "error": dash.get("error"),
+    }
+
+
 if __name__ == "__main__":
     import json
     import sys

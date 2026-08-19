@@ -14,6 +14,13 @@ describe('nextSnapshot', () => {
     expect(snap.deltas).toBeDefined();
   });
 
+  it('includes demo add-in card counts on the same snapshot as CPU and DRAM', () => {
+    const snap = nextSnapshot();
+    expect(snap.accelerators?.cards).toBeGreaterThan(0);
+    expect(snap.accelerators?.byKind.gpu).toBeGreaterThan(0);
+    expect(snap.accelerators?.byKind.fpga).toBeGreaterThan(0);
+  });
+
   it('advances tick and emits bounded deltas', () => {
     const first = nextSnapshot();
     const second = nextSnapshot(first);

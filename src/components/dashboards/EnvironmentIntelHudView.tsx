@@ -25,6 +25,7 @@ import {
   WorldTrafficGlobe,
 } from './Widgets';
 import { HologramHudShell } from './HologramHudShell';
+import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
 import {
   ConnectedColumnChart,
   HudEventStrip,
@@ -117,6 +118,7 @@ export function EnvironmentIntelHudView({
           <div><span>Avg °C</span><strong>{model.nodes.length ? Math.round(model.nodes.reduce((s, n) => s + n.thermalC, 0) / model.nodes.length) : 0}°</strong></div>
           <div><span>Power</span><strong>{Math.round(effectiveTelemetry?.watts ?? 0)}W</strong></div>
           <div><span>Airflow</span><strong>{fmtMb(effectiveTelemetry?.ingressMbps ?? 0)}</strong></div>
+          <HardwareAddOnTotals summary={effectiveTelemetry?.accelerators} />
         </div>
       </header>
 
@@ -141,6 +143,14 @@ export function EnvironmentIntelHudView({
         </HudTile>
         <HudTile label="HUMIDITY" className="holo-gauge-sm">
           <KpiTile label="HUM" value={fmtPct(effectiveTelemetry?.ramPercent ?? 43)} size="sm" series={humSeries} />
+        </HudTile>
+        <HudTile label="ACCEL" className="holo-gauge-sm">
+          <KpiTile
+            label="ACCEL"
+            value={effectiveTelemetry?.accelerators?.hottestC == null ? '—' : `${effectiveTelemetry.accelerators.hottestC}°`}
+            size="sm"
+            status={(effectiveTelemetry?.accelerators?.issues ?? 0) > 0 ? 'warn' : 'good'}
+          />
         </HudTile>
         <HudTile label="Facility event" className="holo-event" burst={burst}>
           <HudEventStrip title="FACILITY EVENT" detail={eventDetail} />
@@ -281,6 +291,9 @@ export function EnvironmentIntelHudView({
               ],
             }))}
           />
+        </HudTile>
+        <HudTile label="Add-in cards" className="holo-table wide">
+          <HardwareAddOnPanel summary={effectiveTelemetry?.accelerators} />
         </HudTile>
       </div>
       </HologramHudShell>

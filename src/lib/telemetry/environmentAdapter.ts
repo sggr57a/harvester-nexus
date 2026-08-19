@@ -53,6 +53,7 @@ export function payloadToEnvironmentSnapshot(
     tick: payload.tick,
     unavailableMetrics,
     metricSources: payload.metricSources,
+    accelerators: payload.accelerators,
   };
 
   if (!previous) {

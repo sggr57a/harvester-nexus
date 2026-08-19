@@ -10,6 +10,7 @@ from typing import Any
 
 from cluster_filters import is_user_namespace
 from cluster_metrics import (
+    _collect_accelerator_summary,
     _count_active_migrations,
     _find_kubeconfig,
     _kubectl_json,
@@ -587,6 +588,7 @@ def collect_dashboards_live() -> dict[str, Any]:
             "nodeCount": node_count,
             "podCount": pod_count,
             "vmCount": vm_count,
+            "accelerators": _collect_accelerator_summary(),
         },
         "storage": {
             "pvcs": pvcs,

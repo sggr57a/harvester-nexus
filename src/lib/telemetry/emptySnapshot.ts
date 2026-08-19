@@ -13,6 +13,14 @@ export function emptyEnvironmentSnapshot(tick = 0): EnvironmentSnapshot {
     activeMigrations: 0,
     openCves: 0,
     trustScore: 0,
+    accelerators: {
+      cards: 0,
+      issues: 0,
+      hottestC: null,
+      byKind: {},
+      waitingForHardware: [],
+      devices: [],
+    },
     deltas: {
       totalWorkloads: 0,
       totalIops: 0,

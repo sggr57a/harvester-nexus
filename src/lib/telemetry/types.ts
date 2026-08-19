@@ -1,3 +1,5 @@
+import type { EnvironmentAcceleratorSummary } from './hardwareAddOn';
+
 /**
  * A metric the node could not measure. The BFF sends `null` rather than a
  * placeholder number, so `0` always means "measured zero" and never
@@ -26,6 +28,8 @@ export interface EnvironmentTelemetryPayload {
   vmCount: number;
   /** Per-metric provenance, e.g. `{ cpu: 'metrics-server', watts: 'unavailable' }`. */
   metricSources?: Record<string, string>;
+  /** Allowlisted FPGA / GPU / NPU / TPU pulse collected on the same tick as CPU / RAM. */
+  accelerators?: EnvironmentAcceleratorSummary;
 }
 
 export interface LiveHealthPayload {

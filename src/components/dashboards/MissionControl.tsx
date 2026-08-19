@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { EnvironmentSnapshot } from '../../lib/liveTelemetry';
 import { MissionCustomizableArea } from './MissionCustomizableArea';
+import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
+import { summarizeFromPassThrough } from '../../lib/telemetry/hardwareAddOn';
 import {
   buildAccelerationDashboard,
   buildMachinesDashboard,
@@ -67,6 +69,7 @@ function LiveMissionControl({
     () => [
       { label: 'CPU pressure', value: telemetry?.cpuPercent ?? 0, color: 'accent' as const },
       { label: 'DRAM utilisation', value: telemetry?.ramPercent ?? 0, color: 'accent-2' as const },
+      { label: 'Accel °C', value: telemetry?.accelerators?.hottestC ?? 0, color: 'danger' as const },
       { label: 'IOPS (cluster)', value: telemetry ? Math.min(100, telemetry.totalIops / 10_000) : 0, color: 'good' as const },
       { label: 'NIC ingress', value: telemetry ? Math.min(100, telemetry.ingressMbps / 1_000) : 0, color: 'warn' as const },
     ],
@@ -86,6 +89,7 @@ function LiveMissionControl({
           <div><span>Migrations</span><strong>{telemetry?.activeMigrations ?? 0}</strong></div>
           <div><span>CPU</span><strong>{telemetry?.cpuPercent?.toFixed(1) ?? '0'}%</strong></div>
           <div><span>RAM</span><strong>{telemetry?.ramPercent?.toFixed(1) ?? '0'}%</strong></div>
+          <HardwareAddOnTotals summary={telemetry?.accelerators} />
         </div>
       </header>
       <div className="dash-row dash-row-2">
@@ -110,36 +114,9 @@ function LiveMissionControl({
           <small>Platform infrastructure pods are excluded. Create a VM or deploy a workload to a tenant namespace to populate fleet views.</small>
         </article>
       )}
-      <article className="dash-panel">
-        <WidgetTitle
-          kicker="ACCEL"
-          title="NPU / TPU / FPGA / GPU"
-          trailing={<span className="osc-readout">{acceleration?.passThrough.length ?? 0} cards · {acceleration?.issues?.length ?? 0} issues</span>}
-        />
-        {(acceleration?.passThrough.length ?? 0) === 0 ? (
-          <p>
-            No allowlisted add-in cards on this node.
-            {(acceleration?.waitingForHardware?.length ?? 0) > 0
-              ? ` Waiting: ${acceleration?.waitingForHardware?.join(', ')}.`
-              : ''}
-          </p>
-        ) : (
-          <ul className="passthrough-list">
-            {(acceleration?.passThrough ?? []).map((dev) => (
-              <li key={dev.id} className={`pt-${dev.kind === 'npu' ? 'fpga' : dev.kind}`}>
-                <span className="kind-chip">{dev.kind}</span>
-                <strong>{dev.model}</strong>
-                <small>
-                  {dev.id} · {dev.driver}
-                  {dev.temperatureC == null ? '' : ` · ${dev.temperatureC}°C`}
-                  {dev.currentLinkSpeed ? ` · ${dev.currentLinkSpeed}` : ''}
-                  {dev.issues?.length ? ` · ${dev.issues.join(', ')}` : ''}
-                </small>
-              </li>
-            ))}
-          </ul>
-        )}
-      </article>
+      <HardwareAddOnPanel
+        summary={telemetry?.accelerators ?? (acceleration ? summarizeFromPassThrough(acceleration.passThrough, acceleration.waitingForHardware) : undefined)}
+      />
     </section>
   );
 }
@@ -363,12 +340,20 @@ export function MissionControlView({ telemetry, dataSource, acceleration }: Miss
           <div><span>IOPS</span><strong>{telemetry ? `${(telemetry.totalIops / 1000).toFixed(0)}K` : '1.12M'}</strong></div>
           <div><span>Watts</span><strong>{telemetry?.watts ?? 1592}</strong></div>
           <div><span>Trust</span><strong>{telemetry?.trustScore ?? 87}</strong></div>
+          <HardwareAddOnTotals summary={telemetry?.accelerators} />
         </div>
       </header>
 
       <div className="mission-kpi-row">
         <KpiTile label="CPU" value={`${telemetry?.cpuPercent ?? 58}`} unit="%" delta={telemetry?.deltas.cpuPercent} series={cpuSeries} hint="rolling cluster avg" />
         <KpiTile label="DRAM" value={`${telemetry?.ramPercent ?? 64}`} unit="%" delta={telemetry?.deltas.ramPercent} series={ramSeries} hint="DDR5 + memory tier" />
+        <KpiTile
+          label="Accel"
+          value={`${telemetry?.accelerators?.cards ?? 0}`}
+          unit="cards"
+          hint={telemetry?.accelerators?.hottestC == null ? 'PCI add-in cards' : `hottest ${telemetry.accelerators.hottestC}°C`}
+          status={(telemetry?.accelerators?.issues ?? 0) > 0 ? 'warn' : 'good'}
+        />
         <KpiTile label="Cluster IOPS" value={telemetry ? `${(telemetry.totalIops / 1000).toFixed(0)}` : '1120'} unit="K" delta={telemetry ? Math.round(telemetry.deltas.totalIops / 1000) : 0} series={iopsSeries} hint="Ceph · NVMe-oF · Vitastor" status="good" />
         <KpiTile label="Power" value={`${telemetry?.watts ?? 1592}`} unit="W" delta={telemetry?.deltas.watts} series={wattsSeries} hint="aggregate node draw" />
         <KpiTile label="Ingress" value={telemetry ? `${(telemetry.ingressMbps / 1000).toFixed(1)}` : '78.4'} unit="Gb/s" delta={telemetry ? Math.round(telemetry.deltas.ingressMbps / 1000) : 0} series={ingressSeries} hint="NIC bonds aggregated" />

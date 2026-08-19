@@ -20,6 +20,7 @@ import { MachineDetailPanel } from '../MachineDetailPanel';
 import { ConsoleSession } from '../ConsoleSession';
 import { DemoCatalogPlaceholder, LiveEmptyPanel } from './LiveEmptyPanel';
 import { ClusterRadar, ThreatIntelMap, WidgetTitle } from './Widgets';
+import { HardwareAddOnPanel, HardwareAddOnTotals } from './HardwareAddOnMetrics';
 import {
   ChordDiagram,
   ChordWithStats,
@@ -1187,7 +1188,8 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource, processorM
           <span className="dash-kicker">CORE // MEMORY</span>
           <h2>{catalog.title}</h2>
           <p>
-            NUMA heatmap, DRAM/HBM/CXL/PMem/zswap/NVMe/swap tiers, PSI pressure, hugepages.
+            NUMA heatmap, DRAM/HBM/CXL/PMem/zswap/NVMe/swap tiers, PSI pressure, hugepages,
+            and allowlisted PCI add-in cards (FPGA / GPU / NPU / TPU) from the same hardware tick.
             {isLive && extra?.policy ? ` Policy: ${extra.policy}.` : ''}
           </p>
         </div>
@@ -1197,6 +1199,7 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource, processorM
           {isLive ? (
             <div><span>Demotion</span><strong>{extra?.demotionEnabled == null ? '—' : extra.demotionEnabled ? 'on' : 'off'}</strong></div>
           ) : null}
+          <HardwareAddOnTotals summary={telemetry?.accelerators} />
         </div>
       </header>
 
@@ -1294,6 +1297,8 @@ export function ProcessorMemoryDashboardView({ telemetry, dataSource, processorM
         </article>
       </div>
 
+      <HardwareAddOnPanel summary={telemetry?.accelerators} />
+
       {isLive && extra?.vmstat ? (
         <div className="dash-row dash-row-2">
           <article className="dash-panel">
@@ -1366,6 +1371,7 @@ export function OperationsDashboardView({ telemetry, dataSource, operationsLinks
               <div><span>CPU</span><strong><LiveValue value={`${telemetry?.cpuPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
               <div><span>RAM</span><strong><LiveValue value={`${telemetry?.ramPercent?.toFixed(1) ?? '0'}%`} /></strong></div>
               <div><span>Est. watts</span><strong><LiveValue value={telemetry?.watts ?? 0} /></strong></div>
+              <HardwareAddOnTotals summary={telemetry?.accelerators} />
             </>
           ) : (
             <>
@@ -1398,10 +1404,13 @@ export function OperationsDashboardView({ telemetry, dataSource, operationsLinks
       )}
 
       {isLive ? (
-        <LiveEmptyPanel
-          title="Compliance and chargeback panels are demo-only"
-          detail="Live mode shows cluster CPU/RAM/watts and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
-        />
+        <>
+          <HardwareAddOnPanel summary={telemetry?.accelerators} />
+          <LiveEmptyPanel
+            title="Compliance and chargeback panels are demo-only"
+            detail="Live mode shows cluster CPU/RAM/watts, PCI add-in cards, and Harvester Grafana links above. Open Grafana for CVE, audit, GitOps, and backup metrics from rancher-monitoring."
+          />
+        </>
       ) : (
       <>
       <div className="dash-row dash-row-2">
