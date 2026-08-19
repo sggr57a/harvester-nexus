@@ -27,6 +27,29 @@ except ImportError:
     collect_networking_slice = None  # type: ignore[assignment,misc]
 
 
+def _collect_acceleration() -> dict[str, Any]:
+    """Live NPU / TPU / FPGA / GPU PCI inventory. Never fabricates utilization."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "nexus_accelerator_inventory",
+            os.path.join(os.path.dirname(__file__), "accelerator_inventory.py"),
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("accelerator_inventory module missing")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.live_dashboard()
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "available": False,
+            "error": str(exc),
+            "devices": [],
+            "passThrough": [],
+            "issues": [],
+            "waitingForHardware": [],
+        }
+
+
 def _collect_processor_memory() -> dict[str, Any]:
     """Live NUMA / tier / swap / zswap / PSI snapshot. Never applies sysctls."""
     try:
@@ -592,6 +615,7 @@ def collect_dashboards_live() -> dict[str, Any]:
         },
         "networking": networking if isinstance(networking, dict) else {"available": False},
         "processorMemory": _collect_processor_memory(),
+        "acceleration": _collect_acceleration(),
     }
 
 

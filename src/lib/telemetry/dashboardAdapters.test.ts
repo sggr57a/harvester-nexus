@@ -111,6 +111,38 @@ const samplePayload: DashboardTelemetryPayload = {
     vmstat: { pgdemoteKswapd: 0, pswpin: 0 },
     demotionEnabled: false,
   },
+  acceleration: {
+    available: true,
+    devices: [
+      {
+        bdf: '0000:3d:00.0',
+        kind: 'npu',
+        model: 'Intel Gaudi 3 PCIe',
+        driver: 'vfio-pci',
+        utilizationPercent: null,
+        temperatureC: 62,
+        linkDownshifted: true,
+        issues: ['pcie-link-downshifted', 'aer-correctable'],
+        numaNode: 0,
+      },
+    ],
+    passThrough: [
+      {
+        id: '0000:3d:00.0',
+        kind: 'npu',
+        model: 'Intel Gaudi 3 PCIe',
+        boundTo: 'vfio-pci',
+        driver: 'vfio-pci',
+        utilizationPercent: null,
+        memoryGiB: null,
+        issues: ['pcie-link-downshifted'],
+        temperatureC: 62,
+        numaNode: 0,
+      },
+    ],
+    issues: ['0000:3d:00.0: pcie-link-downshifted'],
+    waitingForHardware: ['tpu-coral', 'fpga-alveo'],
+  },
 };
 
 describe('buildClusterDashboardBundle', () => {
@@ -149,6 +181,18 @@ describe('buildClusterDashboardBundle', () => {
     expect(bundle.processorMemory?.available).toBe(true);
     expect(bundle.processorMemory?.memoryTiers.find((tier) => tier.id === 'dram')?.capacityGiB).toBe(32);
     expect(bundle.processorMemory?.waitingForHardware).toContain('cxl');
+  });
+
+  it('maps live accelerator inventory onto the existing Acceleration dashboard', () => {
+    const bundle = buildClusterDashboardBundle(samplePayload, 'live');
+    expect(bundle.acceleration?.available).toBe(true);
+    expect(bundle.acceleration?.passThrough).toHaveLength(1);
+    expect(bundle.acceleration?.passThrough[0].kind).toBe('npu');
+    expect(bundle.acceleration?.passThrough[0].utilizationPercent).toBeNull();
+    expect(bundle.acceleration?.passThrough[0].issues).toContain('pcie-link-downshifted');
+    expect(bundle.acceleration?.waitingForHardware).toContain('tpu-coral');
+    expect(bundle.acceleration?.issues?.[0]).toMatch(/pcie-link-downshifted/);
+    expect(bundle.acceleration?.passThrough.some((d) => d.model.includes('Alveo U200'))).toBe(false);
   });
 
   it('uses live networking inventory without demo catalog merge', () => {

@@ -3,11 +3,14 @@ import {
   buildNetworkingDashboard,
   buildStorageDashboard,
   buildProcessorMemoryDashboard,
+  buildAccelerationDashboard,
   type MachineRow,
   type MachinesDashboard,
   type NetworkingDashboard,
   type StorageDashboard,
   type ProcessorMemoryDashboard,
+  type AccelerationDashboard,
+  type PassThroughDevice,
 } from '../dashboards';
 import { buildResourceMonitoring, type ResourceMonitoring } from '../activeOperations';
 import { consoleChipsFromFleet } from '../machineConsole';
@@ -24,6 +27,8 @@ import type {
   LiveResourceMonitoringSlice,
   LiveStorageSlice,
   LiveProcessorMemorySlice,
+  LiveAccelerationSlice,
+  LiveAccelDevice,
 } from './dashboardTypes';
 
 export type TelemetryDataSource = 'demo' | 'live';
@@ -50,6 +55,7 @@ export interface ClusterDashboardBundle {
     notes?: string[];
     error?: string;
   };
+  acceleration?: AccelerationDashboard;
 }
 
 const EMPTY_STORAGE: StorageDashboard = {
@@ -375,6 +381,62 @@ function buildLiveProcessorMemory(live?: LiveProcessorMemorySlice | null): Clust
   };
 }
 
+function mapLivePassThrough(dev: LiveAccelDevice, index: number): PassThroughDevice {
+  const kind = (['gpu', 'fpga', 'smart-nic', 'tpu', 'npu'] as const).includes(dev.kind as PassThroughDevice['kind'])
+    ? (dev.kind as PassThroughDevice['kind'])
+    : 'fpga';
+  return {
+    id: dev.bdf ?? dev.id ?? `accel-${index}`,
+    kind,
+    model: dev.model,
+    boundTo: dev.boundTo ?? dev.driver ?? 'unbound',
+    driver: dev.driver ?? 'none',
+    utilizationPercent: dev.utilizationPercent ?? null,
+    memoryGiB: dev.memoryGiB ?? null,
+    issues: dev.issues ?? [],
+    temperatureC: dev.temperatureC ?? null,
+    numaNode: dev.numaNode ?? null,
+    linkDownshifted: dev.linkDownshifted,
+    currentLinkSpeed: dev.currentLinkSpeed ?? null,
+    aerCorrectable: dev.aerCorrectable ?? null,
+    aerUncorrectable: dev.aerUncorrectable ?? null,
+    runtimeStatus: dev.runtimeStatus ?? null,
+  };
+}
+
+function buildLiveAcceleration(live?: LiveAccelerationSlice | null): AccelerationDashboard {
+  const fallback = buildAccelerationDashboard();
+  if (!live || live.available === false) {
+    return {
+      ...fallback,
+      features: [],
+      numaPinning: [],
+      passThrough: [],
+      nestedClusters: [],
+      dpdkPorts: [],
+      spdkLanes: [],
+      available: false,
+      issues: live?.issues ?? [],
+      waitingForHardware: live?.waitingForHardware ?? [],
+      error: live?.error,
+    };
+  }
+  const rows = (live.passThrough?.length ? live.passThrough : live.devices) ?? [];
+  return {
+    ...fallback,
+    features: [],
+    numaPinning: [],
+    passThrough: rows.map(mapLivePassThrough),
+    nestedClusters: [],
+    dpdkPorts: [],
+    spdkLanes: [],
+    available: true,
+    issues: live.issues ?? [],
+    waitingForHardware: live.waitingForHardware ?? [],
+    error: live.error,
+  };
+}
+
 export function buildClusterDashboardBundle(
   payload: DashboardTelemetryPayload | null | undefined,
   dataSource: TelemetryDataSource,
@@ -411,6 +473,7 @@ export function buildClusterDashboardBundle(
       xdr: undefined,
       operations: undefined,
       processorMemory: buildProcessorMemoryDashboard(),
+      acceleration: buildAccelerationDashboard(),
     };
   }
 
@@ -464,6 +527,7 @@ export function buildClusterDashboardBundle(
     xdr: payload?.xdr,
     operations: payload?.operations,
     processorMemory: buildLiveProcessorMemory(payload?.processorMemory),
+    acceleration: buildLiveAcceleration(payload?.acceleration),
   };
 
   const infraRows = infrastructureRowsFromPayload(payload);

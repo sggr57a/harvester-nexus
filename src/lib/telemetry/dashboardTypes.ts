@@ -129,6 +129,34 @@ export interface LiveProcessorMemorySlice {
   error?: string;
 }
 
+export interface LiveAccelDevice {
+  id?: string;
+  bdf?: string;
+  kind: 'gpu' | 'fpga' | 'smart-nic' | 'tpu' | 'npu' | string;
+  model: string;
+  driver?: string | null;
+  boundTo?: string | null;
+  utilizationPercent?: number | null;
+  memoryGiB?: number | null;
+  temperatureC?: number | null;
+  numaNode?: number | null;
+  linkDownshifted?: boolean;
+  currentLinkSpeed?: string | null;
+  issues?: string[];
+  aerCorrectable?: number | null;
+  aerUncorrectable?: number | null;
+  runtimeStatus?: string | null;
+}
+
+export interface LiveAccelerationSlice {
+  available?: boolean;
+  devices?: LiveAccelDevice[];
+  passThrough?: LiveAccelDevice[];
+  issues?: string[];
+  waitingForHardware?: string[];
+  error?: string;
+}
+
 export interface DashboardTelemetryPayload {
   environment: EnvironmentTelemetryPayload;
   storage: LiveStorageSlice;
@@ -138,4 +166,5 @@ export interface DashboardTelemetryPayload {
   operations: LiveOperationsSlice;
   networking?: LiveNetworkingSlice;
   processorMemory?: LiveProcessorMemorySlice;
+  acceleration?: LiveAccelerationSlice;
 }

@@ -130,7 +130,29 @@ Default for Coral on Nexus: **Mode A**. Host DKMS on the ISO is a follow-up.
 The demo dashboard’s “Google Coral Edge TPU” row is a placeholder; live mode
 must show the real `1ac1:089a` device or `null` / waiting.
 
-## First-boot agent (proposed, not implemented)
+## Live metrics (implemented)
+
+The Acceleration dashboard and Mission Control consume
+`GET /api/v1/telemetry/accelerators` (also nested under dashboards as
+`acceleration`). Host collector: `accelerator_inventory.py`.
+
+Measured when sysfs exports them:
+
+- PCIe current vs max link speed/width (downshift is an issue)
+- AER correctable / uncorrectable totals
+- `hwmon` temperature
+- runtime power state
+- bound driver, NUMA node, IOMMU group
+
+Never measured (stays `null`, not `0`): vendor SMU utilization, HBM/DRAM on the
+card, TOPS. Those need Gaudi/XRT/qaic/apex runtimes.
+
+Issues raised: `no-driver`, `no-iommu`, `pcie-link-downshifted`,
+`aer-correctable`, `aer-uncorrectable`. Missing allowlisted families are
+`waitingForHardware` (`npu-gaudi`, `npu-qaic`, `tpu-coral`, `fpga-alveo`,
+`fpga-intel-dfl`, `gpu-nvidia`).
+
+## First-boot VFIO agent (proposed, not implemented)
 
 Mirror `memory_tiering.py`:
 

@@ -53,9 +53,16 @@ const channelOf: Record<string, 'mgmt' | 'storage' | 'mesh' | 'vm' | 'gitops'> =
 interface MissionControlProps {
   telemetry?: EnvironmentSnapshot;
   dataSource?: import('../../lib/telemetry/dashboardAdapters').TelemetryDataSource;
+  acceleration?: import('../../lib/dashboards').AccelerationDashboard;
 }
 
-function LiveMissionControl({ telemetry }: { telemetry?: EnvironmentSnapshot }) {
+function LiveMissionControl({
+  telemetry,
+  acceleration,
+}: {
+  telemetry?: EnvironmentSnapshot;
+  acceleration?: import('../../lib/dashboards').AccelerationDashboard;
+}) {
   const rings = useMemo(
     () => [
       { label: 'CPU pressure', value: telemetry?.cpuPercent ?? 0, color: 'accent' as const },
@@ -103,13 +110,43 @@ function LiveMissionControl({ telemetry }: { telemetry?: EnvironmentSnapshot }) 
           <small>Platform infrastructure pods are excluded. Create a VM or deploy a workload to a tenant namespace to populate fleet views.</small>
         </article>
       )}
+      <article className="dash-panel">
+        <WidgetTitle
+          kicker="ACCEL"
+          title="NPU / TPU / FPGA / GPU"
+          trailing={<span className="osc-readout">{acceleration?.passThrough.length ?? 0} cards · {acceleration?.issues?.length ?? 0} issues</span>}
+        />
+        {(acceleration?.passThrough.length ?? 0) === 0 ? (
+          <p>
+            No allowlisted add-in cards on this node.
+            {(acceleration?.waitingForHardware?.length ?? 0) > 0
+              ? ` Waiting: ${acceleration?.waitingForHardware?.join(', ')}.`
+              : ''}
+          </p>
+        ) : (
+          <ul className="passthrough-list">
+            {(acceleration?.passThrough ?? []).map((dev) => (
+              <li key={dev.id} className={`pt-${dev.kind === 'npu' ? 'fpga' : dev.kind}`}>
+                <span className="kind-chip">{dev.kind}</span>
+                <strong>{dev.model}</strong>
+                <small>
+                  {dev.id} · {dev.driver}
+                  {dev.temperatureC == null ? '' : ` · ${dev.temperatureC}°C`}
+                  {dev.currentLinkSpeed ? ` · ${dev.currentLinkSpeed}` : ''}
+                  {dev.issues?.length ? ` · ${dev.issues.join(', ')}` : ''}
+                </small>
+              </li>
+            ))}
+          </ul>
+        )}
+      </article>
     </section>
   );
 }
 
-export function MissionControlView({ telemetry, dataSource }: MissionControlProps = {}) {
+export function MissionControlView({ telemetry, dataSource, acceleration }: MissionControlProps = {}) {
   if (dataSource === 'live') {
-    return <LiveMissionControl telemetry={telemetry} />;
+    return <LiveMissionControl telemetry={telemetry} acceleration={acceleration} />;
   }
   const cpuSeries = useRollingSeries(telemetry?.cpuPercent ?? 58, 48, telemetry?.tick);
   const ramSeries = useRollingSeries(telemetry?.ramPercent ?? 64, 48, telemetry?.tick);
@@ -191,10 +228,10 @@ export function MissionControlView({ telemetry, dataSource }: MissionControlProp
     () =>
       accel.passThrough.slice(0, 6).map((dev) => ({
         label: dev.model,
-        value: dev.utilizationPercent,
+        value: dev.utilizationPercent ?? 0,
         unit: '%',
         detail: `${dev.kind} · ${dev.boundTo} · ${dev.driver}`,
-        status: dev.utilizationPercent > 88 ? ('warn' as const) : ('good' as const),
+        status: (dev.utilizationPercent ?? 0) > 88 ? ('warn' as const) : ('good' as const),
       })),
     [],
   );

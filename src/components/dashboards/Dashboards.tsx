@@ -71,6 +71,7 @@ interface DashboardViewProps {
     notes?: string[];
     error?: string;
   };
+  acceleration?: import('../../lib/dashboards').AccelerationDashboard;
   onCreateWorkload?: (kind?: 'kubevirt-vm' | 'incus-lxc' | 'k8s-pod') => void;
   onConfigureStorage?: () => void;
   onConfigureNetwork?: () => void;
@@ -1706,57 +1707,137 @@ export function PolyComputeDashboardView({ telemetry, dataSource }: DashboardVie
   );
 }
 
-export function AccelerationDashboardView({ telemetry, dataSource }: DashboardViewProps = {}) {
-  if (dataSource === 'live') {
-    return <DemoCatalogPlaceholder viewName="Acceleration & Hardware Pass-Through" dataSource={dataSource} />;
-  }
-  const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = accel;
+export function AccelerationDashboardView({ telemetry, dataSource, acceleration }: DashboardViewProps = {}) {
+  const isLive = dataSource === 'live';
+  const catalog = isLive ? (acceleration ?? { ...accel, passThrough: [], features: [], numaPinning: [], nestedClusters: [], dpdkPorts: [], spdkLanes: [], available: false }) : accel;
+  const { features, numaPinning, passThrough, nestedClusters, dpdkPorts, spdkLanes } = catalog;
   const liveFeatures = useMemo(() => {
+    if (isLive) return features;
     if (!telemetry) return features;
     const drift = ((telemetry.tick * 3) % 12) - 6;
     return features.map((feature) => ({
       ...feature,
       utilizationPercent: Math.max(8, Math.min(99, feature.utilizationPercent + drift)),
     }));
-  }, [telemetry]);
+  }, [telemetry, features, isLive]);
   const liveDpdk = useMemo(() => {
-    if (!telemetry) return dpdkPorts;
+    if (isLive || !telemetry) return dpdkPorts;
     const factor = telemetry.ingressMbps / 78_420;
     return dpdkPorts.map((port) => ({
       ...port,
       loadPercent: Math.max(8, Math.min(99, Math.round(port.loadPercent * factor))),
       packetsPerSecond: Math.round(port.packetsPerSecond * factor),
     }));
-  }, [telemetry]);
+  }, [telemetry, dpdkPorts, isLive]);
+  const issueCount = (catalog.issues?.length ?? 0) + passThrough.reduce((sum, dev) => sum + (dev.issues?.length ?? 0), 0);
+  const polarBars = isLive
+    ? passThrough.map((dev) => ({
+        label: dev.model.replace(/^Intel |^Google |^AMD /, '').slice(0, 18),
+        value: dev.temperatureC ?? (dev.issues?.length ? 12 : 0),
+      }))
+    : liveFeatures.slice(0, 8).map((f) => ({ label: f.label, value: f.utilizationPercent }));
+  const polarAvg = polarBars.length
+    ? Math.round(polarBars.reduce((a, f) => a + f.value, 0) / polarBars.length)
+    : 0;
+  const numaGroups = useMemo(() => {
+    if (!isLive) {
+      return {
+        groups: [
+          { label: 'numa-0', color: 'var(--theme-accent)' },
+          { label: 'numa-1', color: 'var(--theme-accent-2)' },
+          { label: 'gpu-A100', color: 'var(--theme-good)' },
+          { label: 'gpu-H100', color: 'var(--theme-good)' },
+          { label: 'fpga', color: 'var(--theme-warn)' },
+          { label: 'smart-NIC', color: 'var(--theme-danger)' },
+        ],
+        links: [
+          { source: 0, target: 2, value: 18 },
+          { source: 0, target: 4, value: 12 },
+          { source: 0, target: 5, value: 14 },
+          { source: 1, target: 3, value: 22 },
+          { source: 1, target: 5, value: 10 },
+          { source: 1, target: 4, value: 8 },
+          { source: 2, target: 1, value: 6 },
+          { source: 3, target: 0, value: 9 },
+        ],
+      };
+    }
+    const numaIds = [...new Set(passThrough.map((d) => (d.numaNode == null ? 'unknown' : `numa-${d.numaNode}`)))];
+    const groups = [
+      ...numaIds.map((label, idx) => ({
+        label,
+        color: idx % 2 === 0 ? 'var(--theme-accent)' : 'var(--theme-accent-2)',
+      })),
+      ...passThrough.map((dev) => ({
+        label: `${dev.kind}:${dev.id.slice(-7)}`,
+        color: dev.issues?.length ? 'var(--theme-danger)' : 'var(--theme-good)',
+      })),
+    ];
+    const links = passThrough.map((dev, idx) => {
+      const numaLabel = dev.numaNode == null ? 'unknown' : `numa-${dev.numaNode}`;
+      const source = Math.max(0, numaIds.indexOf(numaLabel));
+      return { source, target: numaIds.length + idx, value: dev.temperatureC ?? 10 };
+    });
+    return { groups, links };
+  }, [isLive, passThrough]);
   return (
     <section className="dash dash-acceleration" aria-label="Acceleration and pass-through dashboard">
       <RouteDecoration />
       <header className="dash-header">
         <div>
           <span className="dash-kicker">SILICON // ACCEL</span>
-          <h2>{accel.title}</h2>
-          <p>SPDK, DPDK, vhost-user fast paths · NUMA pinning + 1 GiB hugepages · GPU / FPGA / smart-NIC pass-through · nested virtualization for AI/ML.</p>
+          <h2>{catalog.title}</h2>
+          <p>
+            {isLive
+              ? 'Measured PCIe NPU / TPU / FPGA / GPU inventory. Utilization stays unavailable unless the vendor exports it; issues come from link, AER, driver, and IOMMU.'
+              : 'SPDK, DPDK, vhost-user fast paths · NUMA pinning + 1 GiB hugepages · GPU / FPGA / smart-NIC pass-through · nested virtualization for AI/ML.'}
+          </p>
         </div>
         <div className="dash-totals">
-          <div><span>Features</span><strong>{features.filter((f) => f.enabled).length}/{features.length}</strong></div>
-          <div><span>Pass-through</span><strong>{passThrough.length}</strong></div>
-          <div><span>Nested</span><strong>{nestedClusters.length}</strong></div>
+          <div><span>Cards</span><strong>{passThrough.length}</strong></div>
+          <div><span>Issues</span><strong>{issueCount}</strong></div>
+          <div><span>{isLive ? 'Waiting' : 'Nested'}</span><strong>{isLive ? (catalog.waitingForHardware?.length ?? 0) : nestedClusters.length}</strong></div>
         </div>
       </header>
+
+      {isLive && (catalog.waitingForHardware?.length ?? 0) > 0 ? (
+        <article className="dash-panel live-empty-panel">
+          <div className="panel-title"><span>Waiting for hardware</span><strong>{catalog.waitingForHardware?.length}</strong></div>
+          <p>Allowlisted families not on this node: {catalog.waitingForHardware?.join(', ')}.</p>
+        </article>
+      ) : null}
+
+      {isLive && (catalog.issues?.length ?? 0) > 0 ? (
+        <article className="dash-panel">
+          <div className="panel-title"><span>Hardware issues</span><strong>{catalog.issues?.length}</strong></div>
+          <ul className="passthrough-list">
+            {(catalog.issues ?? []).map((issue) => (
+              <li key={issue} className="pt-fpga">
+                <span className="kind-chip kind-file">issue</span>
+                <strong>{issue}</strong>
+              </li>
+            ))}
+          </ul>
+        </article>
+      ) : null}
 
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
           <div className="panel-title">
-            <span>Accelerator utilization · polar</span>
-            <strong>{liveFeatures.length} fast paths</strong>
+            <span>{isLive ? 'Card thermals · polar' : 'Accelerator utilization · polar'}</span>
+            <strong>{isLive ? `${passThrough.length} cards` : `${liveFeatures.length} fast paths`}</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <RadialBarChart
-              bars={liveFeatures.slice(0, 8).map((f) => ({ label: f.label, value: f.utilizationPercent }))}
-              size={300}
-              innerLabel="ACCEL"
-              innerValue={`${Math.round(liveFeatures.reduce((a, f) => a + f.utilizationPercent, 0) / liveFeatures.length)}%`}
-            />
+            {polarBars.length === 0 ? (
+              <LiveEmptyPanel title="No accelerator cards" detail="Plug in an allowlisted NPU, TPU, FPGA, or GPU. Metrics appear from sysfs (link, AER, temp) without a catalog." />
+            ) : (
+              <RadialBarChart
+                bars={polarBars}
+                size={300}
+                innerLabel="ACCEL"
+                innerValue={isLive ? `${issueCount} iss` : `${polarAvg}%`}
+              />
+            )}
           </div>
         </article>
 
@@ -1766,32 +1847,21 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
             <strong>numa node ↔ device</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <ChordDiagram
-              groups={[
-                { label: 'numa-0', color: 'var(--theme-accent)' },
-                { label: 'numa-1', color: 'var(--theme-accent-2)' },
-                { label: 'gpu-A100', color: 'var(--theme-good)' },
-                { label: 'gpu-H100', color: 'var(--theme-good)' },
-                { label: 'fpga', color: 'var(--theme-warn)' },
-                { label: 'smart-NIC', color: 'var(--theme-danger)' },
-              ]}
-              links={[
-                { source: 0, target: 2, value: 18 },
-                { source: 0, target: 4, value: 12 },
-                { source: 0, target: 5, value: 14 },
-                { source: 1, target: 3, value: 22 },
-                { source: 1, target: 5, value: 10 },
-                { source: 1, target: 4, value: 8 },
-                { source: 2, target: 1, value: 6 },
-                { source: 3, target: 0, value: 9 },
-              ]}
-              size={280}
-              tick={telemetry?.tick ?? 0}
-            />
+            {numaGroups.groups.length < 2 ? (
+              <p>No NUMA ↔ device mapping until a card enumerates.</p>
+            ) : (
+              <ChordDiagram
+                groups={numaGroups.groups}
+                links={numaGroups.links}
+                size={280}
+                tick={telemetry?.tick ?? 0}
+              />
+            )}
           </div>
         </article>
       </div>
 
+      {!isLive ? (
       <article className="dash-panel">
         <div className="panel-title"><span>Acceleration feature mesh</span><strong>data-path · scheduling · pass-through · nested-virt</strong></div>
         <div className="accel-feature-grid">
@@ -1810,8 +1880,10 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
           ))}
         </div>
       </article>
+      ) : null}
 
       <div className="dash-row dash-row-2">
+        {!isLive ? (
         <article className="dash-panel">
           <div className="panel-title"><span>NUMA pinning + hugepages</span><strong>{numaPinning.length} workloads pinned</strong></div>
           <table className="dash-table">
@@ -1837,24 +1909,52 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
             </tbody>
           </table>
         </article>
+        ) : (
+        <article className="dash-panel">
+          <div className="panel-title"><span>PCIe performance</span><strong>link · AER · runtime</strong></div>
+          <table className="dash-table">
+            <thead><tr><th>bdf</th><th>kind</th><th>link</th><th>temp</th><th>AER</th><th>runtime</th></tr></thead>
+            <tbody>
+              {passThrough.length === 0 ? (
+                <tr><td colSpan={6}>No allowlisted cards on this node.</td></tr>
+              ) : passThrough.map((dev) => (
+                <tr key={dev.id}>
+                  <td><code>{dev.id}</code></td>
+                  <td>{dev.kind}</td>
+                  <td>
+                    {dev.currentLinkSpeed ?? '—'}
+                    {dev.linkDownshifted ? ' ↓' : ''}
+                  </td>
+                  <td>{dev.temperatureC == null ? '—' : `${dev.temperatureC}°C`}</td>
+                  <td>{dev.aerCorrectable == null && dev.aerUncorrectable == null ? '—' : `${dev.aerCorrectable ?? 0}c / ${dev.aerUncorrectable ?? 0}u`}</td>
+                  <td>{dev.runtimeStatus ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+        )}
 
         <article className="dash-panel">
-          <div className="panel-title"><span>Pass-through devices</span><strong>vfio-pci · SR-IOV · mdev</strong></div>
+          <div className="panel-title"><span>Pass-through devices</span><strong>{isLive ? 'sysfs inventory' : 'vfio-pci · SR-IOV · mdev'}</strong></div>
           <ul className="passthrough-list">
             {passThrough.map((dev) => (
-              <li key={dev.id} className={`pt-${dev.kind}`}>
-                <span className={`kind-chip kind-${dev.kind === 'gpu' ? 'block' : dev.kind === 'fpga' ? 'object' : 'file'}`}>{dev.kind}</span>
+              <li key={dev.id} className={`pt-${dev.kind === 'npu' ? 'fpga' : dev.kind}`}>
+                <span className={`kind-chip kind-${dev.kind === 'gpu' ? 'block' : dev.kind === 'fpga' || dev.kind === 'npu' ? 'object' : 'file'}`}>{dev.kind}</span>
                 <strong>{dev.model}</strong>
-                <small>→ {dev.boundTo} · driver {dev.driver}</small>
-                <div className="cost-bar"><i style={{ width: `${dev.utilizationPercent}%` }} /></div>
-                <b>{dev.utilizationPercent}%</b>
-                <em>{dev.memoryGiB} GiB</em>
+                <small>→ {dev.boundTo} · driver {dev.driver}{dev.numaNode == null ? '' : ` · numa-${dev.numaNode}`}</small>
+                {dev.issues && dev.issues.length > 0 ? <small>{dev.issues.join(', ')}</small> : null}
+                <div className="cost-bar"><i style={{ width: `${dev.utilizationPercent ?? 0}%` }} /></div>
+                <b>{dev.utilizationPercent == null ? '—' : `${dev.utilizationPercent}%`}</b>
+                <em>{dev.memoryGiB == null ? '—' : `${dev.memoryGiB} GiB`}</em>
               </li>
             ))}
           </ul>
         </article>
       </div>
 
+      {!isLive ? (
+      <>
       <div className="dash-row dash-row-2">
         <article className="dash-panel">
           <div className="panel-title"><span>SPDK userspace lanes</span><strong>NVMe-oF · Vitastor · Ceph</strong></div>
@@ -1898,6 +1998,8 @@ export function AccelerationDashboardView({ telemetry, dataSource }: DashboardVi
           ))}
         </ul>
       </article>
+      </>
+      ) : null}
     </section>
   );
 }
