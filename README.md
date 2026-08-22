@@ -2,9 +2,9 @@
 
 Nexus is a next-generation, high-performance, open-source hyperconverged infrastructure (HCI) platform. Branching from the harvester-nexus architecture and built on a rock-solid SLE Micro base, nexus breaks down the structural silos between traditional virtual machines, Kubernetes guest clusters, and high-efficiency system containers.
 
-By unifying the bare-metal agility of Proxmox and Incus (LXC) with the massive cloud-native orchestration of Kubernetes (KubeVirt) and VMware vSphere class enterprise storage/scheduling, nexus represents the ultimate consolidation of computing, storage, and specialized hardware accelerators, including a HUD interface, wizard-driven machine provisioning, Kubernetes manifest generation, storage backend provisioning, and multi-cluster deployment workflows.
+By unifying Harvester-native Kubernetes (KubeVirt) with catalog scaffolding for Proxmox / Incus (LXC) and a storage/scheduling wizard, Nexus is an HCI overlay on Harvester — not every catalog row is live. See [`docs/FEATURE_MATURITY.md`](./docs/FEATURE_MATURITY.md).
 
-> **Version 3.0** is the current release. It keeps everything in [`UPDATED.md`](./UPDATED.md) (Poly-Compute, Universal Storage Fabric, XDR / MDR, acceleration) and adds ten-plus production features: authenticated cockpit APIs, a working signed ISO pipeline, measured host telemetry, live AnyRAID, live XDR ingest, Oscilloscope/FFT from real counters, KubeVirt VNC/serial consoles, and Linux CXL/PMem/zswap memory tiering. See [Nexus 3.0 release](#nexus-30-release). The [Nexus 2.0](#nexus-20-release) section is the historical baseline.
+> **Version 3.0** is the current release. It keeps everything in [`UPDATED.md`](./UPDATED.md) (Poly-Compute, Universal Storage Fabric, XDR / MDR, acceleration) and adds authenticated cockpit APIs, a working signed ISO pipeline, measured host telemetry, experimental AnyRAID on `local-path`, experimental XDR ingest for the first-boot sensor subset, Oscilloscope/FFT from real counters, KubeVirt VNC/serial consoles, and Linux CXL/PMem/zswap memory tiering (**waiting-for-hardware**). Feature status is in [`docs/FEATURE_MATURITY.md`](./docs/FEATURE_MATURITY.md) (`live` \| `experimental` \| `scaffold` \| `waiting-for-hardware`). See [Nexus 3.0 release](#nexus-30-release). The [Nexus 2.0](#nexus-20-release) section is the historical baseline. Scaffolding is kept; claims below match what Harvester can actually run.
 
 ## Nexus 3.0 release
 
@@ -16,8 +16,8 @@ Production features added on top of 2.0:
 2. **ISO CI that publishes** — root-disk and checkout-order faults fixed so `Build install ISO` can finish; CI stamps `3.0.0+nexus.1.main.<run>.<sha>`.
 3. **Measured host telemetry** — RAPL / IPMI watts, meminfo, vmstat, NIC counters; missing sensors are `null`, never invented.
 4. **Nullable metrics contract** — dashboards render gaps instead of fabricated IOPS, watts, or FFT.
-5. **AnyRAID on LVM** — heterogeneous-capacity slab pool with a real `lvcreate` path, not a catalog stub.
-6. **Live XDR ingest** — Falco, Tetragon, Suricata, and Wazuh alerts feed the SOC views instead of the demo simulator alone.
+5. **AnyRAID on LVM (experimental)** — heterogeneous-capacity slab planner plus StorageClass `anyraid-default` (`rancher.io/local-path`). Not a Nexus CSI driver (`anyraid.csi.nexus.io` is not shipped).
+6. **XDR ingest (experimental)** — Falco, Tetragon, Suricata, and Wazuh from the first-boot hardened stack can feed SOC views; the 17-sensor Maximum catalog is **scaffold**. Demo mode still uses the in-app simulator.
 7. **Oscilloscope and FFT from the host** — Telemetry Wave plots measured CPU / DRAM / NIC, not a canned waveform.
 8. **KubeVirt VNC and serial consoles** — cockpit attaches through the KubeVirt websocket proxy.
 9. **Linux memory tiering** — CXL Type-3 NUMA demotion, leftover Optane/PMem DAX kmem, zswap plus a bounded NVMe-backed swap file. Not vSphere NVMe-as-RAM. See [`docs/memory-tiering.md`](./docs/memory-tiering.md).
@@ -28,21 +28,21 @@ Production features added on top of 2.0:
 
 Highlights:
 
-- **Poly-Compute Engine** — runs KubeVirt VMs, Incus / LXC system containers, and native Kubernetes pods on the same bare-metal loop, with NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, and cross-socket cost penalties on the scheduler.
-- **Universal Storage Fabric** — every storage backend in the catalog is wired into CSI / direct-host paths, including **Vitastor** with SPDK userspace queues, NVMe-oF / RDMA with userspace bypass, ZFS with copy-on-write + zstd + ARC cache, **AnyRAID** with heterogeneous-capacity drive slabbing, iSCSI multipath via `vfio-pci`, and NFS / SMB through the subpath driver for RWX shares.
+- **Poly-Compute Engine** — **live** KubeVirt VMs and native Kubernetes pods on the Harvester node. Incus / LXC system containers remain **scaffold** (wizards and generators; no Incus controller). NUMA-local DRAM affinity, 1 GiB hugepages for KubeVirt, nested-virt opt-in pools, and cross-socket cost penalties on the scheduler are modeled in the wizard.
+- **Universal Storage Fabric** — Longhorn, local-path, NFS, and iSCSI are **live** Harvester/CSI paths. **AnyRAID** is **experimental** (`local-path` StorageClass `anyraid-default`, not a Nexus CSI driver). **Vitastor**, **Portworx**, and other catalog backends (Ceph, NVMe-oF, ZFS, …) are **scaffold** or opt-in later — CSI templates and wizard rows exist; they are not all provisioned at first boot.
 - **Hardware acceleration** — SPDK userspace NVMe-oF queues, DPDK polled-mode rings, vhost-user fast paths, NUMA pinning with 1 GiB hugepages, GPU / FPGA / smart-NIC / TPU pass-through (vfio-pci / SR-IOV / mdev), and L1 nested virtualization for training, inference, sandbox, and CI pools. NPU / TPU / FPGA **add-in cards** are an allowlisted first-boot path (AMD Alveo, Intel DFL FPGA, Intel Gaudi 3 PCIe, Qualcomm Cloud AI 100, Google Coral Edge TPU) — see [`docs/accelerators.md`](./docs/accelerators.md). Live PCI inventory (link, AER, temp, driver, IOMMU) lands on the environment tick and is shown automatically next to CPU/RAM on Processor & Memory, Resource Monitor, Environment Intel, Mission Control, Operations, and the environment ticker. Utilization stays `null` unless a vendor runtime exports it.
 - **Memory tiering** — Linux NUMA demotion/promotion for CXL Type-3 and leftover Optane/PMem (DAX kmem), HBM when the kernel groups it as a faster node, zswap plus a bounded NVMe-backed swap file as the last safety net, DAMON/weighted-interleave/pghot/CXL-pooling hooks that activate when those sysfs trees appear. This is **not** vSphere NVMe-as-RAM; guests do not see extra DRAM. See [`docs/memory-tiering.md`](./docs/memory-tiering.md).
 - **Machine Wizard 2.0** — install YAML with `poly_compute` and `hardware_acceleration` blocks plus boot-parameter switches (`nexus.poly_compute=kubevirt,incus,pods`, `nexus.acceleration.spdk=true`, `nexus.acceleration.hugepages_1g=64`, `nexus.acceleration.gpu_passthrough=true`). Validation refuses configs that turn off every runtime or enable GPU pass-through without NUMA pinning.
-- **Built-in XDR / MDR platform (100% FOSS)** — every Nexus install ships with a complete detect-and-respond stack: 17 open-source sensors (Falco, Tetragon, Wazuh, Trivy, Grype, Syft, Suricata, Hubble, OpenSearch, MISP, kube-bench, kube-hunter, Polaris, OpenCanary, OpenSCAP, Lynis), 10 free threat-intel feeds (MISP, OTX, ThreatFox, URLhaus, Feodotracker, ETOpen, MITRE ATT&CK, NVD, OSV, internal allowlist), 18 Sigma-style detection rules covering all seven MITRE ATT&CK kill-chain phases, 10 automated response actions that emit real Kubernetes manifests (Cilium NetworkPolicy isolate, Harvester host cordon/drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot, Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback, Trivy image block, Cilium CCNP egress-domain block), and APT geo-attribution that maps sources to actors like APT28 / LAZARUS. No paid SKUs, no subscriptions.
+- **Built-in XDR / MDR platform (100% FOSS)** — a 17-sensor FOSS **catalog** (Falco, Tetragon, Wazuh, Trivy, Grype, Syft, Suricata, Hubble, OpenSearch, MISP, kube-bench, kube-hunter, Polaris, OpenCanary, OpenSCAP, Lynis) plus intel feeds, Sigma-style rules, and response YAML generators. First-boot **hardened** applies the subset in [`installer/manifests/20-xdr-stack.yaml`](./installer/manifests/20-xdr-stack.yaml) (**experimental**). Maximum / remaining sensors are **scaffold**. No paid SKUs.
 - **Themable cockpit** — four cool-tone switchable themes (Route Grid, Arctic Hologram, Arctic Command, Ice Spectrum). Theme selection persists in `localStorage`.
 
 ## Overview
 
 Nexus is the updated Harvester fork with:
 
-- **Universal storage fabric** — iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, NVMe-oF, RDMA, Ceph, ZFS, **AnyRAID** (heterogeneous-capacity drives in a single slab-based pool), NFS, SMB, Vitastor, and local-path storage with CSI templates per backend.
+- **Universal storage fabric** — iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx (**scaffold**), NVMe-oF, RDMA, Ceph, ZFS, **AnyRAID** (**experimental**, `local-path` class `anyraid-default`), NFS, SMB, Vitastor (**scaffold**), and local-path storage with CSI templates per backend. See [`docs/FEATURE_MATURITY.md`](./docs/FEATURE_MATURITY.md).
 - **Network fabric and service mesh** — Istio, Linkerd, Cilium, plus Service, Ingress, and NetworkPolicy generation.
-- **Built-in XDR / MDR detect-and-respond** — eBPF runtime security, HIDS, IDS/IPS, image-scan admission, K8s benchmark, host hardening, threat intel, honeypots, and automated response actions, all driven by 100% FOSS components.
+- **Built-in XDR / MDR detect-and-respond** — eBPF runtime security, HIDS, IDS/IPS, image-scan admission, K8s benchmark, host hardening, threat intel, honeypots, and automated response actions, all driven by 100% FOSS components. First-boot deploys the hardened subset; the full 17-sensor Maximum profile is a wizard **scaffold**, not every sensor live on every node.
 - **Identity, RBAC, and policy** — RBAC roles, Pod Security Standards enforcement, service accounts, workload annotations, and admission-time best-practice gating (Polaris).
 - **Observability templates** — Prometheus monitoring, Fluentd / Loki / Splunk logging, with the in-cockpit telemetry dashboards driven by a 1.6 s live tick.
 - **GitOps and multi-cluster** — ArgoCD, Flux, Jenkins X integration manifests; federated deployment templates; `vcluster` virtual-cluster operations.
@@ -59,14 +59,14 @@ Nexus is the updated Harvester fork with:
 - **Eight additional themed data dashboards**: Networking, Storage, Machines & Containers, Processor & Memory (live NUMA / CXL / PMem / zswap / swap / PSI / vmstat), Poly-Compute Engine, Acceleration, Operations & Compliance, Resource Monitoring.
 
 ### Security · Detection &amp; response (XDR / MDR)
-- **Endpoint coverage** — every host, KubeVirt VM, Incus / LXC container, Docker container, Kubernetes pod, edge node, and third-party integration is enrolled and inventoried.
-- **Sensor stack (17 FOSS components)** — eBPF runtime security (**Falco**, **Tetragon**), HIDS + SIEM (**Wazuh Agent** + **Wazuh Manager** + **OpenSearch** event lake), IDS / IPS (**Suricata** with ETOpen rules), container-image and SBOM scanning (**Trivy**, **Grype**, **Syft**), Kubernetes admission control (**Trivy operator**, **Polaris**), Kubernetes benchmark and pen-test (**kube-bench**, **kube-hunter**), host hardening (**OpenSCAP**, **Lynis**), L4/L7 flow telemetry (**Hubble**), threat-intel platform (**MISP**), deception (**OpenCanary**).
+- **Endpoint coverage** — hosts, KubeVirt VMs, and Kubernetes pods are the **live** inventory. Incus / LXC, Docker, edge, and third-party enrollment stay in the catalog as **scaffold**.
+- **Sensor stack (17 FOSS components, catalog)** — eBPF runtime security (**Falco**, **Tetragon**), HIDS + SIEM (**Wazuh Agent** + **Wazuh Manager** + **OpenSearch** event lake), IDS / IPS (**Suricata** with ETOpen rules), container-image and SBOM scanning (**Trivy**, **Grype**, **Syft**), Kubernetes admission control (**Trivy operator**, **Polaris**), Kubernetes benchmark and pen-test (**kube-bench**, **kube-hunter**), host hardening (**OpenSCAP**, **Lynis**), L4/L7 flow telemetry (**Hubble**), threat-intel platform (**MISP**), deception (**OpenCanary**). First-boot **hardened** applies Falco, Tetragon, Wazuh, Suricata, Hubble, Trivy, OpenSearch, Polaris, kube-bench, Grype, and Syft. The rest of the catalog is **scaffold**.
 - **Threat intelligence (10 free feeds)** — MISP, AlienVault OTX, abuse.ch ThreatFox / URLhaus / Feodotracker, Emerging Threats Open, MITRE ATT&CK, NVD, OSV, and an internal allowlist; indicators (IPs, domains, hashes, CVEs) are indexed for O(1) matching on every event.
 - **Detection rules (18 Sigma-style)** — coverage across all seven MITRE ATT&CK kill-chain phases: reconnaissance, initial access, execution, persistence, privilege escalation, defense evasion, credential access, lateral movement, command-and-control, exfiltration, and impact (including ransomware syscall pattern, honeypot interaction, known-bad hash exec, known C2 IP/domain, anomalous east-west drops, shadow-file read, and large egress bursts).
-- **Automated response (10 action types)** — every action emits real Kubernetes YAML: Cilium `NetworkPolicy` endpoint isolation, Harvester host cordon + drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot, Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback to a known-good revision, Trivy image-block admission rule, Cilium `ClusterwideCiliumNetworkPolicy` egress-domain block, token rotation, and alert-only.
+- **Automated response (10 action types)** — generators emit Kubernetes YAML: Cilium `NetworkPolicy` endpoint isolation, Harvester host cordon + drain, KubeVirt `VirtualMachineSnapshot`, Incus snapshot (**scaffold**), Tetragon `TracingPolicy` SIGKILL, ArgoCD rollback, Trivy image-block admission rule, Cilium `ClusterwideCiliumNetworkPolicy` egress-domain block, token rotation, and alert-only.
 - **APT attribution** — source IPs are geo-mapped and correlated with the indicator catalog to attribute alerts to actors such as APT28 / Fancy Bear, LAZARUS, and others, complete with country, city, CVE, malware hash, and MITRE tactic.
 - **XDR Operations Center** — live SOC dashboard with KPI roll-ups (alerts/min, blocked 24h, isolated hosts, active APTs), endpoint inventory with sensor coverage, recent alerts with IOC details, auto-dispatched response actions, MITRE ATT&CK kill-chain heatmap that lights up as tactics get hit, threat attribution panel, and sensor health grid. Powered by an in-app `XdrEngine` and a deterministic 14-step attack-scenario simulator for demos.
-- **Security Posture wizard** — three presets (Baseline, Hardened, Maximum), per-sensor opt-in for add-ons, live previews of generated Kubernetes manifests (`DaemonSet`, `Deployment`, `Service`, `CronJob`, `ValidatingWebhookConfiguration`), and a one-liner `kubectl apply` to stand the entire stack up.
+- **Security Posture wizard** — three presets (Baseline, Hardened, Maximum), per-sensor opt-in for add-ons, live previews of generated Kubernetes manifests (`DaemonSet`, `Deployment`, `Service`, `CronJob`, `ValidatingWebhookConfiguration`). Hardened is what first-boot applies; Maximum is a **scaffold** target, not 17 sensors live on every install.
 - **Rolling SLA metrics** — MTTD and MTTR are computed from the engine's detection and response latencies, exposed on every snapshot.
 
 ### Wizards & workflows
@@ -74,7 +74,7 @@ Nexus is the updated Harvester fork with:
 - Nexus new-machine wizard for Harvester create/join/binaries install flows with generated automatic install configuration.
 - Manifest Wizard embedded inside the unified Setup Wizard as an optional setup section, allowing workload manifest generation without leaving the provisioning flow.
 - Wizard-driven workload and manifest configuration.
-- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, **AnyRAID**, iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx, and Vitastor (with SPDK userspace bypass). The AnyRAID wizard step accepts heterogeneous drive capacities, computes the effective usable capacity from a slab-based redundancy plan, and renders a `StorageClass` whose parameters carry the per-disk inventory through to the CSI driver.
+- Storage selection for local, NFS, SMB, Ceph, NVMe-oF, RDMA, ZFS, **AnyRAID** (**experimental**, `rancher.io/local-path`), iSCSI, GlusterFS, Longhorn, OpenEBS, Portworx (**scaffold**), and Vitastor (**scaffold**). The AnyRAID wizard step accepts heterogeneous drive capacities, computes usable capacity from a slab plan, and renders a `StorageClass` whose parameters carry the per-disk inventory. It does **not** install `anyraid.csi.nexus.io`.
 - Auto-generated `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `CronJob` manifests.
 - PVC, Service, Ingress, NetworkPolicy, RBAC, monitoring, logging, GitOps, and multi-cluster manifest generation.
 - Service mesh integration support for Istio, Linkerd, and Cilium.
@@ -126,10 +126,10 @@ full MITRE kill chain.
 
 ### Storage dashboard
 
-Unified view of every storage backend Nexus speaks (Ceph, Longhorn,
+Unified view of every storage backend in the cockpit catalog (Ceph, Longhorn,
 NVMe-oF, RDMA, ZFS, **AnyRAID**, Vitastor, iSCSI, NFS, SMB, GlusterFS,
-OpenEBS, Portworx, local path), with per-backend capacity, IOPS, and
-read/write breakdowns so the operator sees the whole fabric at once.
+OpenEBS, Portworx, local path). Demo ticks synthesize IOPS for scaffold
+backends; live telemetry is nullable. Maturity: [`docs/FEATURE_MATURITY.md`](./docs/FEATURE_MATURITY.md).
 
 ![Storage dashboard](docs/screenshots/05-storage-dashboard.webp)
 
@@ -144,11 +144,10 @@ without leaving the wizard.
 
 ### AnyRAID configuration
 
-Accepts a heterogeneous-capacity drive inventory and produces a single
-slab-based ZFS pool, computing effective usable capacity and emitting a
-`StorageClass` whose CSI parameters carry the per-disk plan through to
-the driver. Lets operators reuse mixed older + newer drives instead of
-forcing matched sets.
+Accepts a heterogeneous-capacity drive inventory and produces a slab-based
+pool plan plus StorageClass `anyraid-default` (`rancher.io/local-path`).
+**Experimental** / operator-triggered — not a first-boot CSI driver and not
+`anyraid.csi.nexus.io`. Lets operators plan mixed older + newer drives.
 
 ![AnyRAID configuration](docs/screenshots/07-zfs-anyraid-config.webp)
 
@@ -325,7 +324,7 @@ The **target node** that boots the ISO. Suitable for development, proofs-of-conc
 
 #### Nexus platform — production HCI cluster
 
-A 3+ node hyperconverged cluster running the full Poly-Compute Engine (KubeVirt VMs + Incus / LXC + pods on every node), the Universal Storage Fabric, and every XDR sensor in the **Maximum** Security Posture profile.
+A 3+ node hyperconverged cluster running **live** KubeVirt VMs + pods, Longhorn/local storage, and the first-boot **hardened** XDR subset. Incus / LXC, the Universal Storage Fabric catalog (Portworx, Vitastor, …), and every XDR sensor in the **Maximum** profile remain **scaffold** unless you enable them separately — see [`docs/FEATURE_MATURITY.md`](./docs/FEATURE_MATURITY.md).
 
 | Resource | Minimum (per node) | Optimal (per node) |
 |---|---|---|
@@ -340,7 +339,7 @@ A 3+ node hyperconverged cluster running the full Poly-Compute Engine (KubeVirt 
 | Firmware | UEFI, IOMMU on | UEFI + TPM 2.0 + measured boot; firmware managed via Lifecycle Controller / iLO / iDRAC / Redfish |
 | Power / cooling | redundant PSU per node | redundant PSU, hot-aisle containment, environmental telemetry exposed to the Environment Intelligence dashboard |
 
-#### XDR / MDR sensor overhead (cluster-wide, all 17 sensors in Maximum profile)
+#### XDR / MDR sensor overhead (cluster-wide; Maximum **catalog** is 17 sensors — first-boot hardened is the applied subset)
 
 | Resource | Minimum | Optimal |
 |---|---|---|
@@ -397,13 +396,13 @@ cd installer
 make simulate
 ```
 
-The simulator performs **59 checks**: parses `/etc/nexus/config.yaml`, validates all bootstrap manifests, reconciles 26 Kubernetes objects against a mock apiserver, and verifies `admin` / `admin` login with forced password change. A report lands at `build/install-simulation-report.yaml`.
+The simulator parses `/etc/nexus/config.yaml`, validates bootstrap manifests, reconciles objects against a mock apiserver, and verifies **generated** cockpit password handoff (not shipped `admin`/`admin`) with forced rotation. A report lands at `build/install-simulation-report.yaml`.
 
 Additional contract tests:
 
 ```bash
-npm run test -- installer   # 20 installer contract tests
-npm run test                # 237 tests across the whole repo
+npm run test -- installer   # installer contract tests
+npm run test                # full Vitest suite
 ```
 
 #### 3. Build the install ISO on Ubuntu 24.10+
@@ -427,9 +426,9 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
 
 - Upstream **Harvester** (SLE Micro + K3s/RKE2 + KubeVirt + Longhorn + Multus + Rancher)
 - The **Nexus cockpit** production bundle
-- **12 FOSS XDR sensors** + detection rules + intel feeds + response actions
-- **AnyRAID CSI** driver
-- **16 Nexus-specific install-wizard questions** layered on Harvester's base wizard
+- **Hardened XDR subset** (Falco, Tetragon, Wazuh, Suricata, Hubble, Trivy, OpenSearch, Polaris, kube-bench, Grype, Syft) + detection rules + intel feeds + response generators
+- **AnyRAID** StorageClass `anyraid-default` (`rancher.io/local-path`) — experimental, not a Nexus CSI driver
+- **Nexus-specific install-wizard questions** layered on Harvester's base wizard (see maturity labels in the question YAML)
 
 #### 4. Install on bare metal
 
@@ -447,7 +446,7 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
 
 3. **Answer the Harvester install wizard** (required): install mode, management NIC, IP / gateway / DNS, cluster VIP, NTP, cluster token, OS / SSH password.
 
-   Nexus-specific settings are **not** shown in the install TUI today — they come from the baked-in defaults in `/etc/nexus/config.yaml` (admin/admin, Route Grid theme, XDR hardened profile, Longhorn storage, etc.). See `installer/installer-config/nexus-wizard-questions.yaml` for the full settings catalog.
+   Nexus-specific settings are **not** shown in the install TUI today — they come from the baked-in defaults in `/etc/nexus/config.yaml` (generated cockpit password file, Route Grid theme, XDR hardened profile, Longhorn storage, etc.). See `installer/installer-config/nexus-wizard-questions.yaml` for the full settings catalog.
 
 4. **Wait for installation to finish.** The installer writes SLE Micro + Harvester to the local disk. When install completes, `system/oem/92_nexus.yaml` enables and **starts** `nexus-cockpit.service` (and enables `nexus-bootstrap.service` for when Kubernetes is up).
 
@@ -465,9 +464,9 @@ The build pipeline (see [`installer/README.md`](./installer/README.md)) bundles:
    | Field | Value |
    |---|---|
    | Username | `admin` |
-   | Password | `admin` |
+   | Password | Contents of `/etc/nexus/cockpit-password` on the node (generated at first boot; not shipped in the ISO) |
 
-   The cockpit **requires a new password** before any privileged action. The legacy `admin` / `demo` alias still works in dev builds but production installs should use `admin` / `admin` and rotate immediately.
+   The cockpit **requires a new password** before any privileged action. Demo-mode SPA `admin` / `admin` is browser-only ([`src/lib/auth.ts`](./src/lib/auth.ts)) and is **not** the install-node path.
 
 #### 5. Install in a KVM VM on Ubuntu
 
@@ -551,7 +550,7 @@ Verify the build:
 
 ```bash
 npx tsc --noEmit
-npm run test         # 237 Vitest tests
+npm run test         # Vitest suite
 npm run build
 npm run preview      # production bundle on :4173
 ```
@@ -593,7 +592,7 @@ docker run --rm -it -p 4173:4173 -v "$PWD":/app -w /app node:20-bookworm \
 | Cockpit unreachable after install | Wrong URL (Harvester `:443` vs Nexus `:8443`), service not running, missing bundle, or firewall | Use the **node management IP** (not the cluster VIP). Try `https://<node-ip>:8443` then `http://<node-ip>:8080`. On the node: `sudo nexus-cockpit --status`, `systemctl status nexus-cockpit`, `journalctl -u nexus-cockpit -b`, `curl -sk https://127.0.0.1:8443/healthz`. If `index.html` is missing, rebuild + reinstall from the current branch |
 | `nexus-cockpit.service` fails / restart loop | Read-only root blocked tarball extract, missing `python3`, or broken nginx picked first | On the node: `journalctl -u nexus-cockpit -b --no-pager`. Check `python3 --version`, `ls /usr/share/nexus-cockpit/dist/index.html /var/lib/nexus/cockpit-dist/index.html`. Rebuild ISO from current branch |
 | `cannot execute /usr/local/bin/nexus-cockpit: No such file or directory` | **Wrong path** — Nexus lives under `/usr/bin/nexus-cockpit`, not `/usr/local` (Elemental mounts `/usr/local` as empty persistent storage and hides ISO files). Or stock Harvester ISO | On the node: `ls -la /usr/bin/nexus-cockpit /usr/share/nexus-cockpit/`. Rebuild with `git pull origin cursor/fix-iso-entrypoint-d930 && cd installer && make iso-builder && make iso`, then **reinstall** using `dist/harvester-nexus-*.iso` |
-| Login rejected | Wrong credentials | Production default is `admin` / `admin`; dev server also accepts `admin` / `demo` |
+| Login rejected | Wrong credentials | On an installed node, read `/etc/nexus/cockpit-password` (generated). Dev server (`npm run dev`) accepts demo `admin` / `demo` or `admin` / `admin` |
 
 For installer internals, manifest layout, and simulator details, see [`installer/README.md`](./installer/README.md).
 

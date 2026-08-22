@@ -6,12 +6,12 @@ This directory holds everything needed to produce **`harvester-nexus-<version>.i
 
 - **Base Harvester** (SLE Micro + K3s/RKE2 + KubeVirt + Longhorn + Multus + Rancher) from the upstream `harvester-installer` repo.
 - **The full Nexus cockpit** — every dashboard, widget, theme, wizard, and view documented in the top-level `README.md`.
-- **Built-in XDR / MDR platform** — 12 FOSS sensors (Falco, Tetragon, Wazuh, Suricata, Hubble, Trivy, Polaris, kube-bench, OpenSearch, Grype, Syft) + 18 Sigma detection rules + 10 free intel feeds + 10 automated response actions.
-- **AnyRAID CSI driver** — slab-based RAID over heterogeneous-capacity drives.
-- **Memory tiering agent** — CXL / PMem DAX kmem / zswap / NVMe swap file, with
-  live Processor & Memory metrics (`docs/memory-tiering.md`).
+- **Built-in XDR / MDR platform** — first-boot **hardened** subset in `manifests/20-xdr-stack.yaml` (Falco, Tetragon, Wazuh, Suricata, Hubble, Trivy, Polaris, kube-bench, OpenSearch, Grype, Syft) plus Sigma rules, intel feeds, and response generators. The 17-sensor Maximum catalog is **scaffold** — see [`docs/FEATURE_MATURITY.md`](../docs/FEATURE_MATURITY.md).
+- **AnyRAID (experimental)** — StorageClass `anyraid-default` with provisioner `rancher.io/local-path` and a slab planner. **Not** a Nexus CSI driver.
+- **Memory tiering agent** — CXL / PMem DAX kmem / zswap / NVMe swap file (**waiting-for-hardware**), with
+  Processor & Memory metrics (`docs/memory-tiering.md`).
 - **First-boot wizard** with Nexus-specific questions on top of Harvester's mandatory mode / network / VIP / NTP set.
-- **Default cockpit credentials of `admin` / `admin`** with **forced password change on first login** so unattended installs work out of the box without leaving the cluster with weak credentials.
+- **Generated cockpit password** written to `/etc/nexus/cockpit-password` (mode 0600) with **forced password change on first login**. There is no shipped `admin`/`admin` on installed nodes. Demo SPA `admin`/`admin` is browser-only.
 
 ## What's in this directory
 
@@ -24,7 +24,7 @@ installer/
 ├── build-iso.sh                      6-stage build pipeline
 │
 ├── overlay/                          files merged into the squashfs root
-│   ├── etc/nexus/config.yaml         install-time config (admin/admin, themes, XDR profile, ...)
+│   ├── etc/nexus/config.yaml         install-time config (generated password file, themes, XDR profile, ...)
 │   ├── etc/systemd/system/           nexus-bootstrap + cockpit + memory-tiering units
 │   ├── usr/bin/                      nexus-bootstrap, nexus-cockpit, nexus-postinstall, nexus-memory-tiering
 │   ├── usr/share/nexus-cockpit/      cockpit bundle + bootstrap manifests
@@ -32,9 +32,9 @@ installer/
 │
 ├── manifests/                        applied by nexus-bootstrap on first boot
 │   ├── 00-nexus-namespace.yaml       3 namespaces (nexus-system / nexus-xdr / nexus-cockpit)
-│   ├── 10-default-admin.yaml         admin SA + ClusterRoleBinding + credentials Secret
-│   ├── 20-xdr-stack.yaml             12 FOSS XDR sensors as DaemonSets/Deployments/CronJobs
-│   ├── 30-anyraid-csi.yaml           AnyRAID CSIDriver + DaemonSet + StorageClass
+│   ├── 10-default-admin.yaml         admin SA + ClusterRoleBinding (no password Secret)
+│   ├── 20-xdr-stack.yaml             hardened XDR subset as DaemonSets/Deployments/CronJobs
+│   ├── 30-anyraid-csi.yaml           AnyRAID local-path StorageClass + pool ConfigMap
 │   ├── 40-cockpit-service.yaml       cockpit Deployment + Service + Ingress
 │   └── 99-nexus-features.yaml        feature-flag ConfigMap consumed by the cockpit
 │
@@ -67,13 +67,13 @@ make simulate
 ```
 
 The simulator:
-1. Parses `/etc/nexus/config.yaml`, validates the schema, confirms `admin / admin` is the seeded credential pair with `forcePasswordChange` set.
+1. Parses `/etc/nexus/config.yaml`, validates the schema, confirms `initialPasswordSource: generated`, `passwordFile: /etc/nexus/cockpit-password`, and `forcePasswordChangeOnFirstLogin` — **no** shipped `admin.password`.
 2. Renders every manifest under `installer/manifests/`, verifies each has `apiVersion + kind + metadata.name`, and that every workload image references a real upstream registry (`docker.io/`, `quay.io/`, `ghcr.io/`, `gcr.io/`, `registry.k8s.io/`).
-3. Applies the manifests against an in-memory mock kube-apiserver, verifies the admin user / cockpit Deployment / XDR sensors / AnyRAID CSI / feature ConfigMap all reconcile.
-4. Calls the cockpit's `isDemoLogin('admin', 'admin')` function, verifies it returns a token with `forcePasswordChange: true` and `cluster-admin` capability, and rejects unknown users / wrong passwords.
+3. Applies the manifests against an in-memory mock kube-apiserver, verifies the admin ServiceAccount / cockpit Deployment / XDR sensors / AnyRAID `local-path` StorageClass / feature ConfigMap all reconcile, and **rejects** phantom `CSIDriver anyraid.csi.nexus.io`.
+4. Simulates generated-password login with `forcePasswordChange: true` and **rejects** shipped `admin`/`admin` on the install-node path (demo SPA auth is separate).
 5. Writes a structured report at `build/install-simulation-report.yaml`.
 
-Exit code is 0 on success, non-zero on any failure. The latest verified run reports **59 / 59 checks passed · 26 Kubernetes objects reconciled · admin / admin login verified**.
+Exit code is 0 on success, non-zero on any failure.
 
 ### Build the full ISO (needs Docker on native Ubuntu 24.10+ · ~30 minutes · ~25 GB free disk)
 
@@ -133,25 +133,24 @@ On boot the operator sees the **base Harvester wizard** (mode / network / VIP / 
 
 ### Default credentials
 
-After install completes the cockpit accepts:
+After install completes, the cockpit username is `admin`. The password is the
+contents of **`/etc/nexus/cockpit-password`** on the node (generated at first
+boot, mode 0600). There is no shipped `admin`/`admin` on the install-node path.
 
-| Field    | Value   |
-|----------|---------|
-| Username | `admin` |
-| Password | `admin` |
-
-On first login the cockpit **forces the operator to pick a new password** before any privileged action is permitted. The legacy `admin / demo` password is still accepted as a backwards-compat alias so the existing demo walkthroughs continue to work.
+On first login the cockpit **forces the operator to pick a new password** before
+any privileged action is permitted. Demo-mode SPA `admin`/`admin` (and `admin` /
+`demo`) is browser-only when telemetry is demo — not a production install login.
 
 ## Tests
 
 ```bash
-npm run test -- installer       # 27 contract tests for the installer
-npm run test                    # 237 total tests across the whole repo
+npm run test -- installer       # installer contract tests
+npm run test                    # full Vitest suite
 ```
 
 The contract tests lock in:
 
-- `config.yaml` has `apiVersion=nexus.io/v1`, `kind=NexusInstallConfig`, `admin.username=admin`, `admin.password=admin`, `admin.forcePasswordChangeOnFirstLogin=true`, a default theme + XDR profile + launch variant from the documented enums, and every documented storage backend.
+- `config.yaml` has `apiVersion=nexus.io/v1`, `kind=NexusInstallConfig`, `admin.username=admin`, `admin.initialPasswordSource=generated`, `admin.passwordFile=/etc/nexus/cockpit-password`, `admin.forcePasswordChangeOnFirstLogin=true`, a default theme + XDR profile + launch variant from the documented enums, and every documented storage backend. `admin.password` is **not** shipped.
 - Each manifest file has a valid lexical-ordered prefix (00- / 10- / 20- / 30- / 40- / 99-) and every doc inside has `apiVersion + kind + metadata.name`.
 - The XDR stack ships Falco, Tetragon, Wazuh agent + manager, Suricata, Hubble relay, Trivy operator, OpenSearch, Polaris, kube-bench, Grype, and Syft.
 - Every workload image references a real upstream FOSS registry — no placeholder or private registries.

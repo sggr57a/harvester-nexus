@@ -249,7 +249,7 @@ export function NexusMachineWizard({
                   checked={config.polyCompute.incusLxc}
                   onChange={(event) => onChange({ ...config, polyCompute: { ...config.polyCompute, incusLxc: event.target.checked } })}
                 />
-                Incus / LXC system containers (bare-metal speed)
+                Incus / LXC system containers (scaffold — no Harvester controller)
               </label>
               <label className="checkbox-label">
                 <input

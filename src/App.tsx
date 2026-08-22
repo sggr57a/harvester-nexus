@@ -66,12 +66,12 @@ const STORAGE_TEMPLATES: Record<StorageType, string> = {
   nvme: 'NVMe-oF over TCP volume claim',
   rdma: 'RDMA-backed CSI volume',
   zfs: 'ZFS over iSCSI or ZFS CSI driver',
-  anyraid: 'AnyRAID — slab-based pool over heterogeneous-capacity drives',
+  anyraid: 'AnyRAID (experimental) — slab planner; StorageClass anyraid-default on local-path',
   iscsi: 'iSCSI block storage with CSI driver',
   glusterfs: 'GlusterFS distributed filesystem with CSI',
   longhorn: 'Longhorn cloud-native distributed block storage',
   openebs: 'OpenEBS container-native storage with multiple engines',
-  portworx: 'Portworx enterprise container storage platform',
+  portworx: 'Portworx (scaffold) — operator YAML generator; not a Harvester-native controller',
 };
 
 type CockpitView =

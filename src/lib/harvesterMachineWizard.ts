@@ -210,7 +210,7 @@ function buildSteps(config: HarvesterMachineConfig, validationIssues: string[]):
       title: 'Poly-compute engine',
       detail: [
         config.polyCompute.kubevirt ? 'KubeVirt VMs' : null,
-        config.polyCompute.incusLxc ? 'Incus / LXC system containers' : null,
+        config.polyCompute.incusLxc ? 'Incus / LXC system containers (scaffold)' : null,
         config.polyCompute.k8sPods ? 'K8s pods' : null,
       ].filter(Boolean).join(' · ') || 'no runtimes selected',
       status: (config.polyCompute.kubevirt || config.polyCompute.incusLxc || config.polyCompute.k8sPods) ? 'ready' : 'required',

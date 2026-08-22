@@ -290,7 +290,7 @@ function driverName(storageType: StorageConfig['storageType']): string {
     nvme: 'nvme.csi.k8s.io',
     rdma: 'rdma.csi.nexus.io',
     zfs: 'zfs.csi.openebs.io',
-    anyraid: 'anyraid.csi.nexus.io',
+    anyraid: 'rancher.io/local-path',
     iscsi: 'iscsi.csi.k8s.io',
     glusterfs: 'glusterfs.csi.k8s.io',
     longhorn: 'driver.longhorn.io',

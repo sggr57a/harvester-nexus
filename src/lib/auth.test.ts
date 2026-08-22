@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isDemoLogin } from './auth';
 
 describe('isDemoLogin', () => {
-  it('accepts the documented admin / admin default credentials shipped by the installer', () => {
+  it('accepts demo-mode admin / admin (browser-only; not the install-node path)', () => {
     expect(isDemoLogin('admin', 'admin')).toBe(true);
   });
 

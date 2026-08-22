@@ -58,7 +58,7 @@ export function WorkloadCreateWizard({
 
       <header className="workload-create-header">
         <h2>Create {workloadKindLabel(config.kind).toLowerCase()}</h2>
-        <p>Configure a KubeVirt VM, Incus LXC container, or native Kubernetes pod, then deploy to the cluster.</p>
+        <p>Configure a KubeVirt VM, Incus LXC container (scaffold), or native Kubernetes pod, then deploy to the cluster.</p>
       </header>
 
       <nav className="workload-kind-rail" aria-label="Workload type">

@@ -18,15 +18,15 @@ questions:
     required: true
     validation: nonempty
 
-  - variable: nexus.admin.password
-    label: Cockpit admin password
+  - variable: nexus.admin.initialPasswordFile
+    label: Generated cockpit password file
     description: |
-      Initial password for the cockpit administrator. Defaults to `admin`
-      so unattended installs work out of the box; the first-login flow
-      then forces a password change before any privileged action is
-      permitted.
-    type: password
-    default: admin
+      Host-local file where first-boot writes a random cockpit password
+      (mode 0600). There is no shipped `admin`/`admin` on installed nodes.
+      The first-login flow then forces a password change. Demo-mode SPA
+      auth is separate and not used on a real install.
+    type: input
+    default: /etc/nexus/cockpit-password
     required: true
 
   - variable: nexus.cockpit.defaultTheme
@@ -55,8 +55,10 @@ questions:
     label: Default storage backend
     description: |
       The storage backend that becomes the cluster's default StorageClass.
-      Every other backend is registered but only this one is provisioned
-      on first boot; the others can be enabled later from the cockpit.
+      Longhorn / local / NFS / iSCSI are live Harvester paths. AnyRAID is
+      experimental (`local-path`). Vitastor and Portworx are scaffold
+      (generators/UI only). Only the selected backend is provisioned on
+      first boot; others can be enabled later from the cockpit.
     type: enum
     default: longhorn
     options:
@@ -76,12 +78,12 @@ questions:
       - local
 
   - variable: nexus.storage.anyraid.enabled
-    label: Enable AnyRAID
+    label: Enable AnyRAID (experimental)
     description: |
-      Slab-based RAID over heterogeneous-capacity drives. Useful when the
-      node has a mix of older + newer disks. AnyRAID can be enabled later
-      from the cockpit, but selecting Yes here installs the CSI driver
-      during the first-boot bootstrap.
+      Slab-based RAID planner over heterogeneous-capacity drives. Installs
+      StorageClass `anyraid-default` with provisioner `rancher.io/local-path`
+      (not `anyraid.csi.nexus.io`). Default is off; enable from the cockpit
+      later if you skip it here. See docs/FEATURE_MATURITY.md.
     type: bool
     default: false
 
@@ -92,8 +94,11 @@ questions:
     default: true
 
   - variable: nexus.polyCompute.incusLxc.enabled
-    label: Enable Incus / LXC system containers
-    description: Run system containers (Incus / LXC) alongside KubeVirt VMs and pods.
+    label: Enable Incus / LXC system containers (scaffold)
+    description: |
+      Keep Incus/LXC wizard + manifest generators. There is no Incus
+      controller on Harvester; this is scaffolding for additional work,
+      not a first-boot runtime.
     type: bool
     default: true
 
@@ -106,29 +111,30 @@ questions:
     default: false
 
   - variable: nexus.acceleration.gpuPassthrough
-    label: Enable GPU pass-through (vfio-pci)
+    label: Enable GPU pass-through (vfio-pci) (waiting-for-hardware)
     description: |
       Bind selected GPUs to vfio-pci so VMs can claim them directly.
-      Requires IOMMU (VT-d / AMD-Vi) in the system firmware.
+      Requires IOMMU (VT-d / AMD-Vi) and the physical card.
     type: bool
     default: false
 
   - variable: nexus.xdr.enabled
-    label: Enable built-in XDR / MDR platform
+    label: Enable built-in XDR / MDR platform (experimental)
     description: |
-      Install the 100 %-FOSS XDR / MDR stack on first boot (Falco,
-      Tetragon, Wazuh, Suricata, Hubble, Trivy, OpenSearch + 18 Sigma
-      detection rules + 10 free intel feeds + 10 automated response
-      actions). Can be disabled or tuned later from the cockpit's
-      Security Posture wizard.
+      First-boot applies the hardened FOSS subset in
+      manifests/20-xdr-stack.yaml (Falco, Tetragon, Wazuh, Suricata,
+      Hubble, Trivy, OpenSearch, Polaris, kube-bench, Grype, Syft).
+      The 17-sensor Maximum catalog, extra response actions, and
+      Incus snapshots are scaffold. Tune later from Security Posture.
     type: bool
     default: true
 
   - variable: nexus.xdr.profile
     label: XDR security profile
     description: |
-      `baseline` deploys 6 sensors; `hardened` deploys 12; `maximum`
-      deploys all 17. Only shown when XDR is enabled.
+      `baseline` and `hardened` map to the applied first-boot subset
+      (hardened is the ISO default). `maximum` is the full 17-sensor
+      catalog (scaffold) — not all 17 deploy on every install.
     type: enum
     default: hardened
     options: [baseline, hardened, maximum]
@@ -137,10 +143,10 @@ questions:
   - variable: nexus.xdr.autoResponse.enabled
     label: Enable automated XDR responses
     description: |
-      When enabled, critical alerts can automatically isolate endpoints
-      via Cilium NetworkPolicy, snapshot affected VMs via KubeVirt,
-      rollback deployments via ArgoCD, and block egress to known C2
-      domains. Disabling leaves the engine in alert-only mode.
+      When enabled, critical alerts can emit Kubernetes YAML (Cilium
+      isolate, KubeVirt snapshot, ArgoCD rollback, C2 egress block).
+      Incus snapshot responses are scaffold. Disabling leaves the
+      engine in alert-only mode.
     type: bool
     default: true
     showIf: nexus.xdr.enabled = true
@@ -164,8 +170,9 @@ questions:
   - variable: nexus.compliance.enabled
     label: Enable compliance scans
     description: |
-      Run kube-bench (daily), OpenSCAP, and Lynis on the configured
-      schedule. Drives the Compliance Posture rings on Mission Control.
+      kube-bench ships in the hardened XDR stack (daily CronJob).
+      OpenSCAP and Lynis remain scaffold catalog entries unless you
+      apply extra manifests. Drives Compliance Posture rings when data exists.
     type: bool
     default: true
 
