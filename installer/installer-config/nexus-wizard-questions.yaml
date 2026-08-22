@@ -18,15 +18,15 @@ questions:
     required: true
     validation: nonempty
 
-  - variable: nexus.admin.password
-    label: Cockpit admin password
+  - variable: nexus.admin.initialPasswordFile
+    label: Generated cockpit password file
     description: |
-      Initial password for the cockpit administrator. Defaults to `admin`
-      so unattended installs work out of the box; the first-login flow
-      then forces a password change before any privileged action is
-      permitted.
-    type: password
-    default: admin
+      Host-local file where first-boot writes a random cockpit password
+      (mode 0600). There is no shipped `admin`/`admin` on installed nodes.
+      The first-login flow then forces a password change. Demo-mode SPA
+      auth is separate and not used on a real install.
+    type: input
+    default: /etc/nexus/cockpit-password
     required: true
 
   - variable: nexus.cockpit.defaultTheme

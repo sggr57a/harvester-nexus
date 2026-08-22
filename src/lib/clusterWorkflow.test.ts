@@ -91,6 +91,17 @@ spec: {}
     expect(csiPreview.templates.some((template) => template.kind === 'StorageClass')).toBe(true);
   });
 
+  it('previews AnyRAID against local-path, not a phantom CSI driver', () => {
+    const csiPreview = buildCsiTemplatePreview({
+      ...defaultConfig.storage,
+      storageType: 'anyraid',
+    });
+
+    expect(csiPreview.driverName).toBe('rancher.io/local-path');
+    expect(csiPreview.driverName).not.toContain('anyraid.csi');
+    expect(csiPreview.templates.some((template) => template.kind === 'StorageClass')).toBe(true);
+  });
+
   it('builds a live-adapter operation bundle for the completed README next steps', () => {
     const bundle = buildNexusClusterOperationBundle(manifest, {
       ...defaultConfig,

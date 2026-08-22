@@ -5,7 +5,7 @@
  * they don't require running the simulator or building the overlay.
  * They lock in the contract every installer artifact MUST satisfy:
  *
- *   - admin/admin default credentials with rotation flag
+ *   - a random, host-local cockpit credential with forced rotation
  *   - every bootstrap manifest is valid Kubernetes YAML
  *   - every workload image references a real upstream FOSS registry
  *   - the wizard question schema covers every feature the cockpit
@@ -39,9 +39,11 @@ describe('installer · default config (etc/nexus/config.yaml)', () => {
     expect(cfg.kind).toBe('NexusInstallConfig');
   });
 
-  it('seeds admin / admin with forced rotation on first login', () => {
+  it('uses a generated host-local admin credential with forced rotation', () => {
     expect(cfg.admin.username).toBe('admin');
-    expect(cfg.admin.password).toBe('admin');
+    expect(cfg.admin.initialPasswordSource).toBe('generated');
+    expect(cfg.admin.passwordFile).toBe('/etc/nexus/cockpit-password');
+    expect(cfg.admin.password).toBeUndefined();
     expect(cfg.admin.forcePasswordChangeOnFirstLogin).toBe(true);
   });
 
@@ -113,17 +115,16 @@ describe('installer · bootstrap manifests (installer/manifests/*.yaml)', () => 
     }
   });
 
-  it('10 creates the admin user with bcrypt hash + rotate-on-first-login annotation', () => {
+  it('does not ship a cockpit password or a dead bootstrap token', () => {
     const docs = loadAllDocs(join(dir, '10-default-admin.yaml'));
-    const credSec = docs.find((d) => {
-      const dd = d as { kind: string; metadata: { name: string } };
-      return dd.kind === 'Secret' && dd.metadata.name === 'admin-credentials';
-    }) as { stringData: Record<string, string>; metadata: { annotations: Record<string, string> } } | undefined;
-    expect(credSec).toBeDefined();
-    expect(credSec!.stringData.username).toBe('admin');
-    expect(credSec!.stringData.passwordHash).toMatch(/^\$2a\$10\$/);
-    expect(credSec!.stringData.forcePasswordChange).toBe('true');
-    expect(credSec!.metadata.annotations['nexus.io/rotate-on-first-login']).toBe('true');
+    const secretNames = docs
+      .filter((d) => (d as { kind: string }).kind === 'Secret')
+      .map((d) => (d as { metadata: { name: string } }).metadata.name);
+    expect(secretNames).toEqual([]);
+    const serviceAccount = docs.find((d) => (d as { kind: string }).kind === 'ServiceAccount') as
+      { automountServiceAccountToken?: boolean } | undefined;
+    expect(serviceAccount).toBeDefined();
+    expect(serviceAccount!.automountServiceAccountToken).toBe(false);
   });
 
   it('20 deploys the hardened XDR sensor stack (Falco + Tetragon + Wazuh + Suricata + Hubble + Trivy + OpenSearch + Polaris + kube-bench)', () => {
@@ -188,7 +189,7 @@ describe('installer · wizard questions cover every install-time setting', () =>
     const vars = qs.questions.map((q) => q.variable);
     for (const v of [
       'nexus.admin.username',
-      'nexus.admin.password',
+      'nexus.admin.initialPasswordFile',
       'nexus.cockpit.defaultTheme',
       'nexus.launchVariant',
       'nexus.storage.defaultBackend',
@@ -207,11 +208,12 @@ describe('installer · wizard questions cover every install-time setting', () =>
     }
   });
 
-  it('admin username + password both default to "admin"', () => {
+  it('admin username defaults to admin; password is generated onto a host file', () => {
     const u = qs.questions.find((q) => q.variable === 'nexus.admin.username') as { default: string };
-    const p = qs.questions.find((q) => q.variable === 'nexus.admin.password') as { default: string };
+    const f = qs.questions.find((q) => q.variable === 'nexus.admin.initialPasswordFile') as { default: string };
     expect(u.default).toBe('admin');
-    expect(p.default).toBe('admin');
+    expect(f.default).toBe('/etc/nexus/cockpit-password');
+    expect(qs.questions.find((q) => q.variable === 'nexus.admin.password')).toBeUndefined();
   });
 });
 

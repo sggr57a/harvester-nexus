@@ -7,15 +7,15 @@
  * works before burning ISO build cycles. Steps:
  *
  *   1. Validate config — parse /etc/nexus/config.yaml, check schema,
- *      verify admin / admin defaults are present + flagged for rotation.
+ *      verify generated host-local admin credentials + rotation flag.
  *   2. Render manifests — feed each YAML in installer/manifests/ through
  *      a simple parser, validate it has apiVersion + kind + name, and
  *      confirm the bootstrap order is well-formed.
  *   3. Simulate first-boot — apply the bootstrap manifests against an
  *      in-memory mock kube-apiserver, verify the admin user + cockpit
- *      Deployment + XDR sensors + CSI driver + ConfigMaps all reconcile.
- *   4. Simulate login — call the cockpit's auth fn with admin / admin;
- *      verify the call returns a token + a 'forcePasswordChange' flag.
+ *      Deployment + XDR sensors + AnyRAID StorageClass + ConfigMaps all reconcile.
+ *   4. Simulate login — generated password handoff (not shipped admin/admin)
+ *      plus forcePasswordChange.
  *   5. Verify everything — emit a structured report that lists every
  *      check that passed / failed, plus the install record YAML that
  *      would land at /var/lib/nexus/install-record.yaml.
@@ -82,11 +82,18 @@ function loadConfig() {
     const index = join(OVERLAY, 'usr', 'share', 'nexus-cockpit', 'dist', 'index.html');
     if (!existsSync(index)) throw new Error(`missing ${index} — run \`make overlay\` to build and stage the SPA`);
   });
+  check('admin credential is generated onto a host-local password file', () => {
+    if (cfg.admin?.username !== 'admin') throw new Error(`got ${cfg.admin?.username}`);
+    if (cfg.admin?.initialPasswordSource !== 'generated') {
+      throw new Error(`initialPasswordSource=${cfg.admin?.initialPasswordSource}`);
+    }
+    if (cfg.admin?.passwordFile !== '/etc/nexus/cockpit-password') {
+      throw new Error(`passwordFile=${cfg.admin?.passwordFile}`);
+    }
+    if (cfg.admin?.password !== undefined) throw new Error('shipped admin.password must be absent');
+  });
   check('admin username defaults to "admin"', () => {
     if (cfg.admin?.username !== 'admin') throw new Error(`got ${cfg.admin?.username}`);
-  });
-  check('admin password defaults to "admin"', () => {
-    if (cfg.admin?.password !== 'admin') throw new Error(`got ${cfg.admin?.password}`);
   });
   check('admin.forcePasswordChangeOnFirstLogin is true', () => {
     if (cfg.admin?.forcePasswordChangeOnFirstLogin !== true) {
@@ -183,24 +190,25 @@ function simulateBootstrap(manifests) {
       if (!ns.some((k) => k.endsWith(`/${e}`))) throw new Error(`namespace ${e} missing`);
     }
   });
-  check('admin ServiceAccount + ClusterRoleBinding + Secret present', () => {
+  check('admin ServiceAccount + ClusterRoleBinding present (no shipped password Secret)', () => {
     const want = [
       'v1/ServiceAccount/nexus-system/admin',
       'rbac.authorization.k8s.io/v1/ClusterRoleBinding/_/nexus-admin',
-      'v1/Secret/nexus-system/admin-credentials',
-      'v1/Secret/nexus-system/admin-bootstrap-token',
     ];
     for (const w of want) {
       if (!cluster.has(w)) throw new Error(`missing ${w}`);
     }
+    if (cluster.has('v1/Secret/nexus-system/admin-credentials')) {
+      throw new Error('admin-credentials Secret must not be shipped');
+    }
+    if (cluster.has('v1/Secret/nexus-system/admin-bootstrap-token')) {
+      throw new Error('admin-bootstrap-token Secret must not be shipped');
+    }
   });
-  check('admin-credentials secret carries a bcrypt hash + rotate flag', () => {
-    const sec = cluster.get('v1/Secret/nexus-system/admin-credentials');
-    if (sec.stringData?.username !== 'admin') throw new Error('username != admin');
-    if (!sec.stringData?.passwordHash?.startsWith('$2a$10$')) throw new Error('passwordHash not bcrypt');
-    if (sec.stringData?.forcePasswordChange !== 'true') throw new Error('forcePasswordChange not true');
-    if (sec.metadata?.annotations?.['nexus.io/rotate-on-first-login'] !== 'true') {
-      throw new Error('rotate-on-first-login annotation missing');
+  check('admin ServiceAccount does not automount a token', () => {
+    const sa = cluster.get('v1/ServiceAccount/nexus-system/admin');
+    if (sa.automountServiceAccountToken !== false) {
+      throw new Error('automountServiceAccountToken must be false');
     }
   });
   check('nexus-cockpit host endpoint ConfigMap is present', () => {
@@ -228,14 +236,23 @@ function simulateBootstrap(manifests) {
       if (!cluster.has(w)) throw new Error(`missing ${w}`);
     }
   });
-  check('AnyRAID CSI driver + StorageClass present', () => {
+  check('AnyRAID StorageClass + pool ConfigMap present (no phantom CSIDriver)', () => {
     const want = [
-      'storage.k8s.io/v1/CSIDriver/_/anyraid.csi.nexus.io',
-      'apps/v1/DaemonSet/nexus-system/anyraid-csi-node',
+      'v1/ConfigMap/nexus-system/anyraid-pool-config',
       'storage.k8s.io/v1/StorageClass/_/anyraid-default',
     ];
     for (const w of want) {
       if (!cluster.has(w)) throw new Error(`missing ${w}`);
+    }
+    const sc = cluster.get('storage.k8s.io/v1/StorageClass/_/anyraid-default');
+    if (sc.provisioner !== 'rancher.io/local-path') {
+      throw new Error(`anyraid provisioner=${sc.provisioner}`);
+    }
+    if (cluster.has('storage.k8s.io/v1/CSIDriver/_/anyraid.csi.nexus.io')) {
+      throw new Error('phantom CSIDriver anyraid.csi.nexus.io must not be applied');
+    }
+    if (cluster.has('apps/v1/DaemonSet/nexus-system/anyraid-csi-node')) {
+      throw new Error('phantom anyraid-csi-node DaemonSet must not be applied');
     }
   });
   check('nexus-features ConfigMap declares every cockpit view', () => {
@@ -253,30 +270,32 @@ function simulateBootstrap(manifests) {
 }
 
 /* ============================================================
-   Step 4 — simulate cockpit login with admin / admin
+   Step 4 — simulate cockpit login with generated host-local password
    ============================================================ */
-function simulateLogin(cluster) {
-  // Mirror the cockpit's actual login function (src/lib/auth.ts isDemoLogin)
-  // PLUS the install-record-enforced "must rotate" gate.
-  const sec = cluster.get('v1/Secret/nexus-system/admin-credentials');
-  if (!sec) throw new Error('admin-credentials secret missing');
+function simulateLogin(cfg) {
+  // Install-node path: generated password from passwordFile + forced rotation.
+  // Demo-mode SPA admin/admin is src/lib/auth.ts and is not this path.
+  const generatedHandoff = 'host-local-generated';
   const cockpitLogin = (username, password) => {
-    if (sec.stringData.username !== username) return { ok: false, reason: 'unknown user' };
-    // For the simulation we accept either the canonical "admin" password
-    // or the bcrypt hash being non-empty + flagged for rotation. The real
-    // cockpit calls bcrypt.compare; the simulator skips the bcrypt math.
-    if (password !== 'admin') return { ok: false, reason: 'bad password' };
+    if (cfg.admin?.username !== username) return { ok: false, reason: 'unknown user' };
+    if (password === 'admin') return { ok: false, reason: 'shipped default rejected' };
+    if (password !== generatedHandoff) return { ok: false, reason: 'bad password' };
     return {
       ok: true,
       token: 'sim-token-' + Math.random().toString(36).slice(2, 10),
-      forcePasswordChange: sec.stringData.forcePasswordChange === 'true',
+      forcePasswordChange: cfg.admin?.forcePasswordChangeOnFirstLogin === true,
       capabilities: ['cluster-admin'],
+      passwordFile: cfg.admin?.passwordFile,
     };
   };
-  const r = check('cockpit accepts admin / admin', () => {
-    const r = cockpitLogin('admin', 'admin');
+  const r = check('cockpit accepts generated host-local password', () => {
+    const r = cockpitLogin('admin', generatedHandoff);
     if (!r.ok) throw new Error(r.reason);
     return r;
+  });
+  check('shipped admin/admin is rejected on the install-node path', () => {
+    const r2 = cockpitLogin('admin', 'admin');
+    if (r2.ok) throw new Error('shipped admin/admin accepted');
   });
   check('login response includes forcePasswordChange=true', () => {
     if (!r.forcePasswordChange) throw new Error('forcePasswordChange not set');
@@ -339,12 +358,12 @@ async function main() {
     cfg = step('1/5 validate /etc/nexus/config.yaml', loadConfig);
     manifests = step('2/5 render bootstrap manifests', renderManifests);
     cluster = step('3/5 simulate first-boot bootstrap', () => simulateBootstrap(manifests));
-    login = step('4/5 simulate cockpit login with admin / admin', () => simulateLogin(cluster));
+    login = step('4/5 simulate cockpit login with generated password', () => simulateLogin(cfg));
     const r = step('5/5 write report', () => writeReport(cfg, manifests, cluster, login));
     console.log('\n═══════════════════════════════════════════════════════════');
     console.log(` ✓ install simulation PASSED · ${r.summary.passed} / ${r.summary.checks} checks passed`);
     console.log(`   · ${r.summary.kubernetesObjects} kubernetes objects reconciled`);
-    console.log(`   · admin / admin login verified (must change password on first login)`);
+    console.log(`   · generated password login verified (must change password on first login)`);
     console.log('═══════════════════════════════════════════════════════════');
     process.exit(0);
   } catch (err) {

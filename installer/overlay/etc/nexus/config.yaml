@@ -9,12 +9,14 @@ apiVersion: nexus.io/v1
 kind: NexusInstallConfig
 
 # Default cockpit administrator. Created on first boot via Kubernetes
-# `User` + `ClusterRoleBinding`. The token is also seeded into a
-# bootstrap secret so the cockpit can auto-login during the install
-# wizard. Operators are prompted to change the password on first login.
+# `User` + `ClusterRoleBinding`. The initial password is generated on
+# the node (not shipped in this file) and written to passwordFile
+# (mode 0600). Operators must rotate it on first login. Demo-mode SPA
+# auth (admin/admin) is separate and only used when telemetry is demo.
 admin:
   username: admin
-  password: admin
+  initialPasswordSource: generated
+  passwordFile: /etc/nexus/cockpit-password
   forcePasswordChangeOnFirstLogin: true
   emailReminder: false
   apiTokens:

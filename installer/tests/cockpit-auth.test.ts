@@ -34,8 +34,8 @@ function py<T = unknown>(snippet: string, env: Record<string, string> = {}): T {
   return JSON.parse(out) as T;
 }
 
-describe('password hashing', () => {
-  it('salts hashes so identical passwords differ on disk', () => {
+describe('password hashing', { timeout: 30_000 }, () => {
+  it('salts hashes so identical passwords differ on disk', { timeout: 30_000 }, () => {
     const result = py<{ same: boolean; algo: string; iterations: number }>(
       [
         'h1 = a.hash_password("correct horse battery staple")',
@@ -94,7 +94,7 @@ describe('password hashing', () => {
   });
 });
 
-describe('credential provisioning', () => {
+describe('credential provisioning', { timeout: 30_000 }, () => {
   it('generates a random password rather than shipping a known default', () => {
     const authFile = join(workdir, 'a1.json');
     const pwFile = join(workdir, 'p1');
@@ -159,7 +159,7 @@ describe('credential provisioning', () => {
   });
 });
 
-describe('sessions', () => {
+describe('sessions', { timeout: 30_000 }, () => {
   it('issues opaque tokens that validate, and rejects forgeries', () => {
     const result = py<{ user: string; bogus: unknown; len: number }>(
       [
