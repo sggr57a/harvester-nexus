@@ -17,12 +17,12 @@ const storageOptions: { value: StorageType; label: string; description: string }
   { value: 'nvme', label: 'NVMe-oF', description: 'NVMe over TCP with high-performance block storage' },
   { value: 'rdma', label: 'RDMA', description: 'Low-latency RDMA-backed CSI volumes' },
   { value: 'zfs', label: 'ZFS', description: 'ZFS-backed persistent volumes via CSI or iSCSI' },
-  { value: 'anyraid', label: 'AnyRAID', description: 'Slab-based pool over mixed-capacity drives — accepts heterogeneous disk sizes' },
+  { value: 'anyraid', label: 'AnyRAID (experimental)', description: 'Slab planner over mixed-capacity drives — StorageClass anyraid-default on rancher.io/local-path, not a Nexus CSI driver' },
   { value: 'iscsi', label: 'iSCSI', description: 'Block storage via iSCSI protocol' },
   { value: 'glusterfs', label: 'GlusterFS', description: 'Distributed filesystem with CSI support' },
   { value: 'longhorn', label: 'Longhorn', description: 'Cloud-native distributed block storage' },
   { value: 'openebs', label: 'OpenEBS', description: 'Container-native storage with multiple engines' },
-  { value: 'portworx', label: 'Portworx', description: 'Enterprise-grade container storage platform' },
+  { value: 'portworx', label: 'Portworx (scaffold)', description: 'Enterprise container storage — operator YAML generator; not a Harvester-native controller' },
 ];
 
 const workloadOptions: WorkloadType[] = ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'];
@@ -420,12 +420,14 @@ export function Wizard({ currentStep, config, onChange, onNext, onBack, onFinish
 
           {config.storage.storageType === 'anyraid' && (
             <div className="storage-config-section anyraid-config">
-              <h4>AnyRAID configuration</h4>
+              <h4>AnyRAID configuration (experimental)</h4>
               <p className="anyraid-blurb">
                 AnyRAID accepts a heterogeneous set of drives — different vendors, different
                 capacities — and carves each disk into uniform <strong>slabs</strong>. The
                 redundancy profile is enforced at the slab layer, so a 4 TB drive contributes
                 eight 512 GiB slabs, a 1 TB drive contributes two, and any of them can fail.
+                The preview StorageClass uses <code>rancher.io/local-path</code> (
+                <code>anyraid-default</code>), not <code>anyraid.csi.nexus.io</code>.
               </p>
               <div className="grid-2">
                 <label>
@@ -674,7 +676,7 @@ export function Wizard({ currentStep, config, onChange, onNext, onBack, onFinish
 
           {config.storage.storageType === 'portworx' && (
             <div className="storage-config-section">
-              <h4>Portworx Configuration</h4>
+              <h4>Portworx configuration (scaffold)</h4>
               <div className="grid-4">
                 <label>
                   Replication Factor

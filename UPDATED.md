@@ -1,8 +1,8 @@
 # Nexus
 
-Nexus is a next-generation, high-performance, open-source hyperconverged infrastructure (HCI) platform. Branching from the `harvester-nexus` architecture and built on a rock-solid **SLE Micro** base, nexus breaks down the structural silos between traditional virtual machines, Kubernetes guest clusters, and high-efficiency system containers. 
+Nexus is a next-generation, high-performance, open-source hyperconverged infrastructure (HCI) platform. Branching from the `harvester-nexus` architecture and built on a rock-solid **SLE Micro** base, nexus breaks down the structural silos between traditional virtual machines, Kubernetes guest clusters, and high-efficiency system containers.
 
-By unifying the bare-metal agility of **Proxmox** and **Incus (LXC)** with the massive cloud-native orchestration of **Kubernetes (KubeVirt)** and **VMware vSphere** class enterprise storage/scheduling, nexus represents the ultimate consolidation of computing, storage, and specialized hardware accelerators.
+By unifying Harvester-native **Kubernetes (KubeVirt)** with catalog scaffolding for **Proxmox** / **Incus (LXC)** agility and VMware vSphere–class storage/scheduling *ideas*, Nexus is a consolidation UI and installer overlay — not every catalog row is live on Harvester. See [`docs/FEATURE_MATURITY.md`](./docs/FEATURE_MATURITY.md).
 
 ---
 
@@ -10,26 +10,29 @@ By unifying the bare-metal agility of **Proxmox** and **Incus (LXC)** with the m
 
 ### 1. Unified Poly-Compute Engine
 Run heterogeneous compute topologies on a single bare-metal node loop without performance penances:
-*   **Virtual Machines (KubeVirt):** Heavyweight enterprise workloads with full operating system stacks, kernel independence, and live-migration capabilities.
-*   **System Containers (Incus/LXC Engines):** Lightweight, dense, bare-metal speed instances sharing the host kernel but maintaining separate user spaces—ideal for high-density microservices, build systems, and native I/O tasks.
-*   **Native K8s Pods:** Standard containerized applications running directly on the orchestration backplane.
+*   **Virtual Machines (KubeVirt):** **live** — full OS stacks, kernel independence, live-migration on Harvester.
+*   **System Containers (Incus/LXC Engines):** **scaffold** — wizard + generators; no Incus controller on Harvester. Kept for additional work.
+*   **Native K8s Pods:** **live** — standard containerized applications on the cluster.
 
 ### 2. Universal Storage Fabric (USF)
-Nexus decouples the storage runtime from proprietary boundaries, allowing operators to spin up virtual disks or system containers utilizing any modern storage architecture concurrently:
+Nexus decouples the storage *catalog* from a single vendor, but first-boot only provisions the selected default backend (Longhorn by default):
 
-| Storage Type | Integration Path | Target Workload | Key Feature |
+| Storage Type | Integration Path | Maturity | Key Feature |
 | :--- | :--- | :--- | :--- |
-| **Longhorn** | Native CSI Fabric | Replicated Cloud-Native VMs | Built-in incremental snapshots & backups |
-| **Ceph (RBD/FS)** | Native CRDs / Vitastor | High-Scale Distributed Clusters | Userspace SPDK bypasses host kernel block layer |
-| **ZFS Pools** | Direct Host Local Device | Ultra-low Latency System Containers | Native Copy-on-Write, inline zstd compression, ARC cache |
-| **iSCSI / Block** | Multipath `vfio-pci` | Legacy SAN Migrations | Raw block volume mapping with hardware failover |
-| **NFS / SMB** | Subpath Volume Driver | Shared Media / Document Stores | Distributed RWX (ReadWriteMany) file shares |
+| **Longhorn** | Native CSI Fabric | live | Built-in incremental snapshots & backups |
+| **local-path / NFS / iSCSI** | CSI templates | live | Harvester-compatible paths |
+| **AnyRAID** | StorageClass `anyraid-default` (`rancher.io/local-path`) | experimental | Heterogeneous-capacity slab planner; not `anyraid.csi.nexus.io` |
+| **Ceph (RBD/FS)** | Rook / CRDs | scaffold | High-scale distributed clusters |
+| **Vitastor** | CSI template strings | scaffold | Userspace SPDK idea; no in-tree controller |
+| **Portworx** | Operator YAML generator | scaffold | External product; not first-boot |
+| **ZFS Pools** | Direct host / CSI | scaffold | CoW, zstd, ARC when the pool exists |
+| **NFS / SMB** | Subpath volume driver | live / scaffold | RWX shares where the CSI exists |
 
 ### 3. Hyper-Efficient Data Path & Hardware Acceleration
-Traditional hypervisors waste critical processing cycles translating hardware commands. Nexus routes processing requests straight to the silicon:
-*   **Storage Bypass:** Uses **SPDK (Storage Performance Development Kit)** to direct NVMe-over-Fabrics commands from userspace directly to the network mesh.
-*   **Processing & Memory Memory Pinning:** Full Topology-Aware Scheduling aligns CPU cores, `1GiB` Hugepages, and PCI-e fabrics to the **same physical NUMA node** to eradicate cross-socket latency bottlenecks.
-*   **Network Line-Speed:** Implements **vhost-user** and DPDK ring buffers to bypass legacy virtual ethernet (`veth`) overhead.
+Traditional hypervisors waste critical processing cycles translating hardware commands. Nexus routes processing requests straight to the silicon **when the hardware is present** (`waiting-for-hardware`):
+*   **Storage Bypass:** **SPDK** NVMe-over-Fabrics flags exist for when the path is available.
+*   **Processing & Memory Pinning:** Topology-aware scheduling aligns CPU cores, `1GiB` hugepages, and PCIe to the same NUMA node.
+*   **Network Line-Speed:** **vhost-user** and DPDK ring buffers are catalogued; they need the NIC.
 
 ### 4. Advanced Acceleration: Pass-Through & Nested Virtualization
 Designed specifically for modern AI, ML, and deep-learning training and inference pipelines:
