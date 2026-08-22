@@ -403,3 +403,15 @@ describe('installer · overlay avoids Elemental /usr/local persistent mount', ()
     expect(dash).toMatch(/_parse_cpu_cores/);
   });
 });
+
+describe('installer · simulator does not log password-shaped values', () => {
+  const src = readFileSync(join(INSTALLER, 'simulator', 'simulate.mjs'), 'utf8');
+
+  it('does not interpolate admin password-named fields into Error messages', () => {
+    // CodeQL js/clear-text-logging taints check() console.error(err.message).
+    // Values named *password* must not be copied into thrown errors.
+    expect(src).not.toMatch(/initialPasswordSource=\$\{/);
+    expect(src).not.toMatch(/passwordFile=\$\{/);
+    expect(src).not.toMatch(/cfg\.admin\?\.password\}/);
+  });
+});

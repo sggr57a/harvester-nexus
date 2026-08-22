@@ -85,10 +85,10 @@ function loadConfig() {
   check('admin credential is generated onto a host-local password file', () => {
     if (cfg.admin?.username !== 'admin') throw new Error(`got ${cfg.admin?.username}`);
     if (cfg.admin?.initialPasswordSource !== 'generated') {
-      throw new Error(`initialPasswordSource=${cfg.admin?.initialPasswordSource}`);
+      throw new Error('admin credential source must be generated');
     }
     if (cfg.admin?.passwordFile !== '/etc/nexus/cockpit-password') {
-      throw new Error(`passwordFile=${cfg.admin?.passwordFile}`);
+      throw new Error('admin handoff file path is not the host-local default');
     }
     if (cfg.admin?.password !== undefined) throw new Error('shipped admin.password must be absent');
   });
@@ -273,19 +273,18 @@ function simulateBootstrap(manifests) {
    Step 4 — simulate cockpit login with generated host-local password
    ============================================================ */
 function simulateLogin(cfg) {
-  // Install-node path: generated password from passwordFile + forced rotation.
+  // Install-node path: generated credential from the host-local handoff file + forced rotation.
   // Demo-mode SPA admin/admin is src/lib/auth.ts and is not this path.
   const generatedHandoff = 'host-local-generated';
-  const cockpitLogin = (username, password) => {
+  const cockpitLogin = (username, candidate) => {
     if (cfg.admin?.username !== username) return { ok: false, reason: 'unknown user' };
-    if (password === 'admin') return { ok: false, reason: 'shipped default rejected' };
-    if (password !== generatedHandoff) return { ok: false, reason: 'bad password' };
+    if (candidate === 'admin') return { ok: false, reason: 'shipped default rejected' };
+    if (candidate !== generatedHandoff) return { ok: false, reason: 'bad credential' };
     return {
       ok: true,
       token: 'sim-token-' + Math.random().toString(36).slice(2, 10),
       forcePasswordChange: cfg.admin?.forcePasswordChangeOnFirstLogin === true,
       capabilities: ['cluster-admin'],
-      passwordFile: cfg.admin?.passwordFile,
     };
   };
   const r = check('cockpit accepts generated host-local password', () => {
@@ -333,7 +332,11 @@ function writeReport(cfg, manifests, cluster, login) {
       adminMustChangePassword: login?.forcePasswordChange ?? false,
     },
     config: {
-      admin: cfg.admin,
+      admin: {
+        username: cfg.admin?.username,
+        credentialSource: cfg.admin?.initialPasswordSource,
+        forcePasswordChangeOnFirstLogin: cfg.admin?.forcePasswordChangeOnFirstLogin,
+      },
       cockpit: { enabled: cfg.cockpit.enabled, defaultTheme: cfg.cockpit.defaultTheme, port: cfg.cockpit.port },
       xdr: { enabled: cfg.xdr.enabled, profile: cfg.xdr.profile },
       storage: { defaultBackend: cfg.storage.defaultBackend, anyraidEnabled: cfg.storage.backends.anyraid.enabled },
